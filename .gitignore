@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+*.zip
+*.plugin
+.DS_Store
+evals/results/
+skills/wikiwright-workspace/

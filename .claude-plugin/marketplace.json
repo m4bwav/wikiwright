@@ -1,0 +1,16 @@
+{
+  "name": "wikiwright",
+  "owner": {
+    "name": "Mark Rogers"
+  },
+  "metadata": {
+    "description": "Write and update GitHub wikis whose examples are verified against the published package"
+  },
+  "plugins": [
+    {
+      "name": "wikiwright",
+      "source": "./",
+      "description": "Write and update a repository's GitHub wiki from the repository and its registry, with every example verified against the published package (npm and NuGet). Evergreen."
+    }
+  ]
+}
