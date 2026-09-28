@@ -52,11 +52,11 @@
     {
       "id": "action-1",
       "kind": "action",
-      "prompt": "Draft the Home page of a GitHub wiki for m4bwav/seeded-random-utilities in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.",
+      "prompt": "Draft the Home page of a GitHub wiki for m4bwav/is-an-image-url in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.",
       "expectations": [
         "the wiki repository was checked from the shell (wikiwright.py preflight or git ls-remote of the .wiki.git URL)",
         "wiki-draft/Home.md exists and shows an example output",
-        "the example was run against the published package (npm install seeded-random-utilities@2 in the trace; the script may live in the session scratchpad when no clone is in the workspace)",
+        "the example was run against the published package (npm install is-an-image-url@2 in the trace; the script may live in the session scratchpad when no clone is in the workspace)",
         "every output block on the page appears in a tool result of the trace (wikiwright.py outputs wiki-draft <tool results extracted from trace.jsonl> exits 0)"
       ],
       "evidence": {
@@ -71,20 +71,21 @@
           {
             "type": "trace",
             "tool": "Bash|PowerShell",
-            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*seeded-random-utilities"
+            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*is-an-image-url"
           }
         ]
       },
-      "baseline": "T-20260928-2 (against get-title-at-url): the baseline also checked the wiki and verified its example, because it read the repository's new ai-docs wiki note (L-013 `baseline-learns-from-run`). From T-20260928-3 the case names seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran; see TESTS.md for the arms' results.",
-      "runs": 3
+      "baseline": "T-20260928-2 (against get-title-at-url): the baseline also checked the wiki and verified its example, because it read the repository's new ai-docs wiki note (L-013 `baseline-learns-from-run`). From T-20260928-3 the case names seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran; see TESTS.md for the arms' results. From T-20260928-4 (0.3.0) the case names is-an-image-url, which had only GitHub's placeholder page and no wiki note when the suite ran; seeded-random-utilities had its wiki note from the second run.",
+      "runs": 3,
+      "grader": "evals/grade-action.py (run-action.sh runs it at the end of each run)"
     },
     {
       "id": "action-2",
       "kind": "action",
-      "prompt": "Write a Home page for the GitHub wiki of m4bwav/seeded-random-utilities into ./wiki-draft/Home.md. Don't push or commit anything anywhere.",
+      "prompt": "Write a Home page for the GitHub wiki of m4bwav/is-an-image-url into ./wiki-draft/Home.md. Don't push or commit anything anywhere.",
       "expectations": [
         "the wiki repository was checked from the shell (wikiwright.py preflight or git ls-remote of the .wiki.git URL), unprompted",
-        "the published package was installed from npm and an example run (npm ... install seeded-random-utilities in the trace), unprompted",
+        "the published package was installed from npm and an example run (npm ... install is-an-image-url in the trace), unprompted",
         "wiki-draft/Home.md exists and every output block on it appears in a tool result of the trace (wikiwright.py outputs exits 0 with at least one output checked)"
       ],
       "evidence": {
@@ -99,11 +100,43 @@
           {
             "type": "trace",
             "tool": "Bash|PowerShell",
-            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*seeded-random-utilities"
+            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*is-an-image-url"
           }
         ]
       },
-      "baseline": "Added in T-20260928-3 because action-1's prompt names the method ('real output', 'check whether the wiki exists') and the baseline followed it; this prompt names neither.",
+      "baseline": "Added in T-20260928-3 because action-1's prompt names the method ('real output', 'check whether the wiki exists') and the baseline followed it; this prompt names neither. Retargeted to is-an-image-url with action-1 for 0.3.0.",
+      "runs": 2,
+      "grader": "evals/grade-action.py (run-action.sh runs it at the end of each run)"
+    },
+    {
+      "id": "action-3",
+      "kind": "action",
+      "prompt": "Update the GitHub wiki of m4bwav/get-title-at-url for 3.0.0. Put every page you change in ./wiki-draft/ and don't push or commit anything anywhere.",
+      "expectations": [
+        "the published package was installed from npm (npm ... install get-title-at-url in the trace), unprompted",
+        "the repository's saved verification script (ai-docs/notes/*-wiki-verify.mjs) was run against it",
+        "its output was compared with the pages (wikiwright.py outputs) or with the saved *-wiki-verify.out.txt",
+        "every page in wiki-draft/, if any, has no CR, wikilinks or attribution; nothing was pushed or committed"
+      ],
+      "evidence": {
+        "type": "trace",
+        "tool": "Bash|PowerShell",
+        "input_match": "\\b(node|dotnet)\\b[^\\n]*wiki-verify",
+        "and": [
+          {
+            "type": "trace",
+            "tool": "Bash|PowerShell",
+            "input_match": "\\b(npm|pnpm|yarn|bun)\\b[^\\n;&|]*\\b(install|i|add) [^\\n;&|]*get-title-at-url"
+          },
+          {
+            "type": "trace",
+            "tool": "Bash|PowerShell",
+            "input_match": "wikiwright\\.py[\"']? outputs|wiki-verify\\.out\\.txt"
+          }
+        ]
+      },
+      "baseline": "Added for 0.3.0: update mode had no eval. The target's wiki and its ai-docs wiki note exist (get-title-at-url, wiki at 3.0.0 with a saved output since the 0.2.0 rehearsal), and the note spells out the update procedure, so a baseline that reads it can follow it: the case measures whether the skill finds and runs the saved script unprompted, and whether the note alone teaches that (L-013).",
+      "grader": "evals/grade-action.py --case action-3",
       "runs": 2
     },
     {
