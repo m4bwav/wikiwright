@@ -12,7 +12,7 @@
 // Network: the package talks only to the local fixture server below, never the internet.
 
 import http from 'node:http';
-import {spawnSync} from 'node:child_process';
+import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
@@ -68,10 +68,24 @@ show('esm exports', Object.keys(esm).sort());
 show('cjs exports', Object.keys(cjs).sort());
 
 const binEntry = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && Object.values(pkg.bin)[0];
+// The published bin, run with this Node; stdout, stderr and the exit code are all recorded.
+// Asynchronous on purpose: spawnSync blocks this process's event loop, and with it the
+// fixture server below, so a CLI call against the fixture would hang (L-007).
 function cli(...args) {
-	// The published bin, run with this Node; stdout, stderr and the exit code are all recorded.
-	const r = spawnSync(process.execPath, [path.join(pkgDir, binEntry), ...args], {encoding: 'utf8'});
-	return `exit ${r.status}\n--- stdout\n${r.stdout}--- stderr\n${r.stderr}`;
+	return new Promise(resolve => {
+		const child = spawn(process.execPath, [path.join(pkgDir, binEntry), ...args]);
+		let stdout = '';
+		let stderr = '';
+		child.stdout.on('data', chunk => {
+			stdout += chunk;
+		});
+		child.stderr.on('data', chunk => {
+			stderr += chunk;
+		});
+		child.on('close', code => {
+			resolve(`exit ${code}\n--- stdout\n${stdout}--- stderr\n${stderr}`);
+		});
+	});
 }
 
 // ----- local fixture server (delete when the package makes no requests) -----
@@ -103,8 +117,11 @@ const base = `http://127.0.0.1:${server.address().port}`;
 await capture('getting-started esm', async () => esm.default?.(`${base}/`));
 await capture('getting-started cjs', async () => cjs.default?.(`${base}/`));
 if (binEntry) {
-	show('commands help', cli('--help'));
+	show('commands help', await cli('--help'));
 }
+
+// Old majors (Versions and upgrading): install each in its own scratch folder and pass
+// V2=<folder> (etc.); load it with createRequire(path.join(folder, 'index.js')) or a file:// import.
 
 // API reference, behaviour, recipes, FAQ: add a capture() per example here.
 

@@ -14,7 +14,7 @@ Every GitHub repository with the wiki feature on can have a second repository at
 |---|---|---|
 | `feature-off` | `hasWikiEnabled` is false | Rerun with `--enable` (it runs `gh repo edit OWNER/REPO --enable-wiki` and re-checks for 60 seconds). Private repositories on a free plan cannot have a wiki. |
 | `no-wiki-repo` | The feature is on, but `git ls-remote` finds no repository | Ask the maintainer, in the first message, to save any first page at `https://github.com/OWNER/REPO/wiki/_new`. Nothing else can create it. Survey, verify and write the pages while waiting, then run preflight again. |
-| `placeholder` | One commit with only a short `Home.md` (GitHub's "Welcome to the REPO wiki!") | Clone, write the pages, commit, and push over it. A force-push is fine here because the only content is the placeholder. |
+| `placeholder` | One commit with only a short `Home.md` (GitHub's "Welcome to the REPO wiki!") | Clone, write the pages over it, commit and `git push`: the placeholder is an ancestor, so the push fast-forwards (get-title-at-url, 2026-09-28). A working copy started with `git init` instead needs `--force-with-lease`, which is fine while the only content is the placeholder. |
 | `has-pages` | Real content exists | Read every page first. Update in place; never force-push, never delete a page without the maintainer's OK. |
 | `archived` | The repository is archived | Stop and ask. |
 
@@ -28,7 +28,7 @@ Clone the wiki as a sibling of the repository's clone, named `<clone>.wiki`, so 
 
 1. `python scripts/wikiwright.py check <wiki dir> --version X` exits 0.
 2. The everwrite checker, when installed, reports 0 strong: `python <everwrite>/scripts/tells.py <wiki dir>/*.md`.
-3. Commit in the wiki working copy with a message naming the version and the pages, no AI attribution. `git push` (placeholder: `git push --force-with-lease origin master`).
+3. Commit in the wiki working copy with a message naming the version and the pages, no AI attribution, then `git push`.
 4. `python scripts/wikiwright.py live OWNER/REPO <wiki dir>`: every page answers 200 (Home answers 301 to `/wiki`; a missing page answers 302), and the sidebar and footer text appear on the wiki root. GitHub can take a few seconds after a push; rerun once before calling a failure.
 
 ## Publishing from CI instead

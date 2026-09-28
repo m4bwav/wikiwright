@@ -15,16 +15,16 @@ wikiwright writes those pages from the source, tests, changelog, issues and regi
 
 ## What it does
 
-1. **Preflight**: checks that the wiki feature is on (it can switch it on), that the `OWNER/REPO.wiki.git` repository exists, and whether it holds only GitHub's placeholder. GitHub creates that repository only when someone saves a first page in the web UI, and there is no API for it. When the page is missing, the skill asks for that one click at the start and keeps working meanwhile.
-2. **Survey**: the README, CHANGELOG, AGENTS.md, source, tests, CI workflows, releases, issues and pull requests, `ai-docs/` notes, and the registry (versions and dates, downloads, package contents, dependencies).
-3. **Verify**: a script installs the published version into a scratch folder and runs every example the pages will show. For npm that covers ESM, CommonJS and the CLI, with a local fixture server for packages that make requests. For NuGet it is a .NET 10 file-based app, plus F# and PowerShell where the pages show them. The script is kept in the repository so the next release can run it again.
-4. **Write**: the page set for the repository's kind. A library gets Home, Getting started, API reference, a behaviour page, edge cases and errors, Recipes, Versions and upgrading, FAQ and Development, and a library with a CLI adds Commands. Every wiki gets a sidebar and a footer that names the version and the date.
-5. **Check and publish**: `wikiwright.py check` covers links, anchors, line endings, leftover placeholders, the sidebar and footer, and AI attribution. Then the skill pushes the pages, and `wikiwright.py live` confirms every page answers and the sidebar and footer render.
-6. **Record**: a note in the repository's `ai-docs/notes/` with the pages, the verified facts, the inaccuracies found and the update procedure for the next release.
+1. A preflight checks that the wiki feature is on (it can switch it on), that the `OWNER/REPO.wiki.git` repository exists, and whether it holds only GitHub's placeholder. GitHub creates that repository only when someone saves a first page in the web UI, and there is no API for it. When the page is missing, the skill asks for that one click at the start and keeps working meanwhile.
+2. The survey reads the README, CHANGELOG, AGENTS.md, source, tests, CI workflows, releases, issues and pull requests, `ai-docs/` notes, and the registry (versions and dates, downloads, package contents, dependencies).
+3. A verification script installs the published version into a scratch folder and runs every example the pages will show. For npm that covers ESM, CommonJS and the CLI, with a local fixture server for packages that make requests. For NuGet it is a .NET 10 file-based app, plus F# and PowerShell where the pages show them. The script is kept in the repository so the next release can run it again.
+4. The pages follow the set for the repository's kind. A library gets Home, Getting started, API reference, a behaviour page, edge cases and errors, Recipes, Versions and upgrading, FAQ and Development, and a library with a CLI adds Commands. Every wiki gets a sidebar and a footer that names the version and the date.
+5. Before publishing, `wikiwright.py check` covers links, anchors, line endings, leftover placeholders, the sidebar and footer, and AI attribution. Then the skill pushes the pages, and `wikiwright.py live` confirms every page answers and the sidebar and footer render.
+6. The run records a note in the repository's `ai-docs/notes/` with the pages, the verified facts, the inaccuracies found and the update procedure for the next release.
 
 Update mode ("update the wiki for 2.4.0") re-runs the saved verification script on the new version and fixes the pages that changed.
 
-Tested page sets: npm libraries with or without a CLI, and NuGet libraries. Applications, monorepos and other wiki hosts (GitLab, Gitea) have no tested page set yet.
+Tested page sets: an npm library with a CLI, and NuGet libraries. Applications, monorepos and other wiki hosts (GitLab, Gitea) have no tested page set yet.
 
 ## Install
 

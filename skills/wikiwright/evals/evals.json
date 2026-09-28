@@ -1,59 +1,90 @@
 {
   "skill": "wikiwright",
-  "_format": "skill-creator evals.json plus evergreen fields (kind, decoy, evidence, baseline); extra fields are ignored by skill-creator's runner. Rules: protocol/TESTING.md.",
+  "_format": "skill-creator evals.json plus evergreen fields (kind, decoy, evidence, baseline); extra fields are ignored by skill-creator's runner. Rules: protocol/TESTING.md. Trigger and decoy prompts name a fictional repository or none, so a triggered run stops at preflight and nothing real is written. The action case runs headless (claude -p, stream-json) in a scratch folder with git push disallowed; see TESTS.md for the command.",
   "evals": [
     {
       "id": "trigger-1",
       "kind": "trigger",
-      "prompt": "TODO: a request phrased the way the user actually asks for this skill",
-      "expectations": ["the wikiwright skill is invoked"],
+      "prompt": "write a wiki for this repo",
+      "expectations": [
+        "the wikiwright skill is invoked"
+      ],
       "runs": 3
     },
     {
       "id": "trigger-2",
       "kind": "trigger",
-      "prompt": "TODO: a second, casual phrasing that should still trigger it",
-      "expectations": ["the wikiwright skill is invoked"],
+      "prompt": "can you fill out the GitHub wiki for acme-labs/widget-kit? it's an npm library and the wiki is empty",
+      "expectations": [
+        "the wikiwright skill is invoked"
+      ],
+      "runs": 3
+    },
+    {
+      "id": "trigger-3",
+      "kind": "trigger",
+      "prompt": "we just shipped 2.4.0 of acme-labs/widget-kit, update the wiki for 2.4.0",
+      "expectations": [
+        "the wikiwright skill is invoked"
+      ],
       "runs": 3
     },
     {
       "id": "decoy-1",
       "kind": "trigger",
       "decoy": true,
-      "prompt": "TODO: a nearby request that must NOT trigger it (a sibling skill's job, or plain conversation)",
-      "expectations": ["the wikiwright skill is not invoked"],
+      "prompt": "update the README of acme-labs/widget-kit so the install section mentions pnpm and bun",
+      "expectations": [
+        "the wikiwright skill is not invoked"
+      ],
       "runs": 3
     },
     {
       "id": "decoy-2",
       "kind": "trigger",
       "decoy": true,
-      "prompt": "TODO: a second decoy",
-      "expectations": ["the wikiwright skill is not invoked"],
+      "prompt": "write the CHANGELOG entry for widget-kit 2.4.0: it adds a --json flag and drops Node 18",
+      "expectations": [
+        "the wikiwright skill is not invoked"
+      ],
       "runs": 3
     },
     {
       "id": "action-1",
       "kind": "action",
-      "prompt": "TODO: a request whose fulfilment requires the skill's core action (a delegation, a tool call, a write, a remote job)",
-      "expectations": ["the action happened, proven by the evidence below, not by the reply saying so"],
+      "prompt": "Draft the Home page of a GitHub wiki for m4bwav/get-title-at-url in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.",
+      "expectations": [
+        "the wiki repository was checked from the shell (wikiwright.py preflight or git ls-remote of the .wiki.git URL)",
+        "wiki-draft/Home.md exists and shows an example output",
+        "the example was run against the published package (npm install get-title-at-url@3 in the trace; the script may live in the session scratchpad when no clone is in the workspace)"
+      ],
       "evidence": {
         "type": "trace",
-        "tool": "TODO: tool name the action must call (Bash, an MCP tool, a script)",
-        "input_match": "TODO: regex over the tool input, or omit",
-        "or": {"type": "file", "path": "TODO: a file or marker the action leaves behind, or omit"}
+        "tool": "Bash|PowerShell",
+        "input_match": "wikiwright\\.py[\"']? preflight|ls-remote[^\n]*\\.wiki\\.git",
+        "and": [
+          {
+            "type": "file",
+            "path": "wiki-draft/Home.md"
+          },
+          {
+            "type": "trace",
+            "tool": "Bash|PowerShell",
+            "input_match": "npm (install|i) [^\n]*get-title-at-url@3"
+          }
+        ]
       },
-      "baseline": "TODO: what a fresh session does with this prompt when the skill is not loaded (filled by the first run)",
+      "baseline": "T-20260928-2: the baseline (Skill disallowed) also checked the wiki (gh repo view) and verified its example with npm install get-title-at-url@3.0.0, because it read the repository's new ai-docs wiki note; only wikiwright.py preflight separates the arms. Sharpen: point the case at a repository with no wiki and no wiki note.",
       "runs": 3
     },
     {
       "id": "outcome-1",
       "kind": "outcome",
-      "prompt": "TODO: a request with a checkable result",
+      "prompt": "(runs inside action-1) the drafted Home page",
       "files": [],
       "expectations": [
-        "TODO: a deterministic check first (a value, a regex on the output, a file that exists)",
-        "TODO: a quality criterion for a judge second, if needed"
+        "wiki-draft/Home.md has no wikilinks, no CRLF and no AI attribution",
+        "every output on the page was printed by a run against the published package (the trace shows the run)"
       ],
       "runs": 3
     }

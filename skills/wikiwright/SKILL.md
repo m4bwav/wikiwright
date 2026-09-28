@@ -45,6 +45,8 @@ Before an example goes on a page, run it against the **published** version, inst
 
 - A package that makes requests is verified against a local fixture server, never the internet, as its own tests are.
 - Every runtime, language or host the pages show (F#, PowerShell, Deno, Bun, .NET Framework) is run or marked "not tested" on the page.
+- Print each output in the form the page shows it: a page that shows `console.log` output needs the script to print with `console.log`, not JSON (L-008 `print-as-the-page-shows`).
+- For Versions and upgrading, install each old major in its own scratch folder and run the same fixture cases against it, unless a golden capture of it already exists (L-011 `run-the-old-majors`). A version that no longer installs or imports is a finding.
 - Save the filled-in script in the repository as `ai-docs/notes/<date>-wiki-verify.<ext>` so the next release can run it again.
 - Run the repository's own tests once too; the counts go in the note.
 
@@ -69,6 +71,8 @@ Say on each page only what the survey or the verification showed, and put the fa
 
 ## Step 6: check
 
+First reread every page once with one question per sentence: which script output, source line, changelog entry or registry answer says this? Cut or rewrite every sentence with no answer. The first npm run caught three inferred claims this way (L-009 `claims-audit`).
+
 ```
 WW check <wiki dir> --version X
 python <everwrite>/scripts/tells.py <wiki dir>/*.md
@@ -78,7 +82,7 @@ python <everwrite>/scripts/tells.py <wiki dir>/*.md
 
 ## Step 7: publish
 
-Run preflight again if it was `no-wiki-repo`. In the wiki working copy: commit (message names the version and the pages), then `git push` (over a placeholder: `git push --force-with-lease origin master`; wiki repositories use `master`). Then:
+Run preflight again if it was `no-wiki-repo`. In the wiki working copy: commit (message names the version and the pages), then `git push`. Pages committed on top of the cloned placeholder make a plain fast-forward; `git push --force-with-lease origin master` is needed only when the working copy was started with `git init` instead of a clone (L-010 `placeholder-fast-forward`). Wiki repositories use `master`. Then:
 
 ```
 WW live OWNER/REPO <wiki dir>
