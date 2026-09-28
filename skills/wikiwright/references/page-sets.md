@@ -1,19 +1,20 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from four published wikis, all written on 2026-09-28:
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from five published wikis, all written on 2026-09-28:
 
 - RandomNameGeneratorLibrary: a .NET library with seeded data.
 - JsonPrettyPrinter: a .NET formatter.
 - get-title-at-url: an npm library with a CLI.
 - seeded-random-utilities: an npm library without a CLI, with seeded output and golden captures of two old versions.
+- is-an-image-url: an npm library with a CLI that makes requests, with a golden capture of 1.0.4 that starts its own fixture server.
 
 | Kind | Tested on |
 |---|---|
 | Library (npm, without a CLI) | seeded-random-utilities |
 | Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter |
-| Library with a command line (npm) | get-title-at-url |
+| Library with a command line (npm) | get-title-at-url, is-an-image-url (second run: the set held without changes) |
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
-| Command-line tool | not yet |
+| Command-line tool | not yet (the section below is a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
 | Application, website, monorepo | not yet (see the end of this page) |
 | Hosts other than GitHub | not yet ([hosts.md](hosts.md) is unverified) |
 
@@ -67,17 +68,26 @@ A repository modernized with package-modernize, or any repository that recorded 
 
 On seeded-random-utilities: 1.1.4 today matched its recording in 322 of 322 cases, 2.0.0 in 316 (the six were the documented emoji exception), and 2.0.0 its own recording in 150 of 150.
 
+A package that makes requests records its old version against a fixture server of its own (is-an-image-url's `capture-1.0.4.cjs` with `fixture-server.cjs` and `codec.cjs`, L-113 `replay-requesting-capture`). What that needs:
+
+- Copy the capture script and every helper it requires beside each installed version, and install what the capture requires besides the package (is-an-image-url's needed `is-image` and an alias `is-image-300@npm:is-image@3.0.0`).
+- Patch only what the new layout breaks, and say which lines on the page: the bin's path (`cli.js` became `dist/cli.mjs`) and a dependency lookup that fails when the new version has none.
+- Run it as a child process, one version after the other: it starts its own server and has timing cases. It is a separate server from the wiki script's fixture; the wiki script only reads the JSON it prints.
+- Compare three things apart: the answer (return, throw, callback arguments), the timing (callback before or after return) and the request lines. A changed default (asynchronous callbacks) otherwise hides the answer changes among timing changes.
+
+On is-an-image-url: 1.0.4 today matched its recording in 82 of 82 calls and 11 of 11 CLI runs; 2.0.0 gave the same answer in 68, and each of the 14 differences and 5 request changes was a CHANGELOG line.
+
 ## Library with a command line
 
 Add Commands (`Commands.md`): the usage text as the bin prints it, every flag, exit codes, stdout versus stderr, and real invocations with their real output (run the published bin; for a package that makes requests, against the local fixture server, then show the output with the fixture's address replaced by a real-looking one only when the replacement is stated on the page).
 
 ## Command-line tool (a dotnet tool, an npm package that is mostly a bin)
 
-Home, Getting started (install and uninstall, shell completion if any), Commands (one section per command), Configuration (files, environment variables, precedence), Recipes, Versions and upgrading, FAQ, Development.
+Untested: no run has used this set yet. The first candidate among the maintainer's packages is TrailerClipper.Tool (a dotnet tool, command `tclipper`, in m4bwav/TrailerClipperLib). A sketch: Home, Getting started (install and uninstall, shell completion if any), Commands (one section per command), Configuration (files, environment variables, precedence), Recipes, Versions and upgrading, FAQ, Development.
 
 ## Not yet covered
 
-An application, a website, a monorepo with several packages, and hosts other than GitHub have no tested page set. [hosts.md](hosts.md) collects what the GitLab, Gitea, Forgejo and Azure DevOps docs say, unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
+An application, a website, a monorepo with several packages, a command-line tool, and hosts other than GitHub have no tested page set (still lacking as of 0.3.0). [hosts.md](hosts.md) collects what the GitLab, Gitea, Forgejo and Azure DevOps docs say, unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
 
 ## Conventions every page follows
 

@@ -19,9 +19,13 @@
 import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
-import {readFileSync} from 'node:fs';
 import path from 'node:path';
 import util from 'node:util';
+import {copyFileSync, readFileSync, writeFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+
+// Everything runs in this file's folder, so no shell needs to change directory first.
+process.chdir(path.dirname(fileURLToPath(import.meta.url)));
 
 const PACKAGE = '{{PACKAGE}}';
 const VERSION = '{{VERSION}}';
@@ -67,6 +71,25 @@ async function example(label, fn) {
 	}
 
 	show(label, lines.join('\n'));
+}
+
+// Any other program (a runtime from npm, a package manager, bash, the golden capture), asynchronously,
+// with LF line endings. On Windows spawn .cmd shims with shell: true.
+function run(file, args, {cwd = process.cwd(), env = {}, shell = false} = {}) {
+	return new Promise(resolve => {
+		const child = spawn(file, args, {cwd, env: {...process.env, ...env}, shell});
+		let stdout = '';
+		let stderr = '';
+		child.stdout.on('data', chunk => {
+			stdout += chunk;
+		});
+		child.stderr.on('data', chunk => {
+			stderr += chunk;
+		});
+		child.on('close', code => {
+			resolve({code, stdout: stdout.replaceAll('\r\n', '\n'), stderr: stderr.replaceAll('\r\n', '\n')});
+		});
+	});
 }
 
 async function capture(label, fn) {
@@ -147,6 +170,40 @@ if (binEntry) {
 // V2=<folder> (etc.); load it with createRequire(path.join(folder, 'index.js')) or a file:// import.
 
 // API reference, behaviour, recipes, FAQ: add a capture() per example here.
+
+// ----- golden captures, replayed today (L-020, L-113) -----
+// When the repository keeps test/golden/capture-<old>.cjs and <old>.json: set GOLDEN=<the clone's test/golden>
+// and OLD=<a folder with PACKAGE@<old> and whatever the capture requires installed>. The capture runs as a
+// child process, once against the old version (unchanged) and once here against VERSION (patch only the
+// lines the new layout breaks, such as the bin's path, and name them on the page), one after the other.
+// Compare the answers, the timing and the request lines apart. The golden file is only read.
+const {GOLDEN, OLD} = process.env;
+if (GOLDEN && OLD) {
+	const CAPTURE = 'capture-{{OLD_VERSION}}.cjs';
+	const HELPERS = []; // the files the capture requires, such as 'codec.cjs', 'fixture-server.cjs'
+	for (const file of [CAPTURE, ...HELPERS]) {
+		copyFileSync(path.join(GOLDEN, file), path.join(OLD, file));
+		copyFileSync(path.join(GOLDEN, file), file);
+	}
+
+	const patched = readFileSync(CAPTURE, 'utf8'); // .replaceAll(<old layout>, <new layout>)
+	writeFileSync(`now-${CAPTURE}`, patched);
+	const want = JSON.parse(readFileSync(path.join(GOLDEN, '{{OLD_VERSION}}.json'), 'utf8'));
+	for (const [label, result] of [
+		['golden: {{OLD_VERSION}} today', await run(process.execPath, [CAPTURE], {cwd: OLD})],
+		[`golden: ${VERSION}`, await run(process.execPath, [`now-${CAPTURE}`])],
+	]) {
+		if (result.code !== 0) {
+			show(label, `capture failed, exit ${result.code}\n${result.stderr.split('\n').slice(0, 5).join('\n')}`);
+			continue;
+		}
+
+		// Adapt the keys to the capture's format: here a list of cases with a name.
+		const got = new Map(JSON.parse(result.stdout).cases.map(entry => [entry.name, JSON.stringify(entry)]));
+		const differing = want.cases.filter(entry => got.get(entry.name) !== JSON.stringify(entry)).map(entry => entry.name);
+		show(label, [`${want.cases.length} cases, ${want.cases.length - differing.length} identical to the golden file`, ...differing].join('\n'));
+	}
+}
 
 server.close();
 show('requests the fixture server saw', seen);

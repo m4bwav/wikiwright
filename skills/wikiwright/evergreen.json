@@ -38,25 +38,36 @@
       "m": 0.3,
       "interval_after": 14,
       "note": "R-20260928-2 hosts research and the enable-wiki answer; 0.2.0"
+    },
+    {
+      "date": "2026-09-28",
+      "m": null,
+      "interval_after": 14,
+      "note": "0.3.0: third run, NuGet retrofits, outputs reads the NuGet forms; no new research (R-20260928-2 the same day)"
     }
   ],
   "counts": {
-    "learnings": 22,
-    "changes": 3,
+    "learnings": 34,
+    "changes": 4,
     "research": 2,
-    "tests": 3
+    "tests": 4
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-28T20:05",
-    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json (action, outcome)",
+    "last_run": "2026-09-28T18:18",
+    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh and evals/grade-action.py (action)",
     "env": "Windows 11 development machine, Claude Code 2.1.281",
-    "cases": 8,
+    "cases": 9,
     "passed": 8,
-    "failed": 0,
-    "failing": [],
-    "last_failure": null,
+    "failed": 1,
+    "failing": [
+      "action-2"
+    ],
+    "last_failure": {
+      "date": "2026-09-28",
+      "note": "T-20260928-4: action-2 flaky fallback (1 of 5 skipped preflight); Step 1 guard added in 0.3.0"
+    },
     "research_after_days": null
   },
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

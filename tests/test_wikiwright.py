@@ -186,6 +186,79 @@ class OutputsTests(unittest.TestCase):
         self.assertIn("1 missing", out)
 
 
+def blocks(page):
+    """What `outputs` checks on one page: [(kind, first line of content)]."""
+    return [(kind, content.split("\n")[0]) for _, kind, content in wikiwright.output_blocks(page)]
+
+
+class OutputFormsTests(unittest.TestCase):
+    """The forms the NuGet wikis show output in (0.3.0; L-103), and the ones that are not output."""
+
+    def test_input_block_followed_by_its_output(self):
+        # JsonPrettyPrinter's Not-a-Validator page: the intro's "are" is far from the colon.
+        page = ("Single-quoted strings are tracked like double-quoted ones, so the space inside stays:\n\n"
+                "```\n{'a':'b c'}\n```\n\n```\n{\n    'a': 'b c'\n}\n```\n")
+        self.assertEqual(blocks(page), [("block", "{")])
+
+    def test_code_followed_by_its_output(self):
+        page = ("```csharp\nthing.ToJson(prettyPrint: true);\n```\n\n```\n{\n    \"Name\": \"Mark\"\n}\n```\n\n"
+                "```csharp\nvar x = 1;\n```\n\n```sh\ndotnet run pretty.cs\n```\n")
+        self.assertEqual(blocks(page), [("block", "{")])
+
+    def test_intro_word_within_six_words_of_the_colon(self):
+        near = "The result's `url` is where the redirects ended:\n\n```json\n{}\n```\n"
+        far = "Output of the tool is shown here for a reader to compare:\n\n```\nx\n```\n"
+        connective = "```\n{ \"a\" : 1 }\n```\n\nbecomes\n\n```\n{\n    \"a\": 1\n}\n```\n"
+        self.assertEqual(blocks(near), [("block", "{}")])
+        self.assertEqual(blocks(far), [])
+        self.assertEqual(blocks(connective), [("block", "{")])
+
+    def test_values_in_comments(self):
+        page = (
+            "```csharp\n"
+            "Console.WriteLine(people.GenerateRandomFirstAndLastName());  // \"Jon Rohl\"\n"
+            "var name = people.GenerateRandomFirstAndLastName();   // always \"Alisa Streets\"\n"
+            "Console.WriteLine(places.GenerateRandomPlaceName());  // Boardman\n"
+            "printer.PrettyPrint(json, Console.Out);  // straight into any TextWriter\n"
+            "var compact = JsonNode.Parse(text)!.ToJsonString();   // {\"a\":[1,2]}\n"
+            "new { s = 1 }.ToJson();\n"
+            "// {\"s\":1}\n"
+            "// a note, not a value\n"
+            "```\n\n"
+            "```fsharp\nprintfn \"%s\" (people.GenerateRandomFirstAndLastName())   // Alisa Streets\n```\n\n"
+            "```powershell\n$o.IndentSize = 2   # sets it\n[X]::LastNames.Count   # 88799\n"
+            "Add-Type -Path x.dll   # loads it\n[X]::new() # => Boardman\n```\n\n"
+            "```js\nconst a = new Old('level-1');   // 1.1.4\nrng.next(); //=> 2\n```\n")
+        self.assertEqual(blocks(page), [
+            ("comment", "\"Jon Rohl\""), ("comment", "\"Alisa Streets\""), ("comment", "Boardman"),
+            ("comment", "{\"a\":[1,2]}"), ("comment", "{\"s\":1}"), ("comment", "Alisa Streets"),
+            ("comment", "88799"), ("arrow", "Boardman"), ("arrow", "2")])
+
+    def test_comment_lines_closing_a_code_block(self):
+        page = ("```csharp\nfor (var i = 0; i < 3; i++)\n    Console.WriteLine(Next());\n\n"
+                "// Kerry Marrello from La Plena comunidad\n// Iris Velazques from Vanleer\n```\n\n"
+                "```csharp\n// Only a comment\n```\n")
+        self.assertEqual([(k, c) for _, k, c in wikiwright.output_blocks(page)],
+                         [("block", "Kerry Marrello from La Plena comunidad\nIris Velazques from Vanleer")])
+
+    def test_comment_values_are_checked_and_commands_get_a_hint(self):
+        d = tempfile.mkdtemp()
+        try:
+            write(d, {"Getting-Started.md": (
+                "```csharp\nConsole.WriteLine(a.Name());   // \"Marguerita\"\nConsole.WriteLine(b.Name());   // \"Ran\"\n```\n\n"
+                "```csharp\n#:package Widget@1.2.0\n```\n\n```\ndotnet run names.cs\n```\n")})
+            out_file = os.path.join(d, "out.txt")
+            with open(out_file, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write("## names\nMarguerita\n")
+            code, out = run(["outputs", d, out_file])
+            self.assertEqual(code, 1)
+            self.assertIn("comment value not in the verify output: \"Ran\"", out)
+            self.assertIn("tag its fence", out)
+            self.assertIn("3 outputs checked, 2 missing", out)
+        finally:
+            shutil.rmtree(d)
+
+
 class HostTests(unittest.TestCase):
     def test_resolve_repo(self):
         cases = {
@@ -207,6 +280,14 @@ class HostTests(unittest.TestCase):
             self.assertIn("STATE: other-host", out)
             self.assertIn(name, out)
             self.assertIn("references/hosts.md", out)
+
+
+class HeadingAnchorTests(unittest.TestCase):
+    def test_inline_code_in_a_heading_keeps_its_text(self):
+        page = ["# Page", "", "## Deno answers `false` for every URL", "", "```", "## not a heading", "```", ""]
+        found = wikiwright.headings(chr(10).join(page))
+        self.assertIn("deno-answers-false-for-every-url", found)
+        self.assertNotIn("not-a-heading", found)
 
 
 class PartialCheckTests(unittest.TestCase):

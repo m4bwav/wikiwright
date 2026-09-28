@@ -37,7 +37,7 @@ import time
 import urllib.error
 import urllib.request
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 BS = "<BS>"
 BACKSLASH = chr(92)
 SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md")
@@ -218,10 +218,12 @@ def strip_code(text):
 
 
 def headings(text):
+    # strip_code only to skip fenced blocks: a heading keeps its inline code for the slug, as
+    # GitHub's does ("Deno answers `false` for every URL" is #deno-answers-false-for-every-url).
     lines, _ = strip_code(text)
     found, seen = set(), {}
-    for line in lines:
-        m = re.match(r"^#{1,6}\s+(.*?)\s*#*\s*$", line)
+    for stripped, line in zip(lines, text.split(chr(10))):
+        m = re.match(r"^#{1,6}\s+(.*?)\s*#*\s*$", line) if stripped.strip() else None
         if m:
             s = slug(m.group(1))
             n = seen.get(s, 0)
@@ -382,17 +384,42 @@ def cmd_live(a):
 
 # ---------------------------------------------------------------- outputs
 
-# A prose line that introduces an output block: it ends with a colon and names what follows
-# as output ("Output:", "`pretty` is:", "gives:", "prints, exit code 2:").
-OUT_INTRO = re.compile(
-    r"(?i)\b(output|outputs|is|are|gives?|gave|prints?|printed|returns?|returned|shows?|"
-    r"exits?|stdout|stderr|logs?|logged|answers?|answered|received|result)\b[^:]*:[\s)*_`]*$")
-ARROW = re.compile(r"//\s?=>\s?(.*\S)")
+# A prose line that introduces an output block: it ends with a colon, and one of the last six
+# words before the colon names what follows as output ("Output:", "`pretty` is:", "gives:",
+# "prints, exit code 2:"). Earlier words do not count: "Single-quoted strings are tracked like
+# double-quoted ones, so the space inside stays:" introduces an input (L-103).
+OUT_WORDS = {
+    "output", "outputs", "is", "are", "give", "gives", "gave", "print", "prints", "printed",
+    "return", "returns", "returned", "show", "shows", "exit", "exits", "stdout", "stderr", "log",
+    "logs", "logged", "answer", "answers", "answered", "received", "result", "results",
+    "become", "becomes", "produce", "produces", "yield", "yields"}
+ARROW = re.compile(r"(?://|#)\s?=>\s?(.*\S)")
 PROMPT = re.compile(r"^(\$|PS>|PS [A-Z]:.*>|>)( |$)")
 FIXTURE = re.compile(r"http://127\.0\.0\.1:(?:[0-9]+|<port>)")
 PORT = re.compile(r"127\.0\.0\.1:[0-9]+")
+FENCE = re.compile(r"^(\s*)(```+|~~~+)\s*([\w+#-]*)")
+DIRECTIVE = re.compile(r"^<!--\s*outputs:\s*(skip|check)\b.*-->$")
 LANGS_OUTPUT = {"text", "txt", "plaintext", "console", "output"}
 LANGS_DATA = {"json", "jsonc", "json5", "xml", "html", "yaml", "yml", "csv", "tsv"}
+# Fences whose line comments start with '#'; every other fence uses '//'.
+LANGS_HASH = {"powershell", "pwsh", "ps1", "ps", "sh", "bash", "shell", "zsh", "python", "py", "ruby", "rb"}
+LANGS_POWERSHELL = {"powershell", "pwsh", "ps1", "ps"}
+# A trailing comment: code, whitespace, the comment marker, the comment.
+TRAILING = {"//": re.compile(r"^(?P<code>.*\S)\s+//\s?(?P<c>.*\S)\s*$"),
+            "#": re.compile(r"^(?P<code>.*\S)\s+#\s?(?P<c>.*\S)\s*$")}
+# Words before a value in a comment: "// always "Alisa Streets"", "// for example "Prophetstown"".
+LEAD = re.compile(r"(?i)^(?:always|gives|prints|returns|is|e\.g\.|for example)[,:]?\s+")
+QUOTED = re.compile(r"^(\"[^\"]*\"|'[^']*'|`[^`]*`)$")
+# A comment that holds a value rather than words: quoted, JSON-like, a number or a literal.
+VALUE = re.compile(r"^(\"[^\"]*\"|'[^']*'|`[^`]*`|\{.*\}|\[.*\]|-?[0-9]+(?:[.,][0-9]+)?|true|false|null|True|False)$")
+# The first word of a command someone types; an untagged block that starts with one after a
+# code block is probably a command, not output (the hint says to tag its fence).
+COMMAND = re.compile(r"^(\$ )?(dotnet|npm|npx|node|pnpm|yarn|bun|deno|git|gh|python3?|pip|type|cat|curl|echo)\b")
+FULL_COMMENT = {"//": re.compile(r"^\s*//\s?(?P<c>.*\S)\s*$"), "#": re.compile(r"^\s*#\s?(?P<c>.*\S)\s*$")}
+PRINT_CALL = re.compile(
+    r"\b(Console\.Write(?:Line)?|printfn|printf|print|console\.(?:log|info|error)|Write-Output|Write-Host|echo|puts)\b")
+# A PowerShell line that is neither an assignment nor a cmdlet call outputs its value.
+PS_STATEMENT = re.compile(r"^\s*(\$[\w:.]+\s*[-+*/]?=[^=]|[A-Za-z]+-[A-Za-z]+\b)")
 
 
 def normalise_output(text, address):
@@ -405,20 +432,31 @@ def normalise_output(text, address):
     return text
 
 
-def output_blocks(text):
-    """(line, kind, content) for every output a page presents: kind 'block' or 'arrow'."""
-    found, lines = [], text.split("\n")
-    i, prev, directive = 0, "", None
+def is_intro(prose):
+    tail = prose.rstrip(" )*_`")
+    if not tail.endswith(":"):
+        # A short connective between an input and its output: "becomes", "gives", "prints".
+        words = re.findall(r"[A-Za-z]+", tail)
+        return 0 < len(words) <= 3 and words[-1].lower() in OUT_WORDS and not tail.endswith(".")
+    words = re.findall(r"[A-Za-z]+", tail[:-1])[-6:]
+    return any(w.lower() in OUT_WORDS for w in words)
+
+
+def fences(text):
+    """Every fenced block: start line, language, body, the prose line before it, the
+    <!-- outputs: --> directive before it, and whether only blank lines or directives
+    separate it from the block before it."""
+    items, lines = [], text.split("\n")
+    i, prev, directive, adjacent = 0, "", None, False
     while i < len(lines):
-        line = lines[i]
-        m = re.match(r"^(\s*)(```+|~~~+)\s*([\w+-]*)", line)
+        m = FENCE.match(lines[i])
         if not m:
-            stripped = line.strip()
-            d = re.match(r"^<!--\s*outputs:\s*(skip|check)\b.*-->$", stripped)
+            stripped = lines[i].strip()
+            d = DIRECTIVE.match(stripped)
             if d:
                 directive = d.group(1)
             elif stripped:
-                prev = stripped
+                prev, adjacent = stripped, False
             i += 1
             continue
         indent, fence, lang = m.group(1), m.group(2), m.group(3).lower()
@@ -428,10 +466,83 @@ def output_blocks(text):
             body.append(lines[i][len(indent):] if lines[i].startswith(indent) else lines[i])
             i += 1
         i += 1
-        # text, console and output fences hold output; an untagged fence does when the line
-        # before it says so; a code fence never does (only its //=> lines are checked).
-        is_output = directive == "check" or lang in LANGS_OUTPUT or (
-            directive != "skip" and (not lang or lang in LANGS_DATA) and bool(OUT_INTRO.search(prev)))
+        items.append({"start": start, "lang": lang, "body": body, "prev": prev,
+                      "directive": directive, "adjacent": adjacent})
+        prev, directive, adjacent = "", None, True
+    return items
+
+
+def pairs(first, second):
+    """A block followed directly by its output, with nothing but blank lines between: two
+    untagged fences or two of one data language (an input and what it becomes, JsonPrettyPrinter's
+    Not-a-Validator page), or a code fence and an untagged one (code and what it prints, its
+    Serialisation-Helpers page). Tag a command that follows code (```sh), or it reads as output."""
+    if not second["adjacent"] or first["lang"] in LANGS_OUTPUT:
+        return False
+    if first["lang"] == second["lang"]:
+        return not first["lang"] or first["lang"] in LANGS_DATA
+    return bool(first["lang"]) and first["lang"] not in LANGS_DATA and not second["lang"]
+
+
+def comment_value(lang, line):
+    """(kind, value) for the output a code line shows: 'arrow' for //=> and # =>, 'comment' for a
+    value in a comment; None for code or an explanation."""
+    a = ARROW.search(line)
+    if a:
+        return "arrow", a.group(1)
+    mark = "#" if lang in LANGS_HASH else "//"
+    full = FULL_COMMENT[mark].match(line)
+    if full:
+        # A comment line of its own shows the value of the line above only when it is a value.
+        comment = LEAD.sub("", full.group("c"))
+        return ("comment", comment) if VALUE.match(comment) else None
+    t = TRAILING[mark].match(line)
+    if not t:
+        return None
+    code, comment = t.group("code"), LEAD.sub("", t.group("c"))
+    if VALUE.match(comment) or PRINT_CALL.search(code) or (
+            lang in LANGS_POWERSHELL and not PS_STATEMENT.match(code)):
+        return "comment", comment
+    return None
+
+
+def comment_run(lang, body):
+    """(index of its first line, the uncommented text) for a run of whole-line comments that ends a
+    code block after a blank line: the block's output, as RandomNameGenerator's Recipes show it
+    (`// Kerry Marrello from La Plena comunidad`). None when the block does not end that way."""
+    full = FULL_COMMENT["#" if lang in LANGS_HASH else "//"]
+    end = len(body)
+    while end and not body[end - 1].strip():
+        end -= 1
+    first = end
+    while first and full.match(body[first - 1]):
+        first -= 1
+    if first == end or first < 2 or body[first - 1].strip() or not any(b.strip() for b in body[:first - 1]):
+        return None
+    return first, "\n".join(full.match(b).group("c") for b in body[first:end])
+
+
+def output_blocks(text):
+    """(line, kind, content) for every output a page presents: kind 'block', 'arrow', 'comment'
+    or 'skip'.
+
+    A block is output when its fence is text, console or output; when the directive before it is
+    <!-- outputs: check -->; when it is untagged or data and the prose line before it introduces
+    output; or when it follows its input block directly (see pairs). In every other code block,
+    '//=>' and '# =>' values are checked ('arrow'), and so are comments that show a value
+    ('comment'): a quoted, JSON-like, numeric or literal comment, on its own line or after code,
+    and any trailing comment after a print call or on a PowerShell expression line. A run of
+    whole-line comments that ends a code block after a blank line is that block's output."""
+    found, items = [], fences(text)
+    pair_output = set()
+    for k, f in enumerate(items):
+        start, lang, body, directive = f["start"], f["lang"], f["body"], f["directive"]
+        is_input = (k not in pair_output and directive != "check" and lang not in LANGS_OUTPUT
+                    and k + 1 < len(items) and pairs(f, items[k + 1]))
+        if is_input:
+            pair_output.add(k + 1)
+        is_output = not is_input and (directive == "check" or lang in LANGS_OUTPUT or k in pair_output or (
+            directive != "skip" and (not lang or lang in LANGS_DATA) and is_intro(f["prev"])))
         if directive == "skip":
             found.append((start, "skip", "\n".join(body)))
         elif is_output and any(PROMPT.match(b) for b in body):
@@ -446,12 +557,14 @@ def output_blocks(text):
                     chunk.append(b)
         elif is_output:
             found.append((start, "block", "\n".join(body)))
-        else:
-            for n, b in enumerate(body):
-                a = ARROW.search(b)
-                if a:
-                    found.append((start + n + 1, "arrow", a.group(1)))
-        prev, directive = "", None
+        elif lang not in LANGS_OUTPUT and not (is_input and not lang):
+            run = comment_run(lang, body) if lang else None
+            if run:
+                found.append((start + run[0] + 1, "block", run[1]))
+            for n, b in enumerate(body[:run[0]] if run else body):
+                value = comment_value(lang, b)
+                if value:
+                    found.append((start + n + 1,) + value)
     return found
 
 
@@ -479,7 +592,7 @@ def cmd_outputs(a):
             if not want.strip():
                 continue
             checked += 1
-            if kind == "arrow":
+            if kind in ("arrow", "comment"):
                 # A short value ("2", "true") must be a whole line of the output, or it would match anywhere.
                 bare = want[1:-1] if len(want) > 1 and want[0] == want[-1] and want[0] in "'\"`" else want
                 if want in out_lines or bare in out_lines or (len(bare) >= 8 and (want in out or bare in out)):
@@ -490,8 +603,10 @@ def cmd_outputs(a):
             first = want.strip().split("\n")[0][:70]
             relaid = kind == "block" and " ".join(want.split()) in loose
             hint = " (found with different spacing: the layout differs, L-008)" if relaid else ""
-            print("%s:%d: error: %s not in the verify output%s: %s" % (
-                f, line, "output block" if kind == "block" else "//=> value", hint, first))
+            if kind == "block" and not relaid and COMMAND.match(first):
+                hint = " (a command after a code block? tag its fence, for example ```sh)"
+            label = {"block": "output block", "arrow": "//=> value", "comment": "comment value"}[kind]
+            print("%s:%d: error: %s not in the verify output%s: %s" % (f, line, label, hint, first))
     print("outputs: %d pages, %d outputs checked, %d missing, %d skipped" % (len(pages), checked, missing, skipped))
     return 1 if missing else 0
 

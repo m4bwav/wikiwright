@@ -108,7 +108,7 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Trigger: `git clone https://github.com/m4bwav/get-title-at-url.wiki.git <scratchpad>/wiki` failed with "Filename too long" on `.git/hooks/applypatch-msg.sample`; retrying with `-c core.longpaths=true --template=` failed with "'$GIT_DIR' too big". The session scratchpad path was about 200 characters (Windows 11, Git for Windows, 2026-09-28). Preflight without `--clone` worked, and so did `npm install` of a package with no dependencies in the same folder.
 - Hypothesis: git's Windows path limit counts the whole `.git` path; the scratchpad leaves too little room.
 - Rule: on Windows, clone or inspect the wiki at a short path (the sibling `<clone>.wiki`, or a short temp folder) and not under the scratchpad. When a working copy already exists, `git -C <it> status -sb` plus preflight answer "does it exist" without cloning. For a draft-only request, preflight without `--enable`: it only reads.
-- Evidence: draft-only Home run for get-title-at-url, 2026-09-28. Counter-case, same day: the seeded-random-utilities draft-only run cloned its placeholder wiki into a scratchpad path of about 150 characters without error, so the limit depends on the scratchpad's length, not on the scratchpad as such. The rule stands as the safe default. Followed again on the is-an-image-url draft-only Home run the same day: the read-only clone went to a short sibling of the work folder and succeeded.
+- Evidence: draft-only Home run for get-title-at-url, 2026-09-28. Counter-case, same day: the seeded-random-utilities draft-only run cloned its placeholder wiki into a scratchpad path of about 150 characters without error, so the limit depends on the scratchpad's length, not on the scratchpad as such. The rule stands as the safe default. Followed again on the is-an-image-url draft-only Home run the same day: the read-only clone went to a short sibling of the work folder and succeeded. A second is-an-image-url draft the same day cloned by `preflight --clone` into the scratchpad (a target path of about 150 characters) without error.
 - Scope: env:windows
 - Status: active · helpful 3 · harmful 0 · last_confirmed 2026-09-28
 
@@ -191,7 +191,7 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: until the helper is fixed, mark such pages by hand: `<!-- outputs: skip (input) -->` before the input block and `<!-- outputs: check -->` before the output block. Fix in the helper: the intro word must be among the last few words before the colon, and an untagged or data fence that follows an input fence with no prose between is output; unit tests for both.
 - Evidence: DotNetJsonPrettyPrinter.wiki c6b285c, Not-a-Validator.md lines 21 to 92; `WW outputs` run of 2026-09-28 (6 checked, 6 missing)
 - Scope: skill (scripts/wikiwright.py outputs, SKILL.md Step 6)
-- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
+- Status: promoted: C-20260928-4 (the helper reads input and output pairs, code followed by its output, and an intro word only within six words of the colon; tests in OutputFormsTests). Confirmed on the retrofit: 0.2.0 checked 6 blocks of JsonPrettyPrinter's wiki, all inputs; 0.3.0 checks 21, all outputs · helpful 1 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-104 · 2026-09-28 · Adopting a hand-written wiki: the old program covers only part of the pages (`adopt-unsaved-wiki`)
 - Trigger: JsonPrettyPrinter's wiki (written by hand before 0.2.0) kept its verification program but not its output, and its note says two smaller runs (serializer escaping, the comment-stripping recipe, JsonNode.DeepEquals, the stdin filter) were never saved; the program printed 354 lines, identical over two runs, and some pages' outputs cannot come from it (2026-09-28).
@@ -199,7 +199,7 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: adopting a wiki with no saved output: run the program as it is against the version the footer names (twice), save the output LF-normalised, run `outputs`, then fold every missing case into the program (or mark the block skip with a reason) before bumping the version. Record in the note which pages the program did not cover.
 - Evidence: DotNetJsonPrettyPrinter ai-docs/notes/2026-09-28-github-wiki.md (How the examples were verified); this run's output
 - Scope: skill (SKILL.md Update mode, step 3)
-- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
+- Status: promoted: C-20260928-4 (SKILL.md Update mode, adopting a wiki written before 0.2.0; applied to both NuGet wikis the same day: JsonPrettyPrinter's program gained 9 page outputs and the F# and PowerShell runs, RandomNameGeneratorLibrary got its first program) · helpful 2 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-105 · 2026-09-28 · A C# verification program on Windows prints CRLF, and runs on one runtime only (`csharp-verify-program`)
 - Trigger: the JsonPrettyPrinter program (a .NET 10 file-based app with `#:property PublishAot=false`) printed 189 carriage returns through Console.WriteLine; `outputs` normalises them, but a saved output with CR would diff against a Linux run. The package's golden capture showed that `ToJson` answers differently on .NET Framework (0.1 as 0.10000000000000001), which a net10.0-only file-based app cannot show (2026-09-28).
@@ -207,7 +207,7 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: save the output with LF (normalise before saving); for a package whose answers differ by runtime, take the per-runtime facts from the repository's golden recordings (package-modernize keeps one per runtime under tests/Golden) or run a net48 console project, and say on the page which runtime an example ran on.
 - Evidence: this run's scratch output (CR count 189); DotNetJsonPrettyPrinter tests/Golden/3.0.1.net48-windows.json vs net10.0
 - Scope: skill (references/nuget.md, templates/nuget/wiki-verify.template.cs)
-- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
+- Status: promoted: C-20260928-4 (both retrofits saved LF output; references/nuget.md and the NuGet template say so) · helpful 2 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-106 · 2026-09-28 · Run the npm verification script on the oldest supported Node too (`oldest-node-run`)
 - Trigger: updating get-title-at-url's wiki for an unchanged 3.0.0, the saved script matched its saved output on Node 24.18, the only Node it had ever run on. Run on Node 20.20.2 and 24.13.0, one case differed: a recipe that decodes with the runtime's `TextDecoder('windows-1252')` printed C1 controls. Recipes had told readers to "decode the bytes with the right `TextDecoder` first", which is wrong on those Nodes (2026-09-28).
@@ -222,5 +222,63 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Hypothesis: the user wants a reviewable diff, not a live change. The run is still worth doing when the version is unchanged: re-verification (L-106) and the npm route for untested tools (L-021) found three pages to fix.
 - Rule: with a no-commit constraint, read the wiki's remote head with `git ls-remote` instead of pulling. Copy only the pages that change into the named folder and edit them there. Check with `check`, `outputs` and the prose checker on a scratch copy of the whole wiki with the drafts laid over it, since `--partial` would miss links to unchanged pages. Put the updated script, its outputs and a handoff README (publish steps, note changes, new inaccuracies) in a sibling folder, not in the pages folder. Run the repository's tests on a `git archive HEAD` export so the clone stays clean. End with `git status` in both clones.
 - Evidence: session work folder `wiki-draft/` and `wiki-draft-notes/README.md` (get-title-at-url, 2026-09-28)
+- Update 2026-09-28 (second is-an-image-url Home-only draft): in PowerShell, `git archive HEAD | tar -x -C C:\...` fails. Git's GNU tar reads `C:` as a remote host ("Cannot open"), and git reports "The pipe is being closed". `git archive --format=zip -o <x>.zip HEAD` followed by `Expand-Archive` works. On that export, `npm ci` and `npm test` ran from the scratchpad (377 of 377 passed).
 - Scope: skill (SKILL.md Update mode)
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-28 (is-an-image-url Home-only drafts: same folder layout, clones untouched)
+
+### L-108 · 2026-09-28 · A Home-only draft links to pages that do not exist yet (`home-only-draft`)
+- Trigger: "write a Home page for m4bwav/is-an-image-url into ./wiki-draft/Home.md; don't push or commit". Preflight said `exists`, and a scratch clone showed the placeholder. The Home table in page-sets.md asks for one line per page, so Home linked the nine planned pages, and `check --partial` reported 9 "link to missing page" errors and nothing else (2026-09-28).
+- Hypothesis: `--partial` skips the sidebar and footer checks but still resolves links. A Home page written before the rest of the set can't pass `check` and shouldn't be made to: without its page list it is useless as a hub.
+- Rule: with a Home-only request, choose the page set first (Step 3) and link the planned pages by their final file names. Run `check --partial` and confirm that every error is a planned-page link. List those pages in the handoff note as still owed, and don't publish Home until they exist. Clone the wiki into the scratchpad for preflight, not into the sibling folder.
+- Evidence: session work folder `wiki-draft/Home.md` and `wiki-draft-notes/README.md` (is-an-image-url, 2026-09-28)
+- Conflict 2026-09-28 (second is-an-image-url Home-only draft): this rule contradicts L-015 `home-only-check`, which says to leave out links to pages that don't exist yet and link README anchors instead. That run followed L-015. The user asked for one page, and a Home without red links can replace the placeholder at once. The planned page set went into the handoff note as the per-page lines still owed. `check --partial` exited 0. Settle the two entries into one rule at the next consolidation. A likely split: L-015 when Home may be published on its own, this entry when the full set follows in the same run.
+- Scope: skill (SKILL.md Step 6; references/page-sets.md Home row)
+- Status: rejected on review 2026-09-28 (T-20260928-4): L-015 stands. A Home that may be published at once must not link pages that do not exist (red "create page" links), and L-016 keeps clones out of the scratchpad. Written by a headless eval run (L-017); kept here as the record of the conflict · helpful 0 · harmful 1 · last_confirmed 2026-09-28
+
+### L-109 · 2026-09-28 · The overlay's list of wikis is a record, not the wiki's state (`record-is-not-state`)
+- Trigger: T-20260928-4 action-2 run 1 (unhinted Home page for is-an-image-url) invoked the skill, read the overlay and the inventory's "Wikis" row ("owed"), and never ran preflight or any ls-remote; the other skill run did. Reproduced 0 of 3 in fresh contexts (tune runs), so flaky: 1 of 5 runs in all (2026-09-28).
+- Hypothesis: a row saying "owed" reads like an answer to "does the wiki exist?", so Step 1 looks already done; the placeholder a maintainer saved minutes earlier is invisible to the record.
+- Rule: Step 1 runs even for a draft of one page and even when the overlay says owed or done; the overlay tells where things live, ls-remote tells what exists.
+- Evidence: T-20260928-4 (a2run1 trace; tune1 to tune3 traces); SKILL.md Step 1
+- Scope: skill (SKILL.md Step 1)
 - Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
+
+### L-110 · 2026-09-28 · NuGet wikis show outputs in comments; 0.2.0's check read none of them (`outputs-in-comments`)
+- Trigger: bringing the RandomNameGeneratorLibrary wiki under the saved-output rule, `outputs` 0.2.0 found 0 of its 28 outputs: they are shown as `// "Marguerita"`, `// always "Alisa Streets"`, F# `// Boardman`, PowerShell `# 88799`, and as comment lines closing a code block (`// Kerry Marrello from La Plena comunidad`); only `//=>` was read. JsonPrettyPrinter's showed `// {"a":[1,2]}` and code followed directly by its untagged output (2026-09-28).
+- Hypothesis: C#, F# and PowerShell have no REPL echo convention; writers put the value in a comment, quoted, after a print call, or in a closing comment run.
+- Rule: the helper reads a comment value when it is quoted, JSON-like, a number or a literal, or follows a print call or a PowerShell expression, and a closing run of comment lines as the block's output; bare words after other calls stay explanations, so pages quote such values or write `// =>`. Commands after a code block get a fence tag (```sh), or they read as output.
+- Evidence: labs/DotNetRandomNameGenerator ai-docs note ("Brought under the saved-output rule"), wiki f0bb65b; labs/DotNetJsonPrettyPrinter wiki a8c5574; tests OutputFormsTests
+- Scope: skill (scripts/wikiwright.py outputs; SKILL.md Step 6; references/nuget.md)
+- Status: promoted: C-20260928-4 · helpful 2 · harmful 0 · last_confirmed 2026-09-28
+
+### L-111 · 2026-09-28 · Unseeded examples: print the value after checking it is on its list (`membership-for-random`)
+- Trigger: RandomNameGeneratorLibrary's Home and Getting started show unseeded answers ("for example "Prophetstown""); no run can print them again, so a saved output cannot contain them, and skipping them would leave 11 values unverified (2026-09-28).
+- Hypothesis: for a random draw the claim a page makes is "this is a possible answer", which a membership check proves.
+- Rule: the program prints each unseeded example only after checking it is on the list the method draws from (NOT ON THE LIST otherwise), labelled as such; a snippet whose first line is random prints a stable placeholder after the same check, so the saved output stays identical between runs (L-022).
+- Evidence: labs/DotNetRandomNameGenerator ai-docs/notes/2026-09-28-wiki-verify.cs (`Possible`); templates/nuget/wiki-verify.template.cs
+- Scope: skill (templates, SKILL.md Step 4)
+- Status: promoted: C-20260928-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-112 · 2026-09-28 · Node's environment proxy tunnels http: with CONNECT (`fetch-proxy-connect`)
+- Trigger: verifying a proxy recipe for is-an-image-url, a child run with `NODE_USE_ENV_PROXY=1 HTTP_PROXY=<stand-in>` printed `false` and never exited: the stand-in got `CONNECT images.invalid:80`, which a plain `http.createServer` does not answer (Node 24.18.0, 2026-09-28).
+- Hypothesis: Node's built-in proxy support for fetch uses CONNECT tunnels for every target.
+- Rule: a stand-in proxy answers `connect` with `200 Connection Established` and hands the socket to the fixture server (`server.emit('connection', socket)`); use an `.invalid` host so the direct attempt can never reach the internet.
+- Evidence: is-an-image-url ai-docs/notes/2026-09-28-wiki-verify.mjs (proxy section); references/npm.md
+- Scope: env:node (references/npm.md)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-113 · 2026-09-28 · A golden capture with its own fixture server is replayed as a child process (`replay-requesting-capture`)
+- Trigger: is-an-image-url's `test/golden/capture-1.0.4.cjs` starts its own `fixture-server.cjs`, requires `codec.cjs` and `is-image-300`, and hard-codes 1.0.4's `cli.js` and dependency list; it was the first replay for a package that makes requests (2026-09-28).
+- Hypothesis: the capture is a self-contained program; the wiki script only needs its JSON.
+- Rule: copy the capture and its helpers beside each installed version, patch only the lines the new layout breaks (the CLI path, a dependency lookup that tolerates missing packages), run each version as a child process one after the other (timing cases), and compare the answer, the callback timing and the request lines apart. 1.0.4 today: 82 of 82 identical; 2.0.0: 68 of 82 answers, the 14 others each a CHANGELOG line.
+- Evidence: is-an-image-url ai-docs note ("How the examples were verified"); templates/npm/wiki-verify.template.mjs (golden replay section)
+- Scope: skill (templates, references/page-sets.md)
+- Status: promoted: C-20260928-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-114 · 2026-09-28 · `check` slugged headings with their inline code blanked (`heading-code-slug`)
+- Trigger: `check` on the is-an-image-url wiki reported "no heading for #deno-answers-false-for-every-url" although FAQ has "## Deno answers `false` for every URL"; `headings()` read the line after `strip_code`, which blanks inline code (2026-09-28).
+- Hypothesis: strip_code exists to skip fences and code spans in links; GitHub's anchor keeps the code text.
+- Rule: fixed: headings are matched on the original line, with strip_code used only to skip fenced blocks; test HeadingAnchorTests.
+- Evidence: C-20260928-4; tests/test_wikiwright.py
+- Scope: skill (scripts/wikiwright.py check)
+- Status: promoted: C-20260928-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-28

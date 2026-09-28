@@ -8,6 +8,19 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20260928-4 · 2026-09-28 · claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh, graded by evals/grade-action.py (action) · Windows 11 native · 8/9
+- Setup: the installed 0.2.0 cache equalled the source (SKILL.md, wikiwright.py, npm.md and the npm template by SHA-256). Source committed before the suite (fe79347). Action-1 and action-2 against m4bwav/is-an-image-url, which had only GitHub's placeholder and no wiki note; action-3 against m4bwav/get-title-at-url (wiki and note at 3.0.0). Runs in `%TEMP%/ww4/<run>`, one at a time; a driver moved aside any sibling wiki clone after each run (none was made) and recorded the targets' git status (clean after every run).
+- trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without ($1.48). decoy-1, decoy-2: 0/6 in both arms ($0.57).
+- action-1 (hinted), 2/2: preflight, an install of is-an-image-url, Home.md; `outputs` 2 and 5 of 2 and 5 page outputs found in the trace's tool results. Baseline passes too (hinted; L-018).
+- action-2 (unhinted), 1/2: run 2 passed (4 of 4 outputs). action-2 · action · fallback · run 1 invoked the skill, installed and ran the package (4 of 4 outputs in the trace), but never checked the wiki: it read the overlay's "owed" row and skipped Step 1. evergreen-tune: reproduced 0 of 3 in fresh runs (tune1 to tune3 all ran preflight), so flaky. Baseline: no install, 0 outputs checked, as in T-20260928-3.
+- action-3 (new, unhinted update mode), 2/2: both ran the saved script against get-title-at-url@3.0.0 and compared with the pages; drafts in `wiki-draft/`, the note and log changes in a sibling folder, clones untouched. Both also ran the script on Node 20.20.2 and 24.13.0 and found a Recipes instruction (`TextDecoder('windows-1252')`) wrong on those Nodes (L-106). Baseline passes as well: the repository's wiki note spells out the update procedure, so the note teaches the method (L-013); the case is a regression check, not a discriminator.
+- outcome-1: 2/2 on the action-1 drafts: no CR, no wikilinks outside code, no attribution.
+- Grader fixes during the run: wikilinks counted inside code (`new Map([['a', 1]])`) failed a3run1 at first; tool results that only echo the draft are left out.
+- Side effects: eval runs edited the source LEARNINGS.md (L-015, L-016, L-021 updates, L-106, L-107 kept; L-108 rejected on review, it contradicts L-015). No writes in the target repositories.
+- In use: the third real run (is-an-image-url, the same day): 10 pages, check 0/0, outputs 40 checked 0 missing, live clean. The two NuGet retrofits were update mode's first NuGet runs: outputs 21/21 and 28/28 after the fixes.
+- Research gate: `EG failed` asked for research first (class fallback). Not run: the route that was skipped (the skill's own preflight) had not moved, and R-20260928-2 is from the same day; the fix is a line in Step 1.
+- led to: C-20260928-4, L-106 to L-114
+
 ### T-20260928-3 · 2026-09-28 · claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh (action) · Windows 11 native · 8/8
 - Setup: plugin uninstalled and reinstalled before the suite; the cached SKILL.md and wikiwright.py hashes equalled the source (96aff148..., a334a1be...). Target of the action cases: m4bwav/seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran. Action runs in `%TEMP%/ww3/<run>` (short path, L-016).
 - trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without (`claude plugin eval <repo> --trust-plugin --no-publish --case "trigger-*" -j 4`; $1.40). decoy-1, decoy-2: 0/6 in both arms ($0.58). Two `--case` flags in one call ran only the last glob; run triggers and decoys separately.
