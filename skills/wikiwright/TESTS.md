@@ -8,6 +8,13 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20260928-5 · 2026-09-28 · claude -p stream-json via evals/run-action.sh (action-2 only), 0.3.0 installed · Windows 11 native · 1/2
+- Re-measure of the flaky action-2 after the release (cache hashes equal to the source). Both runs ran preflight (the Step 1 guard, L-109): the fallback did not recur in 2 of 2.
+- But the target is no longer valid for this case: is-an-image-url had its live wiki (8861236) and wiki note by then, so both runs took the has-pages route (L-013). action-2 · action · wrong-outcome · run 1's Home showed an output block `true` that no tool result in its trace printed (the grader's outputs check, 2 checked, 1 missing); run 2 passed (all outputs in the trace).
+- Kept in `tests.failing` until the action cases are retargeted to a repository with no wiki and the suite runs again (HANDOFF item 2).
+- Side effects: the runs added updates to L-021 and L-107 in the source LEARNINGS.md (npm's allow-scripts warning is harmless; a has-pages Home draft laid over a copy of the live wiki); reviewed and kept.
+- led to: none yet
+
 ### T-20260928-4 · 2026-09-28 · claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh, graded by evals/grade-action.py (action) · Windows 11 native · 8/9
 - Setup: the installed 0.2.0 cache equalled the source (SKILL.md, wikiwright.py, npm.md and the npm template by SHA-256). Source committed before the suite (fe79347). Action-1 and action-2 against m4bwav/is-an-image-url, which had only GitHub's placeholder and no wiki note; action-3 against m4bwav/get-title-at-url (wiki and note at 3.0.0). Runs in `%TEMP%/ww4/<run>`, one at a time; a driver moved aside any sibling wiki clone after each run (none was made) and recorded the targets' git status (clean after every run).
 - trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without ($1.48). decoy-1, decoy-2: 0/6 in both arms ($0.57).

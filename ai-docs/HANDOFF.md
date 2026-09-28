@@ -12,7 +12,7 @@ Updated 2026-09-28 (0.3.0 session). Read this first, then [log.md](log.md) for e
 
 ## Open work, in order
 
-1. **Re-measure action-2** with 0.3.0 installed (Step 1 now says the overlay is a record, not the state). Two passing runs clear `tests.failing` (`evergreen.py tested ... --passed 9 --failed 0`).
+1. **action-2 stays in `tests.failing`.** Re-measured with 0.3.0 (T-20260928-5): preflight ran in 2 of 2, but run 1 showed an output its trace never printed, and the target now has a wiki. Retarget (item 2), rerun the suite, then clear it.
 2. **Retarget the action cases again** before the next suite. is-an-image-url now has a wiki note (L-013). Next owed with no note: stack-exchange-markdown-retriever.
 3. **get-title-at-url wiki, found by the action-3 eval runs.** Recipes' "decode the bytes with the right `TextDecoder` first" is wrong on Node 20.20.2 and 24.13.0 (L-106). Fix it with update mode; the drafts were in the eval work folders, now gone.
 4. **Next owed wikis** (private inventory): stack-exchange-markdown-retriever, format-json-files, markdown-plain-link-replacer (npm with a CLI), then TrailerClipper, replace-string-at-position, IsImageUrlDotNet, CachingServiceWithAOPSupport.

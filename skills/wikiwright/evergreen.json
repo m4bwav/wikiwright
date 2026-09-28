@@ -50,22 +50,22 @@
     "learnings": 34,
     "changes": 4,
     "research": 2,
-    "tests": 4
+    "tests": 5
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-28T18:18",
-    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh and evals/grade-action.py (action)",
-    "env": "Windows 11 development machine, Claude Code 2.1.281",
-    "cases": 9,
-    "passed": 8,
+    "last_run": "2026-09-28T18:29",
+    "harness": "claude -p stream-json via evals/run-action.sh (action-2 re-measure)",
+    "env": "DESKTOP-7KS2S6E",
+    "cases": 1,
+    "passed": 0,
     "failed": 1,
     "failing": [
       "action-2"
     ],
     "last_failure": {
       "date": "2026-09-28",
-      "note": "T-20260928-4: action-2 flaky fallback (1 of 5 skipped preflight); Step 1 guard added in 0.3.0"
+      "note": "T-20260928-5: preflight 2/2 (fallback gone); run 1 showed an output not in its trace; target now has a wiki, retarget before the next suite"
     },
     "research_after_days": null
   },
