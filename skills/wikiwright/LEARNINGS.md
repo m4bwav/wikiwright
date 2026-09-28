@@ -108,9 +108,9 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Trigger: `git clone https://github.com/m4bwav/get-title-at-url.wiki.git <scratchpad>/wiki` failed with "Filename too long" on `.git/hooks/applypatch-msg.sample`; retrying with `-c core.longpaths=true --template=` failed with "'$GIT_DIR' too big". The session scratchpad path was about 200 characters (Windows 11, Git for Windows, 2026-09-28). Preflight without `--clone` worked, and so did `npm install` of a package with no dependencies in the same folder.
 - Hypothesis: git's Windows path limit counts the whole `.git` path; the scratchpad leaves too little room.
 - Rule: on Windows, clone or inspect the wiki at a short path (the sibling `<clone>.wiki`, or a short temp folder) and not under the scratchpad. When a working copy already exists, `git -C <it> status -sb` plus preflight answer "does it exist" without cloning. For a draft-only request, preflight without `--enable`: it only reads.
-- Evidence: draft-only Home run for get-title-at-url, 2026-09-28. Counter-case, same day: the seeded-random-utilities draft-only run cloned its placeholder wiki into a scratchpad path of about 150 characters without error, so the limit depends on the scratchpad's length, not on the scratchpad as such. The rule stands as the safe default.
+- Evidence: draft-only Home run for get-title-at-url, 2026-09-28. Counter-case, same day: the seeded-random-utilities draft-only run cloned its placeholder wiki into a scratchpad path of about 150 characters without error, so the limit depends on the scratchpad's length, not on the scratchpad as such. The rule stands as the safe default. Followed again on the is-an-image-url draft-only Home run the same day: the read-only clone went to a short sibling of the work folder and succeeded.
 - Scope: env:windows
-- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-28
+- Status: active · helpful 3 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-014 · 2026-09-28 · Replacing the fixture address can change console.log layout (`substitution-changes-layout`)
 - Trigger: drafting a new get-title-at-url Home page, `console.log(result)` printed `{ title, url, status }` on one line for `https://example.com/` but over four lines for the fixture's `http://127.0.0.1:<port>/` (Node 24.18, 2026-09-28).
@@ -132,9 +132,9 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Trigger: `WW check wiki-draft --version 2.0.0` on a folder holding only Home.md exited 1 with `_Sidebar.md:0: error: missing` and `_Footer.md:0: error: missing`, and nothing else (seeded-random-utilities draft-only run, 2026-09-28).
 - Hypothesis: `check` assumes a full page set; a draft of one page cannot pass it without extra files nobody asked for.
 - Rule: for a draft of Home alone, run `check`, accept exactly those two errors, and say so in the report. Leave out links to pages that do not exist yet, since a published Home with them would show red "create page" links. Link the README, CHANGELOG, registry and issues instead, and name the missing per-page lines as work for the full wiki. Since 0.2.0, `check --partial` skips the sidebar and footer requirement (C-20260928-3).
-- Evidence: this run's work folder `ai-docs/notes/2026-09-28-wiki-home-draft.md`; confirmed by a second seeded-random-utilities draft-only run the same day, where README section anchors (checked for `id="user-content-…"` on the repository page) stood in for the unwritten pages; and by a third such run the same day (same two errors only, seven README anchors all present)
+- Evidence: this run's work folder `ai-docs/notes/2026-09-28-wiki-home-draft.md`; confirmed by a second seeded-random-utilities draft-only run the same day, where README section anchors (checked for `id="user-content-…"` on the repository page) stood in for the unwritten pages; and by a third such run the same day (same two errors only, seven README anchors all present); and by an is-an-image-url draft-only run the same day, where `check --partial` exited 0 and five README anchors stood in for the unwritten pages
 - Scope: skill
-- Status: active · helpful 3 · harmful 0 · last_confirmed 2026-09-28
+- Status: active · helpful 4 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-017 · 2026-09-28 · Headless eval runs write to the skill under test and see the session's files (`evals-touch-the-source`)
 - Trigger: during T-20260928-3, two action runs (skill arm) followed "capture learnings", read the overlay, which names the skill's source folder, and edited the source LEARNINGS.md (the entry now L-015 and a counter-case on L-016). One action-2 run answered "does the wiki exist" by `git fetch` in the sibling working copy this session had cloned minutes before, instead of preflight (2026-09-28).
@@ -173,8 +173,9 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Hypothesis: both runtimes publish platform binaries as npm packages; corepack ships with Node 24.
 - Rule: before writing "not tested" for a runtime or package manager, try the npm route; with yarn 4 run the example through `yarn node`. Spawn the `.cmd` shims with `shell: true` on Windows.
 - Evidence: seeded-random-utilities wiki (Getting started); references/npm.md
+- Update 2026-09-28 (get-title-at-url draft run): versions move. `corepack pnpm` downloaded pnpm 12.6.0, and `corepack yarn` in a folder with no `packageManager` field ran Yarn 1.22.22, not 4. `corepack use yarn@4` gave 4.18.1 with Plug'n'Play again. Print each tool's version from the script rather than copying it from here. The `.exe` files are `node_modules/bun/bin/bun.exe` and `node_modules/@deno/win32-x64/deno.exe`; spawn those directly.
 - Scope: env:any
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-022 · 2026-09-28 · Keep machine-dependent text out of a saved verification output (`machine-free-output`)
 - Trigger: the seeded-random-utilities script first printed the error for a `Date` seed, whose message contains the date in the local time zone ("GMT-0600 (Central Standard Time)"); a saved output with it would differ on every other machine and fail the diff in update mode (2026-09-28).
@@ -206,4 +207,20 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: save the output with LF (normalise before saving); for a package whose answers differ by runtime, take the per-runtime facts from the repository's golden recordings (package-modernize keeps one per runtime under tests/Golden) or run a net48 console project, and say on the page which runtime an example ran on.
 - Evidence: this run's scratch output (CR count 189); DotNetJsonPrettyPrinter tests/Golden/3.0.1.net48-windows.json vs net10.0
 - Scope: skill (references/nuget.md, templates/nuget/wiki-verify.template.cs)
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
+
+### L-106 · 2026-09-28 · Run the npm verification script on the oldest supported Node too (`oldest-node-run`)
+- Trigger: updating get-title-at-url's wiki for an unchanged 3.0.0, the saved script matched its saved output on Node 24.18, the only Node it had ever run on. Run on Node 20.20.2 and 24.13.0, one case differed: a recipe that decodes with the runtime's `TextDecoder('windows-1252')` printed C1 controls. Recipes had told readers to "decode the bytes with the right `TextDecoder` first", which is wrong on those Nodes (2026-09-28).
+- Hypothesis: advice that hands work to the runtime (decoders, `Intl`, `fetch`, crypto) is only as true as the runtime; one Node run hides that. The same pattern as L-105 on .NET.
+- Rule: in Step 4 and update mode, also run the script on the oldest Node line in `engines` (and any release range the repository's notes call buggy), and diff against the main run. `npx -y -p node@<v> node` downloads one; put that `node.exe` first on `PATH` for any case that spawns a shell, because through npx's shim the shell's `node` fails (get-title-at-url's bash loop printed `(no title)` for every URL). Every difference is a page claim to scope by version or a case to fix.
+- Evidence: get-title-at-url update run of 2026-09-28 afternoon (drafts in the session work folder, `wiki-verify.node20.out.txt`); the repository's TextDecoder solution entry
+- Scope: skill (SKILL.md Step 4, Update mode step 3; references/npm.md)
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-28 (second get-title-at-url update draft: reproduced on 20.20.2 and 24.13.0, Recipes fixed in the draft)
+
+### L-107 · 2026-09-28 · Draft-only update: pages to the named folder, everything else beside it, clones untouched (`draft-only-update`)
+- Trigger: "update the wiki for 3.0.0; put every changed page in ./wiki-draft/; don't push or commit anything anywhere". The wiki already named 3.0.0. Update mode assumes `pull --ff-only`, writing in the wiki working copy, committing, pushing and committing the repository's note (2026-09-28).
+- Hypothesis: the user wants a reviewable diff, not a live change. The run is still worth doing when the version is unchanged: re-verification (L-106) and the npm route for untested tools (L-021) found three pages to fix.
+- Rule: with a no-commit constraint, read the wiki's remote head with `git ls-remote` instead of pulling. Copy only the pages that change into the named folder and edit them there. Check with `check`, `outputs` and the prose checker on a scratch copy of the whole wiki with the drafts laid over it, since `--partial` would miss links to unchanged pages. Put the updated script, its outputs and a handoff README (publish steps, note changes, new inaccuracies) in a sibling folder, not in the pages folder. Run the repository's tests on a `git archive HEAD` export so the clone stays clean. End with `git status` in both clones.
+- Evidence: session work folder `wiki-draft/` and `wiki-draft-notes/README.md` (get-title-at-url, 2026-09-28)
+- Scope: skill (SKILL.md Update mode)
 - Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28

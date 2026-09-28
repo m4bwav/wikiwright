@@ -29,6 +29,7 @@ pass, 1 on fail, 2 on a missing trace. Standard library only.
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
@@ -83,6 +84,13 @@ def echoes_draft(name, inp):
     if name in SHELLS:
         return bool(ECHOES_DRAFT.search(inp.get("command") or ""))
     return False
+
+
+def load_helper():
+    spec = importlib.util.spec_from_file_location("wikiwright", WW)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def outputs_check(draft, results_file):
@@ -150,10 +158,12 @@ def main(argv=None):
         print("  " + report.replace("\n", "\n  "))
         cr = links = 0
         attributed = False
+        helper = load_helper()
         for f in pages:
             raw = open(os.path.join(draft, f), "rb").read()
             cr += raw.count(b"\r")
-            links += raw.count(b"[[")
+            # Outside code only, as `wikiwright.py check` counts them: `new Map([['a', 1]])` is not a wikilink.
+            links += " ".join(helper.strip_code(raw.decode("utf-8", errors="replace").replace("\r\n", "\n"))[0]).count("[[")
             attributed = attributed or bool(ATTRIBUTION.search(raw))
         print("pages: %s  CR bytes: %d  wikilinks: %d  attribution: %s" % (
             ", ".join(pages), cr, links, "yes" if attributed else "no"))
