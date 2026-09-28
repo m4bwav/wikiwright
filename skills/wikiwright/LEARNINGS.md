@@ -183,3 +183,27 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Evidence: seeded-random-utilities ai-docs note (Gotchas)
 - Scope: skill
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-103 · 2026-09-28 · `outputs` misses input and output pairs, and reads "is" or "are" anywhere as an output intro (`input-output-pairs`)
+- Trigger: the first update of a hand-written NuGet wiki (JsonPrettyPrinter) ran the saved C# program against 3.0.1 and `WW outputs`: 6 findings, all of them input blocks (Not-a-Validator's "Single-quoted strings are tracked like double-quoted ones, so the space inside stays:" matched because OUT_INTRO accepts its word anywhere before the colon), while the output block right after each input block was never checked, because `prev` is reset after every fence and nothing introduces the second block (2026-09-28).
+- Hypothesis: the npm wikis put a prose line before every output; a page that shows input and output as two adjacent fences is invisible to the check, and the loose intro pattern then points at the wrong block.
+- Rule: until the helper is fixed, mark such pages by hand: `<!-- outputs: skip (input) -->` before the input block and `<!-- outputs: check -->` before the output block. Fix in the helper: the intro word must be among the last few words before the colon, and an untagged or data fence that follows an input fence with no prose between is output; unit tests for both.
+- Evidence: DotNetJsonPrettyPrinter.wiki c6b285c, Not-a-Validator.md lines 21 to 92; `WW outputs` run of 2026-09-28 (6 checked, 6 missing)
+- Scope: skill (scripts/wikiwright.py outputs, SKILL.md Step 6)
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
+
+### L-104 · 2026-09-28 · Adopting a hand-written wiki: the old program covers only part of the pages (`adopt-unsaved-wiki`)
+- Trigger: JsonPrettyPrinter's wiki (written by hand before 0.2.0) kept its verification program but not its output, and its note says two smaller runs (serializer escaping, the comment-stripping recipe, JsonNode.DeepEquals, the stdin filter) were never saved; the program printed 354 lines, identical over two runs, and some pages' outputs cannot come from it (2026-09-28).
+- Hypothesis: Update mode step 3 assumes the program is complete; a hand-written wiki's program is whatever the writer kept.
+- Rule: adopting a wiki with no saved output: run the program as it is against the version the footer names (twice), save the output LF-normalised, run `outputs`, then fold every missing case into the program (or mark the block skip with a reason) before bumping the version. Record in the note which pages the program did not cover.
+- Evidence: DotNetJsonPrettyPrinter ai-docs/notes/2026-09-28-github-wiki.md (How the examples were verified); this run's output
+- Scope: skill (SKILL.md Update mode, step 3)
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
+
+### L-105 · 2026-09-28 · A C# verification program on Windows prints CRLF, and runs on one runtime only (`csharp-verify-program`)
+- Trigger: the JsonPrettyPrinter program (a .NET 10 file-based app with `#:property PublishAot=false`) printed 189 carriage returns through Console.WriteLine; `outputs` normalises them, but a saved output with CR would diff against a Linux run. The package's golden capture showed that `ToJson` answers differently on .NET Framework (0.1 as 0.10000000000000001), which a net10.0-only file-based app cannot show (2026-09-28).
+- Hypothesis: the npm template writes LF; the C# one inherits Console's platform newline. A multi-runtime package needs its page claims checked per runtime.
+- Rule: save the output with LF (normalise before saving); for a package whose answers differ by runtime, take the per-runtime facts from the repository's golden recordings (package-modernize keeps one per runtime under tests/Golden) or run a net48 console project, and say on the page which runtime an example ran on.
+- Evidence: this run's scratch output (CR count 189); DotNetJsonPrettyPrinter tests/Golden/3.0.1.net48-windows.json vs net10.0
+- Scope: skill (references/nuget.md, templates/nuget/wiki-verify.template.cs)
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-09-28
