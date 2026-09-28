@@ -32,25 +32,31 @@
       "m": null,
       "interval_after": 14,
       "note": "created"
+    },
+    {
+      "date": "2026-09-28",
+      "m": 0.3,
+      "interval_after": 14,
+      "note": "R-20260928-2 hosts research and the enable-wiki answer; 0.2.0"
     }
   ],
   "counts": {
-    "learnings": 13,
-    "changes": 2,
-    "research": 1,
-    "tests": 2
+    "learnings": 22,
+    "changes": 3,
+    "research": 2,
+    "tests": 3
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-28T14:09",
+    "last_run": "2026-09-28T20:05",
     "harness": "claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json (action, outcome)",
     "env": "Windows 11 development machine, Claude Code 2.1.281",
-    "cases": 7,
-    "passed": 7,
+    "cases": 8,
+    "passed": 8,
     "failed": 0,
     "failing": [],
     "last_failure": null,
     "research_after_days": null
   },
-  "version": "0.1.0"
+  "version": "0.2.0"
 }

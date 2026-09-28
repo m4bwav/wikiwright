@@ -41,8 +41,10 @@ anko/txm checks that a markdown file's code blocks produce the output written be
 
 ## Other runtimes and package managers
 
-- pnpm, yarn and Bun install commands are standard; show them without running when those tools are not installed, and say which were run.
-- Deno: `import x from 'npm:PACKAGE'`, run with the permissions the package needs (`--allow-net`).
+- A machine without them can still run them (checked 2026-09-28, L-021 `runtimes-from-npm`). `npm install deno bun` in a scratch folder gives working binaries in `node_modules/.bin`. Corepack, which ships with Node 24, runs pnpm and yarn: `corepack pnpm@10 add PACKAGE@VERSION`, `corepack yarn@4 add PACKAGE@VERSION`. Set `COREPACK_ENABLE_DOWNLOAD_PROMPT=0`. On Windows spawn the `.cmd` shims with `shell: true`.
+- Yarn 4 installs with Plug'n'Play and makes no `node_modules`, so `node script.mjs` fails with `ERR_MODULE_NOT_FOUND`: run `yarn node script.mjs`, and say so on Getting started.
+- Deno: `import x from 'npm:PACKAGE@VERSION'`, run with the permissions the package needs (`--allow-net` for requests; a package without I/O ran with none).
+- Show an install command without running it only when none of this works, and say which were run.
 - TypeScript: compile a small file against the installed types (`npx -p typescript tsc --noEmit --module nodenext --moduleResolution nodenext file.ts`) when the page shows narrowing or type names.
 
 Mark what was run on this machine and what is shown from the package's own docs or CI.
@@ -52,5 +54,7 @@ Mark what was run on this machine and what is shown from the package's own docs 
 - Git Bash on Windows: `npx` and npm scripts need a shell; spawn `npm` through a shell from Node, or run the bin with `process.execPath` as the template does.
 - A package whose `exports` omits `./package.json` cannot be `require`d for its version; the template reads the file from `node_modules` directly.
 - JSON loses `undefined`, `NaN` and error fields; the template's `inspect()` keeps them visible.
+- A page that shows `console.log` output needs the script to print with `console.log` (or `util.inspect`, which is what it calls): the template's `example()` runs the page's code and records exactly what its `console.log` calls print (L-008, L-019).
+- An error message built from a `Date` contains the local time zone; keep it out of the saved output (L-022).
 
 Related: builds on [../SKILL.md](../SKILL.md); see also [page-sets.md](page-sets.md), [nuget.md](nuget.md).

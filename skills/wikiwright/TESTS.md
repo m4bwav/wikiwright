@@ -8,6 +8,17 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20260928-3 · 2026-09-28 · claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh (action) · Windows 11 native · 8/8
+- Setup: plugin uninstalled and reinstalled before the suite; the cached SKILL.md and wikiwright.py hashes equalled the source (96aff148..., a334a1be...). Target of the action cases: m4bwav/seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran. Action runs in `%TEMP%/ww3/<run>` (short path, L-016).
+- trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without (`claude plugin eval <repo> --trust-plugin --no-publish --case "trigger-*" -j 4`; $1.40). decoy-1, decoy-2: 0/6 in both arms ($0.58). Two `--case` flags in one call ran only the last glob; run triggers and decoys separately.
+- action-1 (hinted prompt, now against seeded-random-utilities), 3/3: every trace has `wikiwright.py preflight`, an install of `seeded-random-utilities@2.0.0` (run 1 through `npm --prefix`, which the first evidence regex missed; widened) and `wiki-draft/Home.md`; `wikiwright.py outputs` over the draft and the trace's tool results: every output on the page is in a tool result (1 of 1 in each). Runs 1 and 3 also installed 1.1.4. 1.6 to 2.9 minutes, $0.87 to $1.25 a run.
+- action-1 baseline (Skill disallowed): passes every check except the preflight script (it ran `git ls-remote` and `npm install seeded-random-utilities@2.0.0`, and its output is in the trace). The prompt names the method, so the case does not discriminate (L-018).
+- action-2 (new, unhinted: "Write a Home page for the GitHub wiki of m4bwav/seeded-random-utilities into ./wiki-draft/Home.md"), 2/2 on the corrected evidence: both skill runs invoked the skill, installed 2.0.0 and ran their example (outputs 1 of 1 found in the trace); run 2 ran preflight, run 1 checked the wiki by `gh repo view` and `git -C <clone>.wiki fetch` in the working copy this session had cloned (L-017), which the first regex did not accept; the evidence now accepts a fetch, pull or ls-remote in a `.wiki` working copy. Baseline 2 runs: neither installed nor ran the package, both pages show the README's example with comments and no output (outputs: 0 checked). The discriminating case.
+- outcome-1: 3/3 on the action-1 drafts: no CRLF, no wikilinks, no attribution, every output printed in the trace.
+- Side effects: two skill-arm runs edited the source LEARNINGS.md (kept as L-015 and a counter-case on L-016 after review; L-017).
+- In use: the second real run (seeded-random-utilities, the same day) was also a test: 9 pages, check 0/0, outputs 41 checked 0 missing, live clean. The Skill tool served the session-start SKILL.md text, so the run followed the edited source by hand (L-012). Lessons L-017 to L-022.
+- led to: C-20260928-3, L-015, L-017, L-018, L-012 (update)
+
 ### T-20260928-2 · 2026-09-28 · claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json (action, outcome) · Windows 11 native · 7/7
 - trigger-1 to trigger-3: 9/9 runs invoked `wikiwright` with the plugin, 0/9 in the no-plugin arm (`claude plugin eval . --trust-plugin --no-publish --case "trigger-*" -j 4`; $1.41). Case folders in the repository's root `evals/` (plugin eval refuses an `--eval-dir` inside `skills/`).
 - decoy-1 (README), decoy-2 (CHANGELOG entry): 0/6 invocations in either arm ($0.57).

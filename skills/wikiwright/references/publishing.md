@@ -18,7 +18,16 @@ Every GitHub repository with the wiki feature on can have a second repository at
 | `has-pages` | Real content exists | Read every page first. Update in place; never force-push, never delete a page without the maintainer's OK. |
 | `archived` | The repository is archived | Stop and ask. |
 
-What happened in the three runs: RandomNameGeneratorLibrary had the feature on and no repository until Mark saved a page (placeholder commit 8543ca6, then force-pushed over). JsonPrettyPrinter already had a saved placeholder (3542d9a), so a normal push worked. On get-title-at-url the feature was off; a minute after `gh repo edit --enable-wiki`, `ls-remote` answered with a placeholder commit (d652d15, "Initial Home page", authored by the maintainer). Whether the enable call creates the repository or something else did is not known, so preflight re-checks after enabling and asks for the click only when the repository is still missing.
+What happened in the four runs:
+
+- **RandomNameGeneratorLibrary.** The feature was on and there was no repository until Mark saved a page (placeholder commit 8543ca6, then force-pushed over).
+- **JsonPrettyPrinter.** It already had a saved placeholder (3542d9a), so a normal push worked.
+- **get-title-at-url.** The feature was off. A minute after `gh repo edit --enable-wiki`, `ls-remote` answered with a placeholder commit (d652d15, "Initial Home page", authored by the maintainer).
+- **seeded-random-utilities.** The feature was off, and the test above settled it:
+  - Preflight ran `--enable` at 19:25:33 UTC and re-checked every 5 seconds. The repository was still missing at 61 seconds.
+  - The maintainer saved the first page at 19:27:28 (commit ef61124, "Initial Home page", his authorship), and ls-remote found it at 19:27:39.
+
+**Switching the feature on does not create the wiki repository** (checked 2026-09-28). "Initial Home page" is the web UI's default message for the first save, so get-title-at-url's placeholder was a click too. Preflight still re-checks for 60 seconds after enabling, which costs a minute and would notice if GitHub ever changed this.
 
 ## The working copy
 

@@ -8,7 +8,12 @@
 //   node wiki-verify.mjs > wiki-verify.out.txt
 //
 // Every case prints "## <label>" and then its output. Paste outputs into the pages
-// exactly as printed; a page never shows output this script did not produce.
+// exactly as printed; a page never shows output this script did not produce, and never
+// one converted by hand (a JSON value retyped as console.log shows it): add a case that
+// prints the page's form instead (L-008, L-019). Save the output beside this file as
+// ai-docs/notes/<date>-wiki-verify.out.txt with 127.0.0.1:<digits> replaced by
+// 127.0.0.1:<port>, and check the pages with `wikiwright.py outputs <wiki dir> <that file>`.
+// Keep time zones, absolute paths and timings out of the output (L-022).
 // Network: the package talks only to the local fixture server below, never the internet.
 
 import http from 'node:http';
@@ -16,6 +21,7 @@ import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import {readFileSync} from 'node:fs';
 import path from 'node:path';
+import util from 'node:util';
 
 const PACKAGE = '{{PACKAGE}}';
 const VERSION = '{{VERSION}}';
@@ -44,6 +50,23 @@ function inspect(value) {
 
 		return v;
 	}, 2);
+}
+
+// Runs a page's example as written and prints exactly what its console.log calls print,
+// so a page that shows console.log output matches line for line (layout included).
+async function example(label, fn) {
+	const lines = [];
+	const original = console.log;
+	console.log = (...args) => lines.push(util.format(...args));
+	try {
+		await fn();
+	} catch (error) {
+		lines.push(`${error?.name}: ${error?.message}`);
+	} finally {
+		console.log = original;
+	}
+
+	show(label, lines.join('\n'));
 }
 
 async function capture(label, fn) {

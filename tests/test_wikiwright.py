@@ -132,5 +132,95 @@ class UnbsTests(unittest.TestCase):
             shutil.rmtree(d)
 
 
+OUTPUT_PAGES = {
+    "Home.md": (
+        "Roll a die:\n\n```js\nrng.getRandomInteger(1, 7);\n//=> 2\nrng.pick(['a']);\n//=> 'a'\n```\n\n"
+        "Output:\n\n```\n[ 1, 3, 4 ]\n```\n\n"
+        "A result from the fixture is:\n\n```json\n{\n  \"url\": \"https://example.com/docs\"\n}\n```\n\n"
+        "Run it with `node x.mjs`:\n\n```text\ndie roll:      2\n```\n\n"
+        "In a terminal:\n\n```console\n$ widget --version\n1.2.0\n\n$ widget nope\nerror: unknown command\n```\n\n"
+        "Install it:\n\n```sh\nnpm install widget\n```\n\n"
+        "npm prints:\n\n<!-- outputs: skip (npm's own output) -->\n```text\nadded 1 package in 432ms\n```\n"),
+}
+
+VERIFY_OUT = (
+    "## roll\n2\n'a'\n\n## unique\n[ 1, 3, 4 ]\n\n## fixture\n{\n  \"url\": \"http://127.0.0.1:61234/docs\"\n}\n\n"
+    "## run\ndie roll:      2\n\n## cli\nexit 0\n--- stdout\n1.2.0\n--- stderr\n\nexit 1\n--- stdout\n--- stderr\nerror: unknown command\n")
+
+
+class OutputsTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        write(self.d, OUTPUT_PAGES)
+        self.out = os.path.join(self.d, "verify.out.txt")
+        with open(self.out, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(VERIFY_OUT)
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def test_every_output_found(self):
+        code, out = run(["outputs", self.d, self.out])
+        self.assertEqual(code, 0, out)
+        # 2 arrows, the bare block, the json block (the fixture address), the text block, 2 transcript outputs
+        self.assertIn("7 outputs checked, 0 missing, 1 skipped", out)
+
+    def test_invented_and_relaid_outputs_fail(self):
+        page = OUTPUT_PAGES["Home.md"].replace("//=> 2", "//=> 3").replace("[ 1, 3, 4 ]", "[1, 3, 4]")
+        write(self.d, {"Home.md": page})
+        code, out = run(["outputs", self.d, self.out])
+        self.assertEqual(code, 1)
+        self.assertIn("//=> value not in the verify output: 3", out)
+        self.assertIn("output block not in the verify output", out)
+        self.assertIn("2 missing", out)
+
+    def test_layout_hint_when_only_spacing_differs(self):
+        write(self.d, {"Home.md": "Output:\n\n```\ndie roll: 2\n```\n"})
+        code, out = run(["outputs", self.d, self.out])
+        self.assertEqual(code, 1)
+        self.assertIn("layout differs", out)
+
+    def test_address_off_needs_the_fixture_address(self):
+        code, out = run(["outputs", self.d, self.out, "--address", ""])
+        self.assertEqual(code, 1)
+        self.assertIn("1 missing", out)
+
+
+class HostTests(unittest.TestCase):
+    def test_resolve_repo(self):
+        cases = {
+            "m4bwav/widget": ("github.com", "m4bwav/widget"),
+            "https://github.com/m4bwav/widget.git": ("github.com", "m4bwav/widget"),
+            "git@github.com:m4bwav/widget.git": ("github.com", "m4bwav/widget"),
+            "https://gitlab.com/acme/widget": ("gitlab.com", "acme/widget"),
+            "git@codeberg.org:knut/foobar.git": ("codeberg.org", "knut/foobar"),
+        }
+        for arg, want in cases.items():
+            self.assertEqual(wikiwright.resolve_repo(arg), want, arg)
+        self.assertEqual(wikiwright.resolve_repo("not a repo"), (None, None))
+
+    def test_other_hosts_stop_with_a_clear_state(self):
+        for url, name in (("https://gitlab.com/a/b", "GitLab"), ("https://codeberg.org/a/b", "Gitea or Forgejo"),
+                          ("https://dev.azure.com/o/p/_git/r", "Azure DevOps"), ("https://git.example.org/a/b", "unknown host")):
+            code, out = run(["preflight", url])
+            self.assertEqual(code, 2, url)
+            self.assertIn("STATE: other-host", out)
+            self.assertIn(name, out)
+            self.assertIn("references/hosts.md", out)
+
+
+class PartialCheckTests(unittest.TestCase):
+    def test_partial_draft_skips_sidebar_and_footer(self):
+        d = tempfile.mkdtemp()
+        try:
+            write(d, {"Home.md": "Widget 1.2.0.\n"})
+            code, out = run(["check", d])
+            self.assertEqual(code, 1)
+            code, out = run(["check", d, "--version", "1.2.0", "--partial"])
+            self.assertEqual(code, 0, out)
+        finally:
+            shutil.rmtree(d)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

@@ -17,12 +17,12 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Status: promoted: C-20260928-1 · helpful 1 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-002 · 2026-09-28 · The wiki repository exists only after a first page is saved in the web UI (`first-page-click`)
-- Trigger: on DotNetRandomNameGenerator the first `git push` answered "Repository not found" although `has_wiki` was true; Mark saved a page and the push worked (2026-09-28). On get-title-at-url the same day, a placeholder repository appeared about a minute after `gh repo edit --enable-wiki`.
-- Hypothesis: GitHub creates `OWNER/REPO.wiki.git` lazily, on the first page save; no REST or GraphQL call creates a page. Why the enable call was followed by a placeholder on one repository is unknown.
-- Rule: run `wikiwright.py preflight` (ls-remote, re-checked for 60 seconds after enabling) before writing; when the repository is missing, ask for the click in the first message and keep working meanwhile. A placeholder-only wiki may be force-pushed over.
-- Evidence: DotNetRandomNameGenerator ai-docs note ("How it was published"); SKILL.md Step 1; references/publishing.md
+- Trigger: on DotNetRandomNameGenerator the first `git push` answered "Repository not found" although `has_wiki` was true; Mark saved a page and the push worked (2026-09-28). On get-title-at-url the same day, a placeholder repository appeared about a minute after `gh repo edit --enable-wiki`. Answered on seeded-random-utilities the same day: after `--enable` at 19:25:33 UTC, ls-remote every 5 seconds still found nothing at 61 seconds; Mark saved the first page at 19:27:28 (commit `ef61124`, "Initial Home page", his authorship) and ls-remote saw it at 19:27:39. get-title-at-url's placeholder `d652d15` carries the same message, the web UI's default, so it was a click too.
+- Hypothesis: GitHub creates `OWNER/REPO.wiki.git` lazily, on the first page save; no REST or GraphQL call creates a page. Enabling the feature never creates it (resolved 2026-09-28).
+- Rule: run `wikiwright.py preflight` (ls-remote, re-checked for 60 seconds after enabling) before writing; when the repository is missing, ask for the click in the first message and keep working meanwhile. Pages committed on the cloned placeholder push without force (L-010).
+- Evidence: DotNetRandomNameGenerator ai-docs note ("How it was published"); seeded-random-utilities ai-docs note of 2026-09-28 ("How it was published"); SKILL.md Step 1; references/publishing.md; RESEARCH.md (Current understanding)
 - Scope: skill
-- Status: promoted: C-20260928-1 · helpful 2 · harmful 0 · last_confirmed 2026-09-28
+- Status: promoted: C-20260928-1 · helpful 3 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-003 · 2026-09-28 · GitHub wiki repositories use the branch master (`wiki-branch-master`)
 - Trigger: both wiki clones came with `master` although the default of new repositories is `main` (2026-09-28).
@@ -99,18 +99,18 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 ### L-012 · 2026-09-28 · A plugin installed mid-session is not invocable; a user-skills junction is, after a delay (`midsession-skill-load`)
 - Trigger: after `claude plugin install wikiwright@mark-local` the Skill tool answered "Unknown skill" for `wikiwright:wikiwright`, and at first also for a junction in `~/.claude/skills/wikiwright`; a few seconds later the listing showed `wikiwright` and the junction invocation worked (Claude Code 2.1.281, Windows, 2026-09-28).
 - Hypothesis: Claude Code watches the user skills folder and reloads it with a short debounce; plugins load at session start.
-- Rule: to test a freshly written skill in the same session, link its folder into `~/.claude/skills/`, wait for the listing to show it, invoke, then remove the link so it does not duplicate the plugin. Headless evals (`claude -p`) see the installed plugin, which is a cached copy: `claude plugin update` keeps a stale cache while the version number is unchanged (it said "already at the latest version (0.1.0)" over the commit of the first install), so after editing the source, `claude plugin uninstall` and `install` again, then compare the cached SKILL.md's hash with the source (2026-09-28).
-- Evidence: this repository's ai-docs log, 2026-09-28
+- Rule: to test a freshly written skill in the same session, link its folder into `~/.claude/skills/`, wait for the listing to show it, invoke, then remove the link so it does not duplicate the plugin. Headless evals (`claude -p`) see the installed plugin, which is a cached copy: `claude plugin update` keeps a stale cache while the version number is unchanged (it said "already at the latest version (0.1.0)" over the commit of the first install), so after editing the source, `claude plugin uninstall` and `install` again, then compare the cached SKILL.md's hash with the source (2026-09-28). Second run, same day: with the plugin installed from a directory marketplace before the session began, the Skill tool served the SKILL.md text read at session start, even through a fresh junction to the edited source and with the source folder as the base directory; the edits made earlier in the session were missing. The references and script it points to are read from disk, so they were current. Rule: when a same-session run must exercise SKILL.md edits, follow the source file by hand and say so, or run it headless (`claude -p` reads the files at its own start).
+- Evidence: this repository's ai-docs log, 2026-09-28 (both runs)
 - Scope: env:claude-code
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-28
 
-### L-013 · 2026-09-28 · A wiki clone into the Claude Code scratchpad fails on Windows (`scratchpad-path-too-long`)
+### L-016 · 2026-09-28 · A wiki clone into the Claude Code scratchpad fails on Windows (`scratchpad-path-too-long`)
 - Trigger: `git clone https://github.com/m4bwav/get-title-at-url.wiki.git <scratchpad>/wiki` failed with "Filename too long" on `.git/hooks/applypatch-msg.sample`; retrying with `-c core.longpaths=true --template=` failed with "'$GIT_DIR' too big". The session scratchpad path was about 200 characters (Windows 11, Git for Windows, 2026-09-28). Preflight without `--clone` worked, and so did `npm install` of a package with no dependencies in the same folder.
 - Hypothesis: git's Windows path limit counts the whole `.git` path; the scratchpad leaves too little room.
 - Rule: on Windows, clone or inspect the wiki at a short path (the sibling `<clone>.wiki`, or a short temp folder) and not under the scratchpad. When a working copy already exists, `git -C <it> status -sb` plus preflight answer "does it exist" without cloning. For a draft-only request, preflight without `--enable`: it only reads.
-- Evidence: draft-only Home run for get-title-at-url, 2026-09-28
+- Evidence: draft-only Home run for get-title-at-url, 2026-09-28. Counter-case, same day: the seeded-random-utilities draft-only run cloned its placeholder wiki into a scratchpad path of about 150 characters without error, so the limit depends on the scratchpad's length, not on the scratchpad as such. The rule stands as the safe default.
 - Scope: env:windows
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-014 · 2026-09-28 · Replacing the fixture address can change console.log layout (`substitution-changes-layout`)
 - Trigger: drafting a new get-title-at-url Home page, `console.log(result)` printed `{ title, url, status }` on one line for `https://example.com/` but over four lines for the fixture's `http://127.0.0.1:<port>/` (Node 24.18, 2026-09-28).
@@ -126,4 +126,60 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: point action cases at a repository the skill has not touched (no wiki, no wiki note); grade verification by the install command in the trace, not by where the script was saved.
 - Evidence: T-20260928-2, evals/evals.json action-1 (baseline and evidence)
 - Scope: skill tests
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-015 · 2026-09-28 · A Home-only draft fails `check` on the sidebar and footer by design (`home-only-check`)
+- Trigger: `WW check wiki-draft --version 2.0.0` on a folder holding only Home.md exited 1 with `_Sidebar.md:0: error: missing` and `_Footer.md:0: error: missing`, and nothing else (seeded-random-utilities draft-only run, 2026-09-28).
+- Hypothesis: `check` assumes a full page set; a draft of one page cannot pass it without extra files nobody asked for.
+- Rule: for a draft of Home alone, run `check`, accept exactly those two errors, and say so in the report. Leave out links to pages that do not exist yet, since a published Home with them would show red "create page" links. Link the README, CHANGELOG, registry and issues instead, and name the missing per-page lines as work for the full wiki. Since 0.2.0, `check --partial` skips the sidebar and footer requirement (C-20260928-3).
+- Evidence: this run's work folder `ai-docs/notes/2026-09-28-wiki-home-draft.md`; confirmed by a second seeded-random-utilities draft-only run the same day, where README section anchors (checked for `id="user-content-…"` on the repository page) stood in for the unwritten pages; and by a third such run the same day (same two errors only, seven README anchors all present)
+- Scope: skill
+- Status: active · helpful 3 · harmful 0 · last_confirmed 2026-09-28
+
+### L-017 · 2026-09-28 · Headless eval runs write to the skill under test and see the session's files (`evals-touch-the-source`)
+- Trigger: during T-20260928-3, two action runs (skill arm) followed "capture learnings", read the overlay, which names the skill's source folder, and edited the source LEARNINGS.md (the entry now L-015 and a counter-case on L-016). One action-2 run answered "does the wiki exist" by `git fetch` in the sibling working copy this session had cloned minutes before, instead of preflight (2026-09-28).
+- Hypothesis: a headless run has the same filesystem, overlay and plugin paths as the session that launched it, so anything the session made before the suite is part of the case.
+- Rule: run the suite from a committed source tree and `git diff` it afterwards; review every eval-written entry (keep, renumber or drop) before committing. Create nothing a case can see (clones, notes, drafts) before the suite runs.
+- Evidence: T-20260928-3; `git diff skills/wikiwright/LEARNINGS.md` mid-suite; the a2run1 trace
+- Scope: skill tests
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-018 · 2026-09-28 · An action prompt that names the method cannot tell the arms apart (`unhinted-action-prompt`)
+- Trigger: action-1 asks for "a working example and its real output" and to "check whether the repo's wiki exists first"; against a repository with no wiki note the baseline still ran `git ls-remote` and `npm install seeded-random-utilities@2.0.0`. action-2, which asks only for "a Home page for the GitHub wiki", split the arms: both skill runs installed and ran the package, and neither baseline installed anything; both baselines showed the README's example with comments instead of output (2026-09-28).
+- Hypothesis: a capable model follows a method the prompt spells out; the skill's value is supplying the method when the user does not.
+- Rule: every action case gets an unhinted twin whose prompt is what a user would type; grade both, and treat the hinted case as a regression check only.
+- Evidence: T-20260928-3 (action-1 baseline passes; action-2 baselines 0/2 on the install)
+- Scope: skill tests
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-019 · 2026-09-28 · A saved script that does not print the pages' forms cannot re-verify them (`save-the-output-too`)
+- Trigger: update-mode rehearsal on get-title-at-url: the saved verification script ran clean against 3.0.0, but five outputs on the pages were not in its output: three converted by hand from JSON to the `console.log` or REPL form, headers rewritten as request lines, and npm's install output that never came from the script. The first run's note said "compare with the pages" and saved no output to diff against (2026-09-28).
+- Hypothesis: converting an output by hand after the run (the L-008 fix applied at write time) leaves the script one step behind the page; without a saved output, update mode has nothing to diff.
+- Rule: the script prints every output in the pages' form; its output is saved beside it with the fixture port replaced; `wikiwright.py outputs` passes before publishing and again in update mode; output that cannot come from the script carries `<!-- outputs: skip (reason) -->`.
+- Evidence: get-title-at-url ai-docs note ("Rehearsed 2026-09-28"), wiki commit 2807e56; C-20260928-3
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-020 · 2026-09-28 · Replay the repository's golden capture script against the old and the new version (`replay-the-golden-capture`)
+- Trigger: seeded-random-utilities keeps `test/golden/capture-1.1.4.cjs` and its output. Running that script today against 1.1.4 from npm (322 of 322 identical) and against 2.0.0 with one line patched (316 of 322; the six are the documented emoji exception, and the recorded quirks differ exactly as the CHANGELOG says) gave the Versions page evidence no changelog could (2026-09-28).
+- Hypothesis: a golden capture is a test the old version passes by construction; re-running it shows both that the old version still behaves as recorded and where the new one departs.
+- Rule: when a repository has golden captures, replay each capture script against the old version installed today and against the current one, compare case by case with the file, and put the counts and the differing cases on Versions and upgrading. Never rewrite the golden file.
+- Evidence: seeded-random-utilities wiki (Versions and upgrading) and its ai-docs note; references/page-sets.md (Versions row)
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-021 · 2026-09-28 · Deno, Bun, pnpm and yarn run from npm on a machine without them (`runtimes-from-npm`)
+- Trigger: the overlay says Bun and Deno are not installed on the development machine; `npm install deno bun` in a scratch folder gave working binaries (Deno 2.9.6, Bun 1.4.2), and corepack ran pnpm 10.34.5 and yarn 4.18.1, so Getting started could say "run" for all four. Yarn 4 installs with Plug'n'Play: `node script.mjs` failed with ERR_MODULE_NOT_FOUND and `yarn node script.mjs` worked (2026-09-28).
+- Hypothesis: both runtimes publish platform binaries as npm packages; corepack ships with Node 24.
+- Rule: before writing "not tested" for a runtime or package manager, try the npm route; with yarn 4 run the example through `yarn node`. Spawn the `.cmd` shims with `shell: true` on Windows.
+- Evidence: seeded-random-utilities wiki (Getting started); references/npm.md
+- Scope: env:any
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-022 · 2026-09-28 · Keep machine-dependent text out of a saved verification output (`machine-free-output`)
+- Trigger: the seeded-random-utilities script first printed the error for a `Date` seed, whose message contains the date in the local time zone ("GMT-0600 (Central Standard Time)"); a saved output with it would differ on every other machine and fail the diff in update mode (2026-09-28).
+- Hypothesis: seeded output is only diffable when nothing else in it depends on the machine (time zone, paths, ports, timings).
+- Rule: replace or leave out time-zone text, absolute paths, ports and timings in the saved output; show such values on a page only from a case that prints a stable form.
+- Evidence: seeded-random-utilities ai-docs note (Gotchas)
+- Scope: skill
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28

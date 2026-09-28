@@ -1,6 +1,21 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from three published wikis: a .NET library with seeded data (RandomNameGeneratorLibrary, 2026-09-28), a .NET formatter (JsonPrettyPrinter, 2026-09-28) and an npm library with a CLI (get-title-at-url, 2026-09-28).
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from four published wikis, all written on 2026-09-28:
+
+- RandomNameGeneratorLibrary: a .NET library with seeded data.
+- JsonPrettyPrinter: a .NET formatter.
+- get-title-at-url: an npm library with a CLI.
+- seeded-random-utilities: an npm library without a CLI, with seeded output and golden captures of two old versions.
+
+| Kind | Tested on |
+|---|---|
+| Library (npm, without a CLI) | seeded-random-utilities |
+| Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter |
+| Library with a command line (npm) | get-title-at-url |
+| Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
+| Command-line tool | not yet |
+| Application, website, monorepo | not yet (see the end of this page) |
+| Hosts other than GitHub | not yet ([hosts.md](hosts.md) is unverified) |
 
 ## Why a wiki beside the README
 
@@ -25,11 +40,32 @@ Every page earns its place with facts the README does not have. A page that only
 | The behaviour or output contract (named for the package: `Output-Format.md`, `How-Titles-Are-Chosen.md`, `Reproducible-Names.md`) | The exact rules the output follows, stated so a reader can predict any answer; what the package never changes; each rule with a verified example. |
 | Edge cases and errors (`Not-a-Validator.md`, `Errors-and-Edge-Cases.md`) | Odd inputs and what comes back for each, every error with its exact message, what the package refuses to do and why. |
 | Recipes (`Recipes.md`) | Real tasks: files, HTTP, tests, logging, framework integration, other languages. Each recipe runs as shown. |
-| Versions and upgrading (`Versions-and-Upgrading.md`) | Every release with its date (from the registry), what changed for callers, and a section per old major on moving to the current one, from the CHANGELOG and a golden capture of the old version, or the old major run against the same fixture when there is none. Whether each old version still installs, whether it is deprecated, and its recent downloads. |
+| Versions and upgrading (`Versions-and-Upgrading.md`) | Every release with its date (from the registry), what changed for callers, and a section per old major on moving to the current one, from the CHANGELOG and a golden capture of the old version, or the old major run against the same fixture when there is none (see "Golden captures" below). Whether each old version still installs, whether it is deprecated, and its recent downloads. The same calls on the old and the new version side by side, with their real output. |
 | FAQ (`FAQ.md`) | The questions the issues, pull requests, README and survey raise, answered in two to five sentences each, linking the page with the detail. |
 | Development (`Development.md`) | Clone, build, test, lint commands, the CI matrix, how a release is made, where the maintainer's notes are (AGENTS.md, ai-docs). |
 | Optional: Performance (`Performance-and-Threading.md`) | Only with a benchmark or a thread-safety question to answer: the numbers with the machine and date, what is safe to share. |
 | Optional: data sources (`Name-Lists-and-Data-Sources.md`) | Only when the package embeds data: where it comes from, counts, licence, known quirks. |
+
+An npm library without a command line takes exactly the table above: seeded-random-utilities had nine pages, with no Commands page. Its Getting started page ran every install route it names (npm, pnpm, yarn 4, Bun, Deno; see [npm.md](npm.md#other-runtimes-and-package-managers)), both module systems and a TypeScript compile that shows a real type error.
+
+## Deterministic or seeded output
+
+When the same input always gives the same output (a seeded generator, a formatter, embedded name lists), the wiki can promise exact output, and should:
+
+- Name the behaviour page after the promise (`Same-Seed-Same-Sequence.md`, `Reproducible-Names.md`). It says what stays the same across runs, runtimes, module systems and versions, each with the run that showed it, and what breaks the promise (a different order of calls, no seed, another library with the same algorithm names, floating-point functions engines approximate).
+- Show how the output is consumed, when that decides reproducibility: how many draws each call takes, and that one extra call moves everything after it.
+- Run each example twice and under each runtime the pages name, and compare. Save the script's output: seeded output is identical on every run, so the next release diffs it line by line (L-019 `save-the-output-too`). Keep time zones, paths, ports and timings out of it (L-022 `machine-free-output`).
+
+## Golden captures
+
+A repository modernized with package-modernize, or any repository that recorded an old version's behaviour (`test/golden/`, a capture script beside a JSON file), hands Versions and upgrading its best evidence (L-020 `replay-the-golden-capture`):
+
+1. Install the old version from the registry into its own scratch folder and run its capture script there. Compare the result with the golden file case by case. Identical means the recording still stands in for the old version.
+2. Run the same capture script against the current published version, changing only what must change (a dependency's version line), and compare again. The differing cases and changed quirks are the upgrade notes; each should match a CHANGELOG entry, and one that does not is a finding.
+3. Run any capture of the current version (`capture-2.0.0.cjs`) against the published build.
+4. Put the counts and the differing cases on the page. Only read the golden files, never rewrite them.
+
+On seeded-random-utilities: 1.1.4 today matched its recording in 322 of 322 cases, 2.0.0 in 316 (the six were the documented emoji exception), and 2.0.0 its own recording in 150 of 150.
 
 ## Library with a command line
 
@@ -41,7 +77,7 @@ Home, Getting started (install and uninstall, shell completion if any), Commands
 
 ## Not yet covered
 
-An application, a website, a monorepo with several packages, and hosts other than GitHub (GitLab and Gitea wikis are also git repositories, with other page rules) have no tested page set. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
+An application, a website, a monorepo with several packages, and hosts other than GitHub have no tested page set. [hosts.md](hosts.md) collects what the GitLab, Gitea, Forgejo and Azure DevOps docs say, unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
 
 ## Conventions every page follows
 

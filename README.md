@@ -11,20 +11,20 @@ A README has to stay short because it ships inside the package. A wiki can hold 
 - answers to the questions in the issues
 - how the project is built and released
 
-wikiwright writes those pages from the source, tests, changelog, issues and registry data. Every example's output comes from the version users install, never from the working tree. Writing the first three wikis this way turned up mistakes in each package's shipped README or changelog; the skill lists such mistakes for the maintainer instead of repeating them.
+wikiwright writes those pages from the source, tests, changelog, issues and registry data. Every example's output comes from the version users install, never from the working tree. Writing the first four wikis this way turned up mistakes in each package's shipped README or changelog; the skill lists such mistakes for the maintainer instead of repeating them.
 
 ## What it does
 
-1. A preflight checks that the wiki feature is on (it can switch it on), that the `OWNER/REPO.wiki.git` repository exists, and whether it holds only GitHub's placeholder. GitHub creates that repository only when someone saves a first page in the web UI, and there is no API for it. When the page is missing, the skill asks for that one click at the start and keeps working meanwhile.
+1. A preflight checks that the wiki feature is on (it can switch it on), that the `OWNER/REPO.wiki.git` repository exists, and whether it holds only GitHub's placeholder. GitHub creates that repository only when someone saves a first page in the web UI: switching the feature on does not (tested 2026-09-28), and there is no API for it. When the page is missing, the skill asks for that one click at the start and keeps working meanwhile.
 2. The survey reads the README, CHANGELOG, AGENTS.md, source, tests, CI workflows, releases, issues and pull requests, `ai-docs/` notes, and the registry (versions and dates, downloads, package contents, dependencies).
-3. A verification script installs the published version into a scratch folder and runs every example the pages will show. For npm that covers ESM, CommonJS and the CLI, with a local fixture server for packages that make requests. For NuGet it is a .NET 10 file-based app, plus F# and PowerShell where the pages show them. The script is kept in the repository so the next release can run it again.
+3. A verification script installs the published version into a scratch folder and runs every example the pages will show. For npm that covers ESM, CommonJS and the CLI, with a local fixture server for packages that make requests. For NuGet it is a .NET 10 file-based app, plus F# and PowerShell where the pages show them. Deno, Bun, pnpm and yarn run from npm when they are not installed. When the repository keeps golden captures of old versions, their capture scripts are replayed against the old and the new version. The script and its output are kept in the repository so the next release can run it again and diff.
 4. The pages follow the set for the repository's kind. A library gets Home, Getting started, API reference, a behaviour page, edge cases and errors, Recipes, Versions and upgrading, FAQ and Development, and a library with a CLI adds Commands. Every wiki gets a sidebar and a footer that names the version and the date.
-5. Before publishing, `wikiwright.py check` covers links, anchors, line endings, leftover placeholders, the sidebar and footer, and AI attribution. Then the skill pushes the pages, and `wikiwright.py live` confirms every page answers and the sidebar and footer render.
+5. Before publishing, `wikiwright.py check` covers links, anchors, line endings, leftover placeholders, the sidebar and footer, and AI attribution. `wikiwright.py outputs` finds every block a page presents as output and every `//=>` value, and reports each one the verification run did not print. Then the skill pushes the pages, and `wikiwright.py live` confirms every page answers and the sidebar and footer render.
 6. The run records a note in the repository's `ai-docs/notes/` with the pages, the verified facts, the inaccuracies found and the update procedure for the next release.
 
-Update mode ("update the wiki for 2.4.0") re-runs the saved verification script on the new version and fixes the pages that changed.
+Update mode ("update the wiki for 2.4.0") re-runs the saved verification script on the new version, diffs its output with the saved one, and fixes the pages that changed.
 
-Tested page sets: an npm library with a CLI, and NuGet libraries. Applications, monorepos and other wiki hosts (GitLab, Gitea) have no tested page set yet.
+Tested page sets: npm libraries with and without a CLI, NuGet libraries, and packages with seeded or deterministic output. Applications, monorepos and command-line tools have no tested page set yet. GitLab, Gitea, Forgejo and Azure DevOps wikis are described in `references/hosts.md` from their documentation, unverified; the preflight says so when the remote is not GitHub.
 
 ## Install
 
@@ -43,6 +43,7 @@ The helper script needs Python 3.9 or newer, `git`, and the GitHub CLI (`gh`) lo
 ```
 python skills/wikiwright/scripts/wikiwright.py preflight OWNER/REPO --enable --clone ../REPO.wiki
 python skills/wikiwright/scripts/wikiwright.py check ../REPO.wiki --version 1.2.0
+python skills/wikiwright/scripts/wikiwright.py outputs ../REPO.wiki ai-docs/notes/<date>-wiki-verify.out.txt
 python skills/wikiwright/scripts/wikiwright.py live OWNER/REPO ../REPO.wiki
 ```
 

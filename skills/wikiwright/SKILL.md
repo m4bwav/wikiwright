@@ -2,12 +2,12 @@
 name: wikiwright
 description: "Write or update a repository's GitHub wiki from the repository and its registry: survey the README, changelog, source, tests, issues and registry data, verify every example against the published package (npm or NuGet), write the page set for the repository's kind (Home, Getting started, API reference, behaviour, errors, Recipes, Commands, Versions and upgrading, FAQ, Development) with a sidebar and footer, push the .wiki.git repository and check every page is live. Use whenever the user asks to write, fill out, generate, create or update a wiki for a repo or package ('write a wiki for this repo', 'fill out the GitHub wiki', 'update the wiki for 2.4.0', 'wiki pages for my library', 'the wiki is empty'), or a package-modernize run reaches its wiki step. Also for 'refresh wikiwright' and 'is wikiwright stale'. Not for the README alone, a docs site (GitHub Pages, Docusaurus), an Obsidian vault (obsidian-notes) or ai-docs (everlast)."
 metadata:
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # wikiwright
 
-Writes a GitHub wiki that says what the README cannot: the exact behaviour, every error, recipes, the upgrade path from each old version, answers to the questions people ask, and how the project is built, with every example's output produced by the published package. Then it publishes the wiki and records how to update it at the next release. Built from three runs: RandomNameGeneratorLibrary and JsonPrettyPrinter (NuGet) and get-title-at-url (npm with a CLI), all on 2026-09-28.
+Writes a GitHub wiki that says what the README cannot: the exact behaviour, every error, recipes, the upgrade path from each old version, answers to the questions people ask, and how the project is built, with every example's output produced by the published package. Then it publishes the wiki and records how to update it at the next release. Built from four runs on 2026-09-28: RandomNameGeneratorLibrary and JsonPrettyPrinter (NuGet), get-title-at-url (npm with a CLI) and seeded-random-utilities (npm without a CLI, seeded output, golden captures).
 
 `WW` below means `python "<this folder>/scripts/wikiwright.py"` (`python3` on macOS and Linux; standard library only).
 
@@ -27,7 +27,7 @@ A new wiki, where the repository has none or only GitHub's placeholder, takes St
 WW preflight OWNER/REPO --enable --clone <clone>.wiki
 ```
 
-`<clone>.wiki` is a sibling of the repository's clone (`D:\code\widget` gets `D:\code\widget.wiki`). The states and what each needs are in [references/publishing.md](references/publishing.md). The one that needs a person: `no-wiki-repo`. GitHub creates the wiki repository only when someone saves a first page in the web UI, and no API can do it. Ask the maintainer for that click **in your first message**, give them the `/wiki/_new` URL, and carry on with Steps 2 to 6 while they do it; run preflight again before Step 7. `has-pages` means someone wrote pages already: read them all and update in place.
+`<clone>.wiki` is a sibling of the repository's clone (`D:\code\widget` gets `D:\code\widget.wiki`). OWNER/REPO may also be a remote URL or the clone's path. The states and what each needs are in [references/publishing.md](references/publishing.md). The one that needs a person: `no-wiki-repo`. GitHub creates the wiki repository only when someone saves a first page in the web UI; switching the feature on does not create it (tested 2026-09-28: still missing 61 seconds after `--enable`, present 11 seconds after the maintainer's save), and no API can. Ask the maintainer for that click **in your first message**, give them the `/wiki/_new` URL, and carry on with Steps 2 to 6 while they do it; run preflight again before Step 7. `has-pages` means someone wrote pages already: read them all and update in place. `other-host` (GitLab, Gitea, Forgejo, Azure DevOps): read [references/hosts.md](references/hosts.md), which is unverified, and say so to the user.
 
 ## Step 2: survey
 
@@ -37,17 +37,19 @@ Keep a running list of two things from here to the end, because they are half of
 
 ## Step 3: choose the page set
 
-Pick the set for the repository's kind from [references/page-sets.md](references/page-sets.md): a library, a library with a command line (adds Commands), or a command-line tool. Name the behaviour page after what the package does (`Output-Format`, `How-Titles-Are-Chosen`). Add a performance or data-source page only when there is a benchmark or embedded data to describe. An application, a monorepo or a non-GitHub host has no tested set yet: say so, use the fallback there and record the lessons.
+Pick the set for the repository's kind from [references/page-sets.md](references/page-sets.md): a library (with or without a command line: a CLI adds Commands), a library whose output is seeded or deterministic (adds a reproducibility page), or a command-line tool. Name the behaviour page after what the package does (`Output-Format`, `How-Titles-Are-Chosen`). Add a performance or data-source page only when there is a benchmark or embedded data to describe. An application, a monorepo or a non-GitHub host has no tested set yet: say so, use the fallback there and record the lessons.
 
 ## Step 4: verify every example against the published package
 
 Before an example goes on a page, run it against the **published** version, installed from the registry into a scratch folder outside the repository, never against the working tree (the wiki documents what users install, and the tree may be ahead). Templates: [templates/npm/wiki-verify.template.mjs](templates/npm/wiki-verify.template.mjs) (ESM, CommonJS, the bin, a local fixture server) and [templates/nuget/wiki-verify.template.cs](templates/nuget/wiki-verify.template.cs) (a .NET 10 file-based app; `#:property PublishAot=false` is required, see the reference). Each example is one labelled case; paste outputs exactly as printed.
 
 - A package that makes requests is verified against a local fixture server, never the internet, as its own tests are.
-- Every runtime, language or host the pages show (F#, PowerShell, Deno, Bun, .NET Framework) is run or marked "not tested" on the page.
+- Every runtime, language, package manager or host the pages show (F#, PowerShell, Deno, Bun, pnpm, yarn, .NET Framework) is run or marked "not tested" on the page. Deno and Bun install from npm and corepack runs pnpm and yarn, so a machine without them can still run them ([references/npm.md](references/npm.md), L-021 `runtimes-from-npm`).
 - Print each output in the form the page shows it: a page that shows `console.log` output needs the script to print with `console.log`, not JSON (L-008 `print-as-the-page-shows`).
 - For Versions and upgrading, install each old major in its own scratch folder and run the same fixture cases against it, unless a golden capture of it already exists (L-011 `run-the-old-majors`). A version that no longer installs or imports is a finding.
-- Save the filled-in script in the repository as `ai-docs/notes/<date>-wiki-verify.<ext>` so the next release can run it again.
+- Every output the pages show comes from this script, including ones shown in a different form (`console.log` layout, a REPL `//=>` line, headers as request lines): add a case that prints that form rather than converting by hand. Output that cannot come from it (npm's own install lines, with a timing) is marked on the page with `<!-- outputs: skip (reason) -->`.
+- Save the filled-in script in the repository as `ai-docs/notes/<date>-wiki-verify.<ext>`, and its output beside it as `<date>-wiki-verify.out.txt` with the fixture port replaced by `<port>`, so the next release can run it again and diff.
+- Seeded or deterministic output: run each example twice, and in each module system and runtime the pages name, and compare; the wiki can then promise the exact output. When the repository keeps golden captures of old versions (`test/golden/`), they feed Versions and upgrading: compare the old version run today with its capture, never trust either alone ([references/page-sets.md](references/page-sets.md)).
 - Run the repository's own tests once too; the counts go in the note.
 
 ## Step 5: write the pages
@@ -75,10 +77,11 @@ First reread every page once with one question per sentence: which script output
 
 ```
 WW check <wiki dir> --version X
+WW outputs <wiki dir> <the saved wiki-verify.out.txt>
 python <everwrite>/scripts/tells.py <wiki dir>/*.md
 ```
 
-`check` must exit 0. It covers page links and anchors, wikilinks, CRLF, `<BS>` leftovers, sidebar and footer, unclosed fences and attribution. The prose checker must report 0 strong findings; judge weak ones (quoted error messages are fine).
+`check` must exit 0. It covers page links and anchors, wikilinks, CRLF, `<BS>` leftovers, sidebar and footer, unclosed fences and attribution (`--partial` for a draft of a few pages without sidebar and footer). `outputs` must exit 0: it finds every block a page presents as output and every `//=>` value, and reports each one the verification run did not print. It maps the fixture's `http://127.0.0.1:<port>` to `https://example.com` (`--address` changes that) and follows `<!-- outputs: skip -->` and `<!-- outputs: check -->`. A block counts as output when its fence is `text`, `console` or `output`, or when the line before it ends with a colon after a word like "Output", "is", "gives", "prints" or "returns". Commands in a `$ ` transcript are skipped; what follows each one is checked. The prose checker must report 0 strong findings; judge weak ones (quoted error messages are fine).
 
 ## Step 7: publish
 
@@ -92,13 +95,13 @@ Every page must answer 200 (Home 301 to `/wiki`), and the sidebar and footer mus
 
 ## Step 8: record
 
-In the repository, write `ai-docs/notes/<date>-github-wiki.md` from [templates/wiki-note.template.md](templates/wiki-note.template.md). It holds the pages, the working-copy path, how the wiki was published and how the examples were verified. It also lists the facts the README lacks, the numbered inaccuracies, and the update procedure with the pages that name the version. Add a line to `ai-docs/HANDOFF.md` and a log entry (everlast: `everlast.py` or `ai-docs/log.md`), then commit and push the repository. Leave the README and CHANGELOG as they are unless asked. They ship inside the package and reach the registry page only with a release, so list the inaccuracies for the maintainer; they get fixed on request or in the next release. When the overlay keeps a list of wikis, move this repository to done.
+In the repository, write `ai-docs/notes/<date>-github-wiki.md` from [templates/wiki-note.template.md](templates/wiki-note.template.md), next to the verification script and its saved output. It holds the pages, the working-copy path, how the wiki was published and how the examples were verified. It also lists the facts the README lacks, the numbered inaccuracies, and the update procedure with the pages that name the version. Add a line to `ai-docs/HANDOFF.md` and a log entry (everlast: `everlast.py` or `ai-docs/log.md`), then commit and push the repository. Leave the README and CHANGELOG as they are unless asked. They ship inside the package and reach the registry page only with a release, so list the inaccuracies for the maintainer; they get fixed on request or in the next release. When the overlay keeps a list of wikis, move this repository to done.
 
 ## Update mode
 
 1. Read the repository's wiki note; `git -C <wiki dir> pull --ff-only`.
 2. Read the CHANGELOG entries since the version the footer names; survey the new version on the registry.
-3. Bump the version in the verification script, run it against the new published version, and diff its output with the previous run's; every difference is a page to fix.
+3. Bump the version in the verification script, run it against the new published version (old-major folders included), and diff its output with the saved `*-wiki-verify.out.txt` after replacing the port; every difference is a page to fix. Then `WW outputs <wiki dir> <new output>` lists every page output the new run no longer prints. Save the new output over the old. A wiki made before 0.2.0 has no saved output: run the script against the version the footer names first, and fix every `outputs` finding before bumping (rehearsed on get-title-at-url, 2026-09-28: five page outputs the script had never printed in the pages' form).
 4. Update the pages that name the version (the note lists them), Versions and upgrading, the API reference for new or changed members (with the new version as "introduced in"), and the footer's version and date.
 5. Steps 6 to 8, with the note updated rather than replaced and a new log entry.
 

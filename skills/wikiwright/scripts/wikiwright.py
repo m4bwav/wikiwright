@@ -2,15 +2,20 @@
 """wikiwright helper: the mechanical half of writing a GitHub wiki.
 
 Subcommands
-  preflight OWNER/REPO [--enable] [--wait SEC] [--clone DIR]
+  preflight OWNER/REPO|URL|CLONE [--enable] [--wait SEC] [--clone DIR]
       Is the wiki feature on, does the .wiki.git repository exist, and is it
       only GitHub's placeholder? Optionally switch the feature on, wait and
-      re-check, and clone the wiki as a working copy.
-  check DIR [--version X] [--repo OWNER/REPO]
+      re-check, and clone the wiki as a working copy. A remote on another
+      host (GitLab, Gitea, Forgejo, Azure DevOps) stops with STATE: other-host.
+  check DIR [--version X] [--partial]
       Lint a wiki working copy before pushing: page links resolve, anchors
       exist, no wikilinks, LF only, no <BS> placeholders left, sidebar and
-      footer present, footer names the version and a date, fences balanced,
-      no AI attribution.
+      footer present (not with --partial), footer names the version and a
+      date, fences balanced, no AI attribution.
+  outputs DIR VERIFY_OUTPUT... [--address URL]
+      Every block a page presents as output, and every //=> value, must
+      appear in the verification script's saved output (the fixture's
+      http://127.0.0.1:<port> read as https://example.com).
   live OWNER/REPO DIR
       After the push: every page answers 200 (Home answers 301 to /wiki),
       and the sidebar and footer text render on the wiki root.
@@ -32,7 +37,7 @@ import time
 import urllib.error
 import urllib.request
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 BS = "<BS>"
 BACKSLASH = chr(92)
 SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md")
@@ -66,7 +71,47 @@ def ls_remote(repo):
 
 # ---------------------------------------------------------------- preflight
 
+HOSTS = (
+    (re.compile(r"(^|\.)gitlab\.", re.I), "GitLab"),
+    (re.compile(r"(^|\.)(codeberg\.org|gitea\.|forgejo\.)", re.I), "Gitea or Forgejo"),
+    (re.compile(r"(^|\.)(dev\.azure\.com|visualstudio\.com)$", re.I), "Azure DevOps"),
+)
+
+
+def resolve_repo(arg):
+    """(host, OWNER/REPO) from OWNER/REPO, a remote URL, or a local clone's origin."""
+    if os.path.isdir(arg):
+        p = run(["git", "-C", arg, "remote", "get-url", "origin"])
+        if p.returncode != 0:
+            return None, None
+        arg = p.stdout.strip()
+    m = re.match(r"^(?:[a-z+]+://)?(?:[^@/]+@)?([^/:]+\.[^/:]+)[:/](.+?)(?:\.git)?/?$", arg, re.I)
+    if m:
+        return m.group(1).lower(), m.group(2)
+    if re.match(r"^[\w.-]+/[\w.-]+$", arg):
+        return "github.com", arg
+    return None, None
+
+
+def host_name(host):
+    for pattern, name in HOSTS:
+        if pattern.search(host):
+            return name
+    return "an unknown host"
+
+
 def cmd_preflight(a):
+    host, repo = resolve_repo(a.repo)
+    if host is None:
+        print("error: %s is not OWNER/REPO, a remote URL or a clone with an origin" % a.repo)
+        return 2
+    if host not in ("github.com", "www.github.com"):
+        print("repo: %s on %s" % (repo, host))
+        print("STATE: other-host (%s). preflight, check's link rules and live cover GitHub only." % host_name(host))
+        print("       What that host's wiki needs (clone URL, branch, first page, page names, sidebar,")
+        print("       API) is in references/hosts.md, unverified until a run uses it.")
+        return 2
+    a.repo = repo
     p = run(["gh", "repo", "view", a.repo, "--json", "hasWikiEnabled,visibility,isArchived,defaultBranchRef"])
     if p.returncode != 0:
         print("error: gh repo view failed: " + p.stderr.strip())
@@ -90,14 +135,16 @@ def cmd_preflight(a):
             return 2
         print("wiki feature: switched on")
         enabled_now = True
+    started = time.monotonic()
     ok, heads, err = ls_remote(a.repo)
-    waited = 0
     wait = a.wait if a.wait is not None else (60 if enabled_now else 0)
-    while not ok and waited < wait:
-        step = min(15, wait - waited)
-        time.sleep(step)
-        waited += step
+    while not ok and time.monotonic() - started < wait:
+        print("ls-remote: missing at %ds" % (time.monotonic() - started))
+        time.sleep(min(5, max(0, wait - (time.monotonic() - started))))
         ok, heads, err = ls_remote(a.repo)
+    waited = int(time.monotonic() - started)
+    if ok and enabled_now:
+        print("ls-remote: found %ds after enabling" % waited)
     if not ok:
         print("ls-remote: %s (after %ss)" % (err or "no refs", waited))
         print("STATE: no-wiki-repo")
@@ -129,7 +176,7 @@ def cmd_preflight(a):
         size = os.path.getsize(os.path.join(a.clone, "Home.md"))
     print("commits: %s  files: %d (%s)" % (commits, len(files), ", ".join(files[:12]) + (" ..." if len(files) > 12 else "")))
     if commits == "1" and files == ["Home.md"] and size < 200:
-        print("STATE: placeholder (only GitHub's first page; the new pages may replace it, force-push allowed)")
+        print("STATE: placeholder (only GitHub's first page; write the pages in this clone, commit and push: no force needed)")
     else:
         print("STATE: has-pages (existing content: read every page first; update, never overwrite)")
     return 0
@@ -209,8 +256,8 @@ def cmd_check(a):
     if "Home.md" not in pages:
         err("Home.md", 0, "missing (the wiki's front page)")
     for special in ("_Sidebar.md", "_Footer.md"):
-        if special not in pages:
-            err(special, 0, "missing")
+        if special not in pages and not a.partial:
+            err(special, 0, "missing (a draft of a few pages: --partial)")
     anchors = {f[:-3].lower(): headings(page_text(os.path.join(d, f))[1]) for f in pages}
     linked_from_sidebar = set()
     for f in pages:
@@ -333,6 +380,122 @@ def cmd_live(a):
     return 1 if bad else 0
 
 
+# ---------------------------------------------------------------- outputs
+
+# A prose line that introduces an output block: it ends with a colon and names what follows
+# as output ("Output:", "`pretty` is:", "gives:", "prints, exit code 2:").
+OUT_INTRO = re.compile(
+    r"(?i)\b(output|outputs|is|are|gives?|gave|prints?|printed|returns?|returned|shows?|"
+    r"exits?|stdout|stderr|logs?|logged|answers?|answered|received|result)\b[^:]*:[\s)*_`]*$")
+ARROW = re.compile(r"//\s?=>\s?(.*\S)")
+PROMPT = re.compile(r"^(\$|PS>|PS [A-Z]:.*>|>)( |$)")
+FIXTURE = re.compile(r"http://127\.0\.0\.1:(?:[0-9]+|<port>)")
+PORT = re.compile(r"127\.0\.0\.1:[0-9]+")
+LANGS_OUTPUT = {"text", "txt", "plaintext", "console", "output"}
+LANGS_DATA = {"json", "jsonc", "json5", "xml", "html", "yaml", "yml", "csv", "tsv"}
+
+
+def normalise_output(text, address):
+    text = text.replace("\r\n", "\n")
+    text = "\n".join(line.rstrip() for line in text.split("\n"))
+    text = FIXTURE.sub("<FIXTURE>", text)
+    text = PORT.sub("127.0.0.1:<port>", text)
+    if address:
+        text = text.replace(address.rstrip("/"), "<FIXTURE>")
+    return text
+
+
+def output_blocks(text):
+    """(line, kind, content) for every output a page presents: kind 'block' or 'arrow'."""
+    found, lines = [], text.split("\n")
+    i, prev, directive = 0, "", None
+    while i < len(lines):
+        line = lines[i]
+        m = re.match(r"^(\s*)(```+|~~~+)\s*([\w+-]*)", line)
+        if not m:
+            stripped = line.strip()
+            d = re.match(r"^<!--\s*outputs:\s*(skip|check)\b.*-->$", stripped)
+            if d:
+                directive = d.group(1)
+            elif stripped:
+                prev = stripped
+            i += 1
+            continue
+        indent, fence, lang = m.group(1), m.group(2), m.group(3).lower()
+        start, body = i + 1, []
+        i += 1
+        while i < len(lines) and not re.match(r"^\s*" + re.escape(fence[0]) + "{%d,}\\s*$" % len(fence), lines[i]):
+            body.append(lines[i][len(indent):] if lines[i].startswith(indent) else lines[i])
+            i += 1
+        i += 1
+        # text, console and output fences hold output; an untagged fence does when the line
+        # before it says so; a code fence never does (only its //=> lines are checked).
+        is_output = directive == "check" or lang in LANGS_OUTPUT or (
+            directive != "skip" and (not lang or lang in LANGS_DATA) and bool(OUT_INTRO.search(prev)))
+        if directive == "skip":
+            found.append((start, "skip", "\n".join(body)))
+        elif is_output and any(PROMPT.match(b) for b in body):
+            # A terminal transcript: check what follows each command, not the commands.
+            chunk, chunk_line = [], start
+            for n, b in enumerate(body + ["$ "]):
+                if PROMPT.match(b):
+                    if "\n".join(chunk).strip():
+                        found.append((chunk_line, "block", "\n".join(chunk).strip("\n")))
+                    chunk, chunk_line = [], start + n + 1
+                else:
+                    chunk.append(b)
+        elif is_output:
+            found.append((start, "block", "\n".join(body)))
+        else:
+            for n, b in enumerate(body):
+                a = ARROW.search(b)
+                if a:
+                    found.append((start + n + 1, "arrow", a.group(1)))
+        prev, directive = "", None
+    return found
+
+
+def cmd_outputs(a):
+    if not os.path.isdir(a.dir):
+        print("error: %s is not a directory" % a.dir)
+        return 2
+    runs = []
+    for path in a.verify:
+        with open(path, "rb") as fh:
+            runs.append(normalise_output(fh.read().decode("utf-8", errors="replace"), a.address))
+    out = "\n".join(runs)
+    loose = " ".join(out.split())
+    out_lines = {line.strip() for line in out.split("\n")}
+    pages = sorted(f for f in os.listdir(a.dir) if f.endswith(".md") and f not in SPECIAL)
+    checked = missing = skipped = 0
+    for f in pages:
+        text = page_text(os.path.join(a.dir, f))[1].replace("\r\n", "\n")
+        for line, kind, content in output_blocks(text):
+            if kind == "skip":
+                skipped += 1
+                print("%s:%d: skip: marked <!-- outputs: skip -->" % (f, line))
+                continue
+            want = normalise_output(content, a.address).strip("\n")
+            if not want.strip():
+                continue
+            checked += 1
+            if kind == "arrow":
+                # A short value ("2", "true") must be a whole line of the output, or it would match anywhere.
+                bare = want[1:-1] if len(want) > 1 and want[0] == want[-1] and want[0] in "'\"`" else want
+                if want in out_lines or bare in out_lines or (len(bare) >= 8 and (want in out or bare in out)):
+                    continue
+            elif want in out:
+                continue
+            missing += 1
+            first = want.strip().split("\n")[0][:70]
+            relaid = kind == "block" and " ".join(want.split()) in loose
+            hint = " (found with different spacing: the layout differs, L-008)" if relaid else ""
+            print("%s:%d: error: %s not in the verify output%s: %s" % (
+                f, line, "output block" if kind == "block" else "//=> value", hint, first))
+    print("outputs: %d pages, %d outputs checked, %d missing, %d skipped" % (len(pages), checked, missing, skipped))
+    return 1 if missing else 0
+
+
 # ---------------------------------------------------------------- unbs
 
 def cmd_unbs(a):
@@ -363,11 +526,20 @@ def main(argv=None):
     c = sub.add_parser("check", help="lint a wiki working copy")
     c.add_argument("dir")
     c.add_argument("--version", dest="version", help="the package version the footer must name")
+    c.add_argument("--partial", action="store_true",
+                   help="a draft of some pages: no sidebar or footer required")
     c.set_defaults(fn=cmd_check)
     lv = sub.add_parser("live", help="check the published pages")
     lv.add_argument("repo", help="OWNER/REPO")
     lv.add_argument("dir", help="the working copy (for the page list, sidebar and footer)")
     lv.set_defaults(fn=cmd_live)
+    o = sub.add_parser("outputs", help="every output a page shows appears in the verify output")
+    o.add_argument("dir", help="the wiki working copy (or a folder of draft pages)")
+    o.add_argument("verify", nargs="+", help="the verification script's saved output (one or more files)")
+    o.add_argument("--address", default="https://example.com",
+                   help="the address pages show in place of the fixture's http://127.0.0.1:<port> "
+                        "(default https://example.com; pass '' for none)")
+    o.set_defaults(fn=cmd_outputs)
     u = sub.add_parser("unbs", help="replace <BS> placeholders with backslashes")
     u.add_argument("files", nargs="+")
     u.set_defaults(fn=cmd_unbs)
