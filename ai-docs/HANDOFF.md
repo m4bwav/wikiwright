@@ -1,6 +1,6 @@
 # Handoff
 
-Updated 2026-09-28 (0.2.0 released). Read this first, then [log.md](log.md) for evidence.
+Updated 2026-09-28 (0.2.0 released; package-modernize pull request #12 merged the matching Phase 6 and Phase 7 lines). Read this first, then [log.md](log.md) for evidence.
 
 ## Current state
 
