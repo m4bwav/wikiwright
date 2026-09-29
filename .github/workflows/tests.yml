@@ -22,8 +22,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
       - name: test suite
         run: python tests/test_wikiwright.py
+      - name: the host-fixture kit (skipped without OpenSSL 3; nothing leaves the runner)
+        run: node --test tests/host-fixture.test.mjs
       - name: the helper answers from a clean checkout
         run: |
           python skills/wikiwright/scripts/wikiwright.py --version

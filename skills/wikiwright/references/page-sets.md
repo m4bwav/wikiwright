@@ -107,6 +107,18 @@ An application, a website, a monorepo with several packages, a command-line tool
 - No AI attribution in pages or wiki commits.
 - Prose is checked with the everwrite checker when it is installed (`tells.py *.md`); zero strong findings.
 
+## How `wikiwright.py outputs` reads a page
+
+It finds every block a page presents as output and every `//=>` value, and reports each one the verification run did not print. It maps the fixture's `http://127.0.0.1:<port>` to `https://example.com` (`--address` changes that; `--address ''` when the pages show real host names).
+
+- **Output blocks.** A block counts as output when:
+  - its fence is `text`, `console` or `output`;
+  - the line before it ends with a colon and one of the six words before the colon is like "Output", "is", "gives", "prints" or "returns", or it is a short connective such as "becomes";
+  - it follows its input block or its code block directly, untagged. A command right after a code block therefore needs its fence tag (```sh).
+- **Values in code blocks.** `//=>` and `# =>` values, quoted or JSON-like values in comments, comments after a print call or on a PowerShell expression line, and comment lines that close a block (the NuGet wikis' forms, L-110 `outputs-in-comments`).
+- **Transcripts.** Commands in a `$ ` transcript are skipped; what follows each one is checked.
+- **Markers** on the line before a block: `<!-- outputs: skip (reason) -->` for output no script can print (npm's install lines with a timing); `<!-- outputs: check -->` to force a block to be read as output; `<!-- outputs: node>=22 -->` (also `<=`, `=`, `<`, `>`, and combined as `check node<22`) for a block true on some Node lines only. A scoped block is checked only against the outputs whose `Node vN` line (the template's `installed` section, or `--node N`) is in range, and skipped when none is (L-119 `diffout-first-use`).
+
 ## Sidebar and footer
 
 `_Sidebar.md` groups the pages under short plain-text labels (for example "Using it", "The releases", "Contributing", "Elsewhere") and links every page plus the README, CHANGELOG and registry page. `_Footer.md` is one line:

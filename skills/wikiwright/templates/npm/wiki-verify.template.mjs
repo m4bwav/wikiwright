@@ -98,6 +98,12 @@ function run(file, args, {cwd = process.cwd(), env = {}, shell = false, input = 
 	});
 }
 
+// A shell snippet as a page shows it (BASH=<Git Bash's bash.exe> on Windows), printing first the Node it ran on,
+// so an OLDEST_NODE rerun that picked up the system Node shows it (L-118).
+function shell(script, options = {}) {
+	return run(process.env.BASH || 'bash', ['-c', `echo "shell node: $(node --version)"; ${script}`], options);
+}
+
 async function capture(label, fn) {
 	try {
 		show(label, await fn());
@@ -166,66 +172,21 @@ await new Promise(resolve => {
 const base = `http://127.0.0.1:${server.address().port}`;
 
 // ----- by host name (delete unless the package requests the hosts its input names, L-116) -----
-// Pages are served under their real host names: a plain server and a TLS server behind a stand-in proxy that
-// answers CONNECT (Node tunnels http: too) and routes by port. Every runtime trusts only a throwaway CA made
-// here. Children get `routed` as their environment; this process routes its own fetch through undici
-// (npm install undici@7). A preloaded guard refuses any socket not to 127.0.0.1. Worked example, with Deno,
-// Bun, package managers and an old version: markdown-plain-link-replacer ai-docs/notes/2026-09-29-wiki-verify.mjs.
-const BY_HOST_NAME = false;
-let routed = {};
+// Copy ../host-fixture.mjs beside this script (and into the repository's ai-docs/notes/ with it). It serves
+// `handle` under the real host names through a proxy with a throwaway CA, guards every child against sockets
+// that leave 127.0.0.1 and tests the guard first (L-117). Children run with {env: fx.env}; this process's
+// fetch needs fx.routeThisProcess() (npm install undici@7). Print fx.seen in one case, so a routing failure
+// cannot pass for behaviour. A package that calls the global fetch at call time, run in Node only, can use a
+// fetch wrapper instead (L-115); read the repository's test helpers first, they often have one.
+let fx;
 // Servers the end of the script closes, or the process (and the OLDEST_NODE rerun) never exits.
 const closers = [];
-if (BY_HOST_NAME) {
-	const {spawnSync} = await import('node:child_process');
-	const https = await import('node:https');
-	const tls = await import('node:tls');
-	const HOSTS = ['example.com', '*.example.com']; // every host a page names
-	mkdirSync('tls', {recursive: true});
-	for (const args of [
-		['req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'tls/ca-key.pem', '-out', 'tls/ca.pem', '-days', '2', '-subj', '/CN=wiki-verify CA',
-			'-addext', 'basicConstraints=critical,CA:TRUE', '-addext', 'keyUsage=critical,keyCertSign'],
-		['req', '-newkey', 'rsa:2048', '-nodes', '-keyout', 'tls/key.pem', '-out', 'tls/server.csr', '-subj', '/CN=wiki-verify fixture',
-			'-addext', `subjectAltName=${HOSTS.map(host => `DNS:${host}`).join(',')}`],
-		// Deno's TLS refuses a self-signed certificate marked as a CA as the server's own: sign a separate one.
-		['x509', '-req', '-in', 'tls/server.csr', '-CA', 'tls/ca.pem', '-CAkey', 'tls/ca-key.pem', '-set_serial', '1', '-days', '2', '-copy_extensions', 'copyall', '-out', 'tls/cert.pem'],
-	]) {
-		const made = spawnSync(process.env.OPENSSL || 'openssl', args, {encoding: 'utf8', env: {...process.env, MSYS_NO_PATHCONV: '1'}});
-		if (made.status !== 0) {
-			throw new Error(`openssl failed: ${made.stderr || made.error}`);
-		}
-	}
-
-	const ca = path.resolve('tls/ca.pem');
-	// Route by host and path: serve() looks up request.headers.host; add pages to it the way `routes` does.
-	const serve = (request, response) => server.emit('request', request, response);
-	const secure = https.createServer({key: readFileSync('tls/key.pem'), cert: readFileSync('tls/cert.pem')}, serve);
-	const proxy = http.createServer(serve);
-	proxy.on('connect', (request, socket) => {
-		socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-		(request.url.endsWith(':443') ? secure : server).emit('connection', socket);
-	});
-	await new Promise(resolve => {
-		proxy.listen(0, '127.0.0.1', resolve);
-	});
-	const proxyUrl = `http://127.0.0.1:${proxy.address().port}`;
-	closers.push(proxy, secure);
-	// net.connect() passes its arguments as one array: read the options from inside it (L-117).
-	writeFileSync('guard.cjs', "'use strict';\nconst net = require('node:net');\nconst connect = net.Socket.prototype.connect;\nnet.Socket.prototype.connect = function (...args) {\n\tconst first = Array.isArray(args[0]) ? args[0][0] : args[0];\n\tconst o = typeof first === 'object' && first !== null ? first : {port: first, host: args[1]};\n\tif (!o.path && !['127.0.0.1', 'localhost', '::1', undefined].includes(o.host)) {\n\t\tthrow new Error('wiki-verify guard: refused a connection to ' + o.host + ':' + o.port);\n\t}\n\treturn Reflect.apply(connect, this, args);\n};\n");
-	writeFileSync('route.cjs', "'use strict';\nconst {setGlobalDispatcher, EnvHttpProxyAgent} = require('undici');\nsetGlobalDispatcher(new EnvHttpProxyAgent());\n");
-	// NODE_OPTIONS reads a backslash as an escape: forward slashes.
-	const preload = file => `--require "${path.resolve(file).split(path.sep).join('/')}"`;
-	const routeEnv = {HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, NO_PROXY: '', NODE_EXTRA_CA_CERTS: ca, DENO_CERT: ca, NODE_OPTIONS: preload('guard.cjs')};
-	// Node 24 honours NODE_USE_ENV_PROXY=1 (read at startup); Node 20 does not, so its children preload undici. The
-	// probe's host is .invalid, so a probe that skipped the proxy cannot leave the machine.
-	writeFileSync('probe.mjs', "console.log(await fetch('http://wiki-verify.invalid/').then(r => r.status, e => e.message));\n");
-	const probe = await run(process.execPath, ['probe.mjs'], {env: {...routeEnv, NODE_USE_ENV_PROXY: '1'}});
-	routed = /^\d+$/.test(probe.stdout.trim()) ? {...routeEnv, NODE_USE_ENV_PROXY: '1'} : {...routeEnv, NODE_OPTIONS: `${preload('guard.cjs')} ${preload('route.cjs')}`};
-	show('lookups reach the fixture through', routed.NODE_USE_ENV_PROXY ? 'NODE_USE_ENV_PROXY=1' : 'undici EnvHttpProxyAgent preloaded');
-	require('./guard.cjs');
-	const {setGlobalDispatcher, ProxyAgent} = require('undici');
-	setGlobalDispatcher(new ProxyAgent({uri: proxyUrl, requestTls: {ca: [...tls.rootCertificates, readFileSync(ca, 'utf8')]}}));
-	// Children: run(process.execPath, ['example.mjs'], {env: routed}). Print one case with the requests the
-	// fixture saw, so a routing failure cannot pass for "the link was left".
+if (false) {
+	const {startHostFixture} = await import('./host-fixture.mjs');
+	fx = await startHostFixture({hosts: ['example.com'], handle: (url, request, response) => server.emit('request', request, response)});
+	show('guard', fx.guardCheck);
+	show('lookups reach the fixture through', fx.route);
+	closers.push(fx);
 }
 
 // ----- the cases: one per example on the wiki, labelled by page -----
@@ -279,15 +240,21 @@ if (GOLDEN && OLD) {
 }
 
 // ----- the oldest Node line in engines (L-106) -----
-// OLDEST_NODE=<major> reruns this whole script under that Node (downloaded by npx), with its folder first on
-// PATH so the shells and bins the cases spawn use it too, and saves that run as wiki-verify.node<major>.out.txt.
-// Compare with `wikiwright.py diffout <this run's output> wiki-verify.node<major>.out.txt`: every difference is
-// a page claim to scope by version. Save both outputs in the repository.
+// OLDEST_NODE=<major> reruns this whole script under that Node (downloaded by npx) and saves that run as
+// wiki-verify.node<major>.out.txt. The Node binary is copied alone into its own folder, which goes first on PATH
+// so the shells and bins the cases spawn use it too: the npm node package's bin folder also holds a text file
+// named `node`, and Git Bash skips that folder and runs the system Node without a word (L-118). Every shell case
+// prints the Node it ran (`node --version` inside the shell). Compare with `wikiwright.py diffout <this run's
+// output> wiki-verify.node<major>.out.txt`: every difference is a page claim to scope by version, and a block
+// true on one line only gets <!-- outputs: node>=N --> on the page. Save both outputs in the repository.
 const {OLDEST_NODE, WIKI_VERIFY_CHILD} = process.env;
 if (OLDEST_NODE && !WIKI_VERIFY_CHILD) {
 	const found = await run('npx', ['-y', '-p', `node@${OLDEST_NODE}`, 'node', '-p', 'process.execPath'], {shell: process.platform === 'win32', env: {NODE_OPTIONS: ''}});
-	const oldNode = found.stdout.trim().split('\n').at(-1);
-	const rerun = await run(oldNode, [fileURLToPath(import.meta.url)], {env: {WIKI_VERIFY_CHILD: '1', PATH: `${path.dirname(oldNode)}${path.delimiter}${process.env.PATH}`}});
+	const alone = path.resolve(`node${OLDEST_NODE}-alone`);
+	mkdirSync(alone, {recursive: true});
+	const oldNode = path.join(alone, path.basename(found.stdout.trim().split('\n').at(-1)));
+	copyFileSync(found.stdout.trim().split('\n').at(-1), oldNode);
+	const rerun = await run(oldNode, [fileURLToPath(import.meta.url)], {env: {WIKI_VERIFY_CHILD: '1', PATH: `${alone}${path.delimiter}${process.env.PATH}`}});
 	writeFileSync(`wiki-verify.node${OLDEST_NODE}.out.txt`, rerun.stdout);
 	show(`oldest node: node@${OLDEST_NODE}`, `${(await run(oldNode, ['--version'])).stdout.trim()}, exit ${rerun.code}, output saved as wiki-verify.node${OLDEST_NODE}.out.txt`);
 }

@@ -327,7 +327,7 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: copy `node.exe` alone into a scratch folder and put that first on PATH; print `node --version` from inside each shell case, and read the `installed` line of every rerun. Open work for 0.4.1: make the template do this. The markdown-plain-link-replacer Node 20 output's bash-loop section may have run on Node 24 (its output was the same either way).
 - Evidence: the subagent's report of 2026-09-29; get-title-at-url and is-an-image-url notes (dated sections of 2026-09-29)
 - Scope: skill (templates/npm/wiki-verify.template.mjs OLDEST_NODE, references/npm.md)
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+- Status: promoted: C-20260929-2 (the template copies the binary alone; `shell()` prints the Node) · helpful 1 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-119 · 2026-09-29 · diffout gaps found on its first use (`diffout-first-use`)
 - Trigger: the same Node 20 runs: `diffout` crashed with UnicodeEncodeError on a cp1252 console when an output held C1 characters (worked with `PYTHONIOENCODING=utf-8`); `--save` normalises ports but not local paths in stderr lines (Node 20's "bad option" line names `node.exe`); and `outputs` cannot mark a block as true on one Node line only, so a Node-24-only block reports missing against the Node 20 output (2026-09-29).
@@ -335,7 +335,7 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: until 0.4.1, run diffout with `PYTHONIOENCODING=utf-8` and mask paths with `--mask`; check pages against the main output and read the oldest-Node diff by hand. 0.4.1: reconfigure stdout to UTF-8 with replacement, mask the user's home and temp paths on `--save`, and a `<!-- outputs: node>=N -->` marker or a per-output list.
 - Evidence: the subagent's report of 2026-09-29
 - Scope: skill (scripts/wikiwright.py diffout, outputs)
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+- Status: promoted: C-20260929-2 (UTF-8 stdout, path masks, `<!-- outputs: node>=N -->`) · helpful 1 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-120 · 2026-09-29 · A replay that differs on another runtime: bisect the harness first (`bisect-the-harness`)
 - Trigger: is-an-image-url's golden replay of 2.0.0 gave 65/45/64 on Node 20.20.2 against 68/45/77 on Node 24.18.0. Bisected to `capture-1.0.4.cjs`: it calls `dropConnections()` after every case without the 30 ms wait the repository's functional test has, so Node 20's fetch reused a dead socket, got ECONNRESET and 13 calls answered false (2026-09-29; package-modernize L-023 knew the trap).

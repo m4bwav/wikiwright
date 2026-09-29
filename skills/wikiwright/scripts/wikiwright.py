@@ -29,6 +29,15 @@ Subcommands
       sections whose label matches, --mask blanks text that differs by
       machine. Prints each changed, added and removed section; --save writes
       the normalised NEW output (for saving over the old one).
+  cachecheck [--source DIR] [--cache DIR]
+      The installed plugin cache against the source: every tracked file
+      under skills/ and .claude-plugin/ compared by SHA-256 (a stale cache
+      runs old text, L-012). The cache defaults to wikiwright's installPath
+      in ~/.claude/plugins/installed_plugins.json.
+  releasecheck X.Y.Z [--root DIR]
+      Before tagging: plugin.json, VERSION, SKILL.md's metadata.version and
+      evergreen.json name X.Y.Z; CHANGELOG has an entry naming it; TESTS has
+      a run the last tag's TESTS did not.
 
 Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 2 on usage or environment errors.
@@ -36,11 +45,14 @@ Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 
 import argparse
 import difflib
+import hashlib
 import html
+import json
 import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -406,7 +418,7 @@ PROMPT = re.compile(r"^(\$|PS>|PS [A-Z]:.*>|>)( |$)")
 FIXTURE = re.compile(r"http://127\.0\.0\.1:(?:[0-9]+|<port>)")
 PORT = re.compile(r"127\.0\.0\.1:[0-9]+")
 FENCE = re.compile(r"^(\s*)(```+|~~~+)\s*([\w+#-]*)")
-DIRECTIVE = re.compile(r"^<!--\s*outputs:\s*(skip|check)\b.*-->$")
+DIRECTIVE = re.compile(r"^<!--\s*outputs:\s*(?:(skip|check)\b)?\s*(?:node\s*(>=|<=|==|=|<|>)\s*([0-9]+))?.*-->$")
 LANGS_OUTPUT = {"text", "txt", "plaintext", "console", "output"}
 LANGS_DATA = {"json", "jsonc", "json5", "xml", "html", "yaml", "yml", "csv", "tsv"}
 # Fences whose line comments start with '#'; every other fence uses '//'.
@@ -455,14 +467,15 @@ def fences(text):
     <!-- outputs: --> directive before it, and whether only blank lines or directives
     separate it from the block before it."""
     items, lines = [], text.split("\n")
-    i, prev, directive, adjacent = 0, "", None, False
+    i, prev, directive, scope, adjacent = 0, "", None, None, False
     while i < len(lines):
         m = FENCE.match(lines[i])
         if not m:
             stripped = lines[i].strip()
             d = DIRECTIVE.match(stripped)
-            if d:
-                directive = d.group(1)
+            if d and (d.group(1) or d.group(2)):
+                directive = d.group(1) or directive
+                scope = (d.group(2).replace("==", "="), int(d.group(3))) if d.group(2) else scope
             elif stripped:
                 prev, adjacent = stripped, False
             i += 1
@@ -475,8 +488,8 @@ def fences(text):
             i += 1
         i += 1
         items.append({"start": start, "lang": lang, "body": body, "prev": prev,
-                      "directive": directive, "adjacent": adjacent})
-        prev, directive, adjacent = "", None, True
+                      "directive": directive, "scope": scope, "adjacent": adjacent})
+        prev, directive, scope, adjacent = "", None, None, True
     return items
 
 
@@ -541,9 +554,16 @@ def output_blocks(text):
     ('comment'): a quoted, JSON-like, numeric or literal comment, on its own line or after code,
     and any trailing comment after a print call or on a PowerShell expression line. A run of
     whole-line comments that ends a code block after a blank line is that block's output."""
+    return [found[:3] for found in scoped_output_blocks(text)]
+
+
+def scoped_output_blocks(text):
+    """output_blocks with a fourth item: the block's Node scope from <!-- outputs: node>=22 -->,
+    as (operator, major), or None (L-119)."""
     found, items = [], fences(text)
     pair_output = set()
     for k, f in enumerate(items):
+        found = [x if len(x) == 4 else x + (items[k - 1]["scope"],) for x in found]
         start, lang, body, directive = f["start"], f["lang"], f["body"], f["directive"]
         is_input = (k not in pair_output and directive != "check" and lang not in LANGS_OUTPUT
                     and k + 1 < len(items) and pairs(f, items[k + 1]))
@@ -573,7 +593,26 @@ def output_blocks(text):
                 value = comment_value(lang, b)
                 if value:
                     found.append((start + n + 1,) + value)
-    return found
+    return [x if len(x) == 4 else x + (items[-1]["scope"],) for x in found]
+
+
+NODE_LINE = re.compile(r"\bNode v?([0-9]+)\.[0-9]+")
+
+
+def node_major(text):
+    """The Node major a verification output ran on: the first 'Node v24.18.0' in it (the template's
+    'installed' line), or None."""
+    m = NODE_LINE.search(text)
+    return int(m.group(1)) if m else None
+
+
+def in_scope(scope, major):
+    if scope is None:
+        return True
+    if major is None:
+        return False
+    op, n = scope
+    return {">=": major >= n, "<=": major <= n, "=": major == n, "<": major < n, ">": major > n}[op]
 
 
 def cmd_outputs(a):
@@ -583,21 +622,33 @@ def cmd_outputs(a):
     runs = []
     for path in a.verify:
         with open(path, "rb") as fh:
-            runs.append(normalise_output(fh.read().decode("utf-8", errors="replace"), a.address))
-    out = "\n".join(runs)
-    loose = " ".join(out.split())
-    out_lines = {line.strip() for line in out.split("\n")}
+            text = normalise_output(fh.read().decode("utf-8", errors="replace"), a.address)
+        runs.append((a.node if a.node is not None else node_major(text), text))
+    views = {}
+
+    def view(scope):
+        # The outputs a block may come from: all of them, or those of the Node lines its marker names.
+        if scope not in views:
+            out = "\n".join(text for major, text in runs if in_scope(scope, major))
+            views[scope] = (out, " ".join(out.split()), {line.strip() for line in out.split("\n")})
+        return views[scope]
+
     pages = sorted(f for f in os.listdir(a.dir) if f.endswith(".md") and f not in SPECIAL)
     checked = missing = skipped = 0
     for f in pages:
         text = page_text(os.path.join(a.dir, f))[1].replace("\r\n", "\n")
-        for line, kind, content in output_blocks(text):
+        for line, kind, content, scope in scoped_output_blocks(text):
             if kind == "skip":
                 skipped += 1
                 print("%s:%d: skip: marked <!-- outputs: skip -->" % (f, line))
                 continue
             want = normalise_output(content, a.address).strip("\n")
             if not want.strip():
+                continue
+            out, loose, out_lines = view(scope)
+            if scope and not any(in_scope(scope, major) for major, _ in runs):
+                skipped += 1
+                print("%s:%d: skip: node%s%d, and no output given is from that Node" % (f, line, scope[0], scope[1]))
                 continue
             checked += 1
             if kind in ("arrow", "comment"):
@@ -643,14 +694,35 @@ LOCAL_PORT = re.compile(r"\b(localhost|127\.0\.0\.1|\[::1\]):[0-9]+\b")
 PREAMBLE = "(before the first section)"
 
 
-def diff_normalise(text, masks=()):
-    """LF, no trailing spaces, every local port as <port>, then each mask regex as <masked>."""
+def diff_normalise(text, masks=(), paths=()):
+    """LF, no trailing spaces, every local port as <port>, each (path, name) in paths as <name>
+    (L-119: a stderr line naming node.exe), then each mask regex as <masked>."""
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     text = "\n".join(line.rstrip() for line in text.split("\n"))
     text = LOCAL_PORT.sub(lambda m: m.group(1) + ":<port>", text)
+    for path, name in paths:
+        text = path_pattern(path).sub("<%s>" % name, text)
     for mask in masks:
         text = re.sub(mask, "<masked>", text)
     return text
+
+
+def path_pattern(path):
+    """A local path as printed natively, with forward slashes, or JSON-escaped (doubled backslashes);
+    case-insensitive on Windows, where the drive letter's case varies."""
+    path = os.path.normpath(path).rstrip("\\/")
+    parts = [p for p in re.split(r"[\\/]", path)]
+    sep = r"(?:\\\\|\\|/)"
+    return re.compile(sep.join(re.escape(p) for p in parts), re.IGNORECASE if os.name == "nt" else 0)
+
+
+def machine_paths(new):
+    """The scratch folder the new output was written in, the temp folder and the home folder,
+    longest first so the most specific name wins."""
+    found = [(os.path.dirname(os.path.abspath(new)), "scratch"), (tempfile.gettempdir(), "temp"),
+             (os.path.expanduser("~"), "home")]
+    found = [(p, n) for p, n in found if p and len(os.path.normpath(p)) > 3]
+    return sorted(found, key=lambda x: -len(x[0]))
 
 
 def sections(text):
@@ -676,10 +748,11 @@ def sections(text):
 
 def cmd_diffout(a):
     texts = []
+    paths = [] if a.keep_paths else machine_paths(a.new)
     for path in (a.old, a.new):
         try:
             with open(path, "rb") as fh:
-                texts.append(diff_normalise(fh.read().decode("utf-8", errors="replace"), a.mask))
+                texts.append(diff_normalise(fh.read().decode("utf-8", errors="replace"), a.mask, paths))
         except OSError as e:
             print("error: %s" % e)
             return 2
@@ -716,6 +789,141 @@ def cmd_diffout(a):
     return 1 if changed or added or removed else 0
 
 
+# ---------------------------------------------------------------- cachecheck, releasecheck
+
+PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+SKILL_REL = ("skills", "wikiwright")
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 16), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def tracked_files(root):
+    """Every tracked file under skills/ and .claude-plugin/ (git ls-files), or every file there
+    when root is not a git working copy; __pycache__ left out."""
+    p = run(["git", "-C", root, "ls-files", "-z", "--", "skills", ".claude-plugin"])
+    if p.returncode == 0 and p.stdout:
+        files = [f for f in p.stdout.split("\0") if f]
+    else:
+        files = []
+        for top in ("skills", ".claude-plugin"):
+            for base, dirs, names in os.walk(os.path.join(root, top)):
+                dirs[:] = [d for d in dirs if d != "__pycache__"]
+                files += [os.path.relpath(os.path.join(base, n), root).replace(os.sep, "/") for n in names]
+    return sorted(f for f in files if "__pycache__" not in f and not f.endswith(".pyc"))
+
+
+def installed_path(name="wikiwright"):
+    config = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(os.path.expanduser("~"), ".claude")
+    try:
+        with open(os.path.join(config, "plugins", "installed_plugins.json"), encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return None, None
+    plugins = data.get("plugins", data) if isinstance(data, dict) else {}
+    for key, entries in plugins.items():
+        if key.split("@")[0] == name and isinstance(entries, list) and entries:
+            return entries[0].get("installPath"), key
+    return None, None
+
+
+def cmd_cachecheck(a):
+    source = a.source or PLUGIN_ROOT
+    cache, key = (a.cache, None) if a.cache else installed_path()
+    if not cache or not os.path.isdir(cache):
+        print("error: no installed copy found (pass --cache DIR); installed_plugins.json names %s" % (cache or "none"))
+        return 2
+    if os.path.normcase(os.path.abspath(source)) == os.path.normcase(os.path.abspath(cache)):
+        print("error: this is the installed copy; run the source's wikiwright.py or pass --source")
+        return 2
+    files = tracked_files(source)
+    if not files:
+        print("error: no files under skills/ or .claude-plugin/ in %s" % source)
+        return 2
+    print("source: %s\ncache:  %s%s" % (source, cache, ("  (" + key + ")") if key else ""))
+    differ, missing = [], []
+    for f in files:
+        there = os.path.join(cache, *f.split("/"))
+        if not os.path.exists(there):
+            missing.append(f)
+        elif sha256(os.path.join(source, *f.split("/"))) != sha256(there):
+            differ.append(f)
+    extra = sorted(set(tracked_files(cache)) - set(files))
+    for label, items in (("differs", differ), ("missing from the cache", missing), ("only in the cache", extra)):
+        for f in items:
+            print("%s: %s" % (label, f))
+    print("cachecheck: %d files, %d equal, %d differ, %d missing, %d only in the cache" % (
+        len(files), len(files) - len(differ) - len(missing), len(differ), len(missing), len(extra)))
+    if differ or missing:
+        print("       reinstall: claude plugin uninstall %s, then claude plugin install %s (update keeps a "
+              "stale copy while the version is unchanged, L-012)" % (key or "wikiwright@<marketplace>",
+                                                                     key or "wikiwright@<marketplace>"))
+    return 1 if differ or missing or extra else 0
+
+
+def read_or_empty(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    except OSError:
+        return ""
+
+
+TEST_ID = re.compile(r"^### (T-[0-9]{8}-[0-9]+)\b", re.M)
+
+
+def cmd_releasecheck(a):
+    root = a.root or PLUGIN_ROOT
+    skill = os.path.join(root, *SKILL_REL)
+    want = a.release.lstrip("v")
+    exact = re.compile(r"(?<![0-9.])" + re.escape(want) + r"(?![0-9.])")
+    found = {}
+    try:
+        found[".claude-plugin/plugin.json version"] = json.loads(
+            read_or_empty(os.path.join(root, ".claude-plugin", "plugin.json")) or "{}").get("version")
+        found["evergreen.json version"] = json.loads(
+            read_or_empty(os.path.join(skill, "evergreen.json")) or "{}").get("version")
+    except ValueError as e:
+        print("error: %s" % e)
+        return 2
+    m = re.search(r'^VERSION = "([^"]+)"', read_or_empty(os.path.join(skill, "scripts", "wikiwright.py")), re.M)
+    found["wikiwright.py VERSION"] = m.group(1) if m else None
+    front = read_or_empty(os.path.join(skill, "SKILL.md")).split("\n---", 1)[0]
+    m = re.search(r'^\s+version:\s*"?([^"\s]+)"?\s*$', front, re.M)
+    found["SKILL.md metadata.version"] = m.group(1) if m else None
+    bad = 0
+    for label, value in found.items():
+        ok = value == want
+        bad += 0 if ok else 1
+        print("%s %s: %s" % ("ok  " if ok else "FAIL", label, value))
+    entries = [line for line in read_or_empty(os.path.join(skill, "CHANGELOG.md")).split("\n")
+               if line.startswith("### C-") and exact.search(line)]
+    print("%s CHANGELOG entry naming %s%s" % ("ok  " if entries else "FAIL", want,
+                                              (": " + entries[0][4:80]) if entries else ""))
+    bad += 0 if entries else 1
+    tests_now = set(TEST_ID.findall(read_or_empty(os.path.join(skill, "TESTS.md"))))
+    tag = run(["git", "-C", root, "describe", "--tags", "--abbrev=0"]).stdout.strip()
+    then = set()
+    if tag:
+        shown = run(["git", "-C", root, "show", "%s:%s/TESTS.md" % (tag, "/".join(SKILL_REL))])
+        then = set(TEST_ID.findall(shown.stdout)) if shown.returncode == 0 else set()
+    new = sorted(tests_now - then)
+    print("%s TESTS run since %s: %s" % ("ok  " if new else "FAIL", tag or "the start (no tag)",
+                                         ", ".join(new) if new else "none"))
+    bad += 0 if new else 1
+    exists = run(["git", "-C", root, "rev-parse", "-q", "--verify", "refs/tags/v" + want]).returncode == 0
+    if exists:
+        print("FAIL tag v%s exists already" % want)
+        bad += 1
+    print("releasecheck %s: %s" % (want, "ready to tag" if not bad else "%d problem(s)" % bad))
+    return 1 if bad else 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="wikiwright.py", description=__doc__.split("\n")[0])
     ap.add_argument("--version", action="version", version=VERSION)
@@ -742,6 +950,9 @@ def main(argv=None):
     o.add_argument("--address", default="https://example.com",
                    help="the address pages show in place of the fixture's http://127.0.0.1:<port> "
                         "(default https://example.com; pass '' for none)")
+    o.add_argument("--node", type=int,
+                   help="the Node major every output ran on (default: read from each output's 'Node vN' line); "
+                        "a block after <!-- outputs: node>=22 --> is checked only against outputs in its range")
     o.set_defaults(fn=cmd_outputs)
     u = sub.add_parser("unbs", help="replace <BS> placeholders with backslashes")
     u.add_argument("files", nargs="+")
@@ -752,8 +963,23 @@ def main(argv=None):
     d.add_argument("--skip", action="append", default=[], help="leave out sections whose label matches this regex")
     d.add_argument("--mask", action="append", default=[], help="replace text matching this regex with <masked>")
     d.add_argument("--context", type=int, default=1, help="unchanged lines around each change (default 1)")
-    d.add_argument("--save", help="write the normalised new output here (ports as <port>)")
+    d.add_argument("--save", help="write the normalised new output here (ports as <port>; the new output's "
+                                  "folder, the temp folder and the home folder as <scratch>, <temp>, <home>)")
+    d.add_argument("--keep-paths", action="store_true", help="leave local paths as they are")
     d.set_defaults(fn=cmd_diffout)
+    cc = sub.add_parser("cachecheck", help="the installed plugin cache against the source, by SHA-256")
+    cc.add_argument("--source", help="the plugin's source repository (default: the one holding this script)")
+    cc.add_argument("--cache", help="the installed copy (default: installPath of wikiwright@* in "
+                                    "~/.claude/plugins/installed_plugins.json)")
+    cc.set_defaults(fn=cmd_cachecheck)
+    rc = sub.add_parser("releasecheck", help="version fields, CHANGELOG entry and a test run before tagging")
+    rc.add_argument("release", help="the version about to be tagged, X.Y.Z")
+    rc.add_argument("--root", help="the plugin's repository (default: the one holding this script)")
+    rc.set_defaults(fn=cmd_releasecheck)
+    reconfigure = getattr(sys.stdout, "reconfigure", None)
+    if reconfigure:
+        # A cp1252 console cannot print every character an output holds (L-119).
+        reconfigure(encoding="utf-8", errors="replace")
     a = ap.parse_args(argv)
     return a.fn(a)
 

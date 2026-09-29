@@ -8,6 +8,7 @@ import contextlib
 import io
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -347,6 +348,212 @@ class DiffoutTests(unittest.TestCase):
     def test_identical_runs_pass(self):
         code, out = run(["diffout", self.old, self.old])
         self.assertEqual(code, 0, out)
+
+    def test_local_paths_masked_and_saved(self):
+        # Node 20's "bad option" line names node.exe in the run's scratch folder (L-119).
+        scratch = os.path.join(self.d, "run")
+        os.mkdir(scratch)
+        new = os.path.join(scratch, "new.txt")
+        exe = os.path.join(scratch, "node", "node.exe")
+        with open(new, "wb") as fh:
+            fh.write((OLD_RUN + "## stderr\n%s: bad option\n%s\n" % (exe, exe.replace(BACKSLASH, BACKSLASH * 2))).encode())
+        saved = os.path.join(self.d, "saved.txt")
+        code, out = run(["diffout", self.old, new, "--save", saved])
+        with open(saved, "rb") as fh:
+            raw = fh.read().decode()
+        self.assertIn("<scratch>", raw)
+        self.assertNotIn(scratch, raw)
+        self.assertNotIn(scratch.replace(BACKSLASH, BACKSLASH * 2), raw)
+        code, out = run(["diffout", self.old, new, "--save", saved, "--keep-paths"])
+        with open(saved, "rb") as fh:
+            self.assertIn(exe, fh.read().decode())
+
+    def test_prints_any_character_on_a_legacy_console(self):
+        # A C1 character and an arrow crashed diffout on cp1252 (L-119).
+        with open(self.new, "wb") as fh:
+            fh.write("## api\n\u0085 → 漢\n".encode("utf-8"))
+        script = os.path.join(HERE, "..", "skills", "wikiwright", "scripts", "wikiwright.py")
+        env = dict(os.environ, PYTHONIOENCODING="cp1252")
+        p = subprocess.run([sys.executable, script, "diffout", self.old, self.new], capture_output=True, env=env)
+        self.assertEqual(p.returncode, 1, p.stderr)
+        self.assertNotIn(b"Traceback", p.stderr)
+        self.assertIn("→".encode("utf-8"), p.stdout)
+
+
+NODE24_OUT = "## installed\nwidget@1.2.0 on Node v24.18.0\n\n## proxy\nNODE_USE_ENV_PROXY=1\n\n## api\ntrue\n"
+NODE20_OUT = "## installed\nwidget@1.2.0 on Node v20.20.2\n\n## proxy\nundici preloaded\n\n## api\ntrue\n"
+SCOPED_PAGE = ("Answer:\n\n```text\ntrue\n```\n\nOn Node 22 and later:\n\n<!-- outputs: node>=22 -->\n```text\n"
+               "NODE_USE_ENV_PROXY=1\n```\n\nOn Node 20:\n\n<!-- outputs: check node<22 (Node 20 only) -->\n"
+               "```\nundici preloaded\n```\n")
+
+
+class OutputsNodeScopeTests(unittest.TestCase):
+    """<!-- outputs: node>=22 --> checks a block only against outputs from that Node line (L-119)."""
+
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        write(self.d, {"Home.md": SCOPED_PAGE})
+        self.o24, self.o20 = os.path.join(self.d, "o24.txt"), os.path.join(self.d, "o20.txt")
+        write(self.d, {"o24.txt": NODE24_OUT, "o20.txt": NODE20_OUT})
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def test_each_output_alone_skips_the_other_lines_blocks(self):
+        code, out = run(["outputs", self.d, self.o20])
+        self.assertEqual(code, 0, out)
+        self.assertIn("2 outputs checked, 0 missing, 1 skipped", out)
+        self.assertIn("node>=22, and no output given is from that Node", out)
+        code, out = run(["outputs", self.d, self.o24])
+        self.assertIn("2 outputs checked, 0 missing, 1 skipped", out)
+
+    def test_both_outputs_check_every_block_against_its_own_line(self):
+        code, out = run(["outputs", self.d, self.o24, self.o20])
+        self.assertEqual(code, 0, out)
+        self.assertIn("3 outputs checked, 0 missing, 0 skipped", out)
+        # A Node 20 line shown as Node 22 and later is missing, though the Node 20 output prints it.
+        write(self.d, {"Home.md": SCOPED_PAGE.replace("NODE_USE_ENV_PROXY=1\n", "undici preloaded\n")})
+        code, out = run(["outputs", self.d, self.o24, self.o20])
+        self.assertEqual(code, 1, out)
+        self.assertIn("1 missing", out)
+
+    def test_node_flag_overrides_the_installed_line(self):
+        code, out = run(["outputs", self.d, self.o20, "--node", "24"])
+        self.assertIn("1 missing", out)
+
+
+TEMPLATES = os.path.join(HERE, "..", "skills", "wikiwright", "templates", "npm")
+
+
+class TemplateTests(unittest.TestCase):
+    """Regressions in the npm template and the host-fixture kit (tests/host-fixture.test.mjs runs the kit)."""
+
+    def read(self, name):
+        with open(os.path.join(TEMPLATES, name), encoding="utf-8") as fh:
+            return fh.read()
+
+    def test_oldest_node_runs_a_folder_holding_only_node(self):
+        # L-118: Git Bash skips the npm node package's bin folder, which also holds a text file named `node`.
+        text = self.read("wiki-verify.template.mjs")
+        block = text[text.index("if (OLDEST_NODE && !WIKI_VERIFY_CHILD)"):]
+        self.assertIn("copyFileSync(", block)
+        self.assertIn("PATH: `${alone}${path.delimiter}", block)
+        self.assertIn('echo "shell node: $(node --version)"', text)
+
+    def test_by_host_name_imports_the_kit(self):
+        text = self.read("wiki-verify.template.mjs")
+        self.assertIn("import('./host-fixture.mjs')", text)
+        self.assertNotIn("openssl", text.lower().split("by host name")[1].split("----- the cases")[0].replace(
+            "host-fixture.mjs", ""))
+
+    def test_kit_guard_reads_the_normalised_array(self):
+        # L-117: net.connect() passes [options, callback] as one argument.
+        self.assertIn("Array.isArray(args[0]) ? args[0][0] : args[0]", self.read("host-fixture.mjs"))
+
+
+def rmtree(d):
+    # git writes its objects read-only, which Windows refuses to delete.
+    def writable(fn, path, _):
+        os.chmod(path, 0o700)
+        fn(path)
+    shutil.rmtree(d, onerror=writable)
+
+
+def git(*args):
+    return subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false",
+                           "-c", "tag.gpgsign=false", "-c", "core.autocrlf=false"] + list(args),
+                          capture_output=True, text=True, check=True)
+
+
+def plugin_tree(root, version, tests=("T-20260101-1",), changelog_version=None):
+    skill = os.path.join(root, "skills", "wikiwright")
+    os.makedirs(os.path.join(skill, "scripts"), exist_ok=True)
+    os.makedirs(os.path.join(root, ".claude-plugin"), exist_ok=True)
+    files = {
+        os.path.join(root, ".claude-plugin", "plugin.json"): '{"name": "wikiwright", "version": "%s"}\n' % version,
+        os.path.join(skill, "evergreen.json"): '{"name": "wikiwright", "version": "%s"}\n' % version,
+        os.path.join(skill, "scripts", "wikiwright.py"): 'VERSION = "%s"\n' % version,
+        os.path.join(skill, "SKILL.md"): '---\nname: wikiwright\nmetadata:\n  version: "%s"\n---\n\n# wikiwright\n' % version,
+        os.path.join(skill, "CHANGELOG.md"): "# Changelog\n\n### C-20260101-1 · 2026-01-01 · %s: things\n" % (
+            changelog_version or version),
+        os.path.join(skill, "TESTS.md"): "# Tests\n\n" + "".join("### %s · 2026-01-01 · x\n" % t for t in tests),
+    }
+    for path, text in files.items():
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(text)
+
+
+class CacheCheckTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.src, self.cache = os.path.join(self.d, "src"), os.path.join(self.d, "cache")
+        plugin_tree(self.src, "0.1.0")
+        shutil.copytree(self.src, self.cache)
+
+    def tearDown(self):
+        rmtree(self.d)
+
+    def test_equal_cache_passes(self):
+        code, out = run(["cachecheck", "--source", self.src, "--cache", self.cache])
+        self.assertEqual(code, 0, out)
+        self.assertIn("6 files, 6 equal, 0 differ, 0 missing, 0 only in the cache", out)
+
+    def test_stale_missing_and_extra_files_fail(self):
+        with open(os.path.join(self.src, "skills", "wikiwright", "SKILL.md"), "a") as fh:
+            fh.write("new line\n")
+        os.remove(os.path.join(self.cache, ".claude-plugin", "plugin.json"))
+        with open(os.path.join(self.cache, "skills", "wikiwright", "old.md"), "w") as fh:
+            fh.write("gone from the source\n")
+        os.makedirs(os.path.join(self.cache, "skills", "wikiwright", "scripts", "__pycache__"))
+        code, out = run(["cachecheck", "--source", self.src, "--cache", self.cache])
+        self.assertEqual(code, 1, out)
+        self.assertIn("differs: skills/wikiwright/SKILL.md", out)
+        self.assertIn("missing from the cache: .claude-plugin/plugin.json", out)
+        self.assertIn("only in the cache: skills/wikiwright/old.md", out)
+        self.assertIn("reinstall", out)
+
+    def test_git_source_compares_tracked_files_only(self):
+        git("init", "-q", self.src)
+        git("-C", self.src, "add", "-A")
+        with open(os.path.join(self.src, "skills", "wikiwright", "package.json"), "w") as fh:
+            fh.write("{}\n")  # an eval run's stray file (L-017): untracked, so not compared
+        code, out = run(["cachecheck", "--source", self.src, "--cache", self.cache])
+        self.assertEqual(code, 0, out)
+
+
+class ReleaseCheckTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        plugin_tree(self.d, "0.1.0")
+        git("init", "-q", self.d)
+        git("-C", self.d, "add", "-A")
+        git("-C", self.d, "commit", "-q", "-m", "0.1.0")
+        git("-C", self.d, "tag", "v0.1.0")
+
+    def tearDown(self):
+        rmtree(self.d)
+
+    def test_ready_after_bump_entry_and_run(self):
+        plugin_tree(self.d, "0.2.0", tests=("T-20260101-1", "T-20260102-1"))
+        code, out = run(["releasecheck", "0.2.0", "--root", self.d])
+        self.assertEqual(code, 0, out)
+        self.assertIn("TESTS run since v0.1.0: T-20260102-1", out)
+        self.assertIn("releasecheck 0.2.0: ready to tag", out)
+
+    def test_missing_run_entry_and_field(self):
+        plugin_tree(self.d, "0.2.0", changelog_version="0.1.9")
+        with open(os.path.join(self.d, "skills", "wikiwright", "scripts", "wikiwright.py"), "w") as fh:
+            fh.write('VERSION = "0.1.0"\n')
+        code, out = run(["releasecheck", "0.2.0", "--root", self.d])
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL wikiwright.py VERSION: 0.1.0", out)
+        self.assertIn("FAIL CHANGELOG entry naming 0.2.0", out)
+        self.assertIn("FAIL TESTS run since v0.1.0: none", out)
+        self.assertIn("3 problem(s)", out)
+
+    def test_existing_tag_fails(self):
+        code, out = run(["releasecheck", "0.1.0", "--root", self.d])
+        self.assertIn("FAIL tag v0.1.0 exists already", out)
 
 
 if __name__ == "__main__":
