@@ -1,18 +1,19 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from five published wikis, all written on 2026-09-28:
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from six published wikis, written on 2026-09-28 and 29:
 
 - RandomNameGeneratorLibrary: a .NET library with seeded data.
 - JsonPrettyPrinter: a .NET formatter.
 - get-title-at-url: an npm library with a CLI.
 - seeded-random-utilities: an npm library without a CLI, with seeded output and golden captures of two old versions.
 - is-an-image-url: an npm library with a CLI that makes requests, with a golden capture of 1.0.4 that starts its own fixture server.
+- markdown-plain-link-replacer (2026-09-29): an npm library with a CLI whose requests go through its dependencies to the hosts its input names, with a golden capture of 1.1.16 that records through its own proxy with TLS.
 
 | Kind | Tested on |
 |---|---|
 | Library (npm, without a CLI) | seeded-random-utilities |
 | Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter |
-| Library with a command line (npm) | get-title-at-url, is-an-image-url (second run: the set held without changes) |
+| Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer (third run: the set held without changes; the behaviour page was `How-Links-Are-Replaced`) |
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
 | Command-line tool | not yet (the section below is a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
 | Application, website, monorepo | not yet (see the end of this page) |
@@ -77,9 +78,13 @@ A package that makes requests records its old version against a fixture server o
 
 On is-an-image-url: 1.0.4 today matched its recording in 82 of 82 calls and 11 of 11 CLI runs; 2.0.0 gave the same answer in 68, and each of the 14 differences and 5 request changes was a CHANGELOG line.
 
+A capture that records through its own proxy with TLS (markdown-plain-link-replacer's `capture-1.1.16.cjs`, where request 2.88 honoured `HTTP_PROXY` and `HTTPS_PROXY`) replays unchanged against the old version (1.1.16 today: 154 of 154 calls, 18 of 18 CLI runs). Against a `fetch`-based new major it needs a proxy agent installed after the capture sets the variables and a fixture copy that serves tunnelled `http:` in plain HTTP; [npm.md](npm.md) ("Golden captures that record through a proxy with TLS") has the four changes. When a dependency's new major reads titles or names differently, mask that value and count the cases that differ only there apart: 55 of markdown-plain-link-replacer's 154 did, and the other 41 real differences were each a CHANGELOG line.
+
 ## Library with a command line
 
 Add Commands (`Commands.md`): the usage text as the bin prints it, every flag, exit codes, stdout versus stderr, and real invocations with their real output (run the published bin; for a package that makes requests, against the local fixture server, then show the output with the fixture's address replaced by a real-looking one only when the replacement is stated on the page).
+
+A package whose requests go through its dependencies to the hosts its input names, with output computed from the host (markdown-plain-link-replacer names each link's site), needs the fixture served under the real host names, through a `fetch` wrapper or a proxy with TLS ([npm.md](npm.md), "Packages that request by host name through their dependencies"). Its pages then show real addresses with no substitution, and say once, on Home, that each page was a local copy and list the titles the copies had where an output depends on them. Such a package turns every lookup failure into "left unchanged", so Edge cases and errors needs a section on why a link was left, and the FAQ on proxies and trust; both came from the run, not from the README.
 
 ## Command-line tool (a dotnet tool, an npm package that is mostly a bin)
 
@@ -87,7 +92,7 @@ Untested: no run has used this set yet. The first candidate among the maintainer
 
 ## Not yet covered
 
-An application, a website, a monorepo with several packages, a command-line tool, and hosts other than GitHub have no tested page set (still lacking as of 0.3.0). [hosts.md](hosts.md) collects what the GitLab, Gitea, Forgejo and Azure DevOps docs say, unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
+An application, a website, a monorepo with several packages, a command-line tool, and hosts other than GitHub have no tested page set (still lacking as of 0.4.0; the command-line candidate is TrailerClipper.Tool). [hosts.md](hosts.md) collects what the GitLab, Gitea, Forgejo and Azure DevOps docs say, unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
 
 ## Conventions every page follows
 

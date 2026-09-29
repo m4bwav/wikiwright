@@ -22,12 +22,20 @@ Subcommands
   unbs FILE...
       Replace every <BS> placeholder with a backslash (for pages written
       with a tool that decodes backslash escapes).
+  diffout OLD NEW [--skip REGEX]... [--mask REGEX]... [--context N] [--save FILE]
+      Compare two runs of a verification script section by section (its
+      "## label" lines), with line endings, trailing spaces and local ports
+      (127.0.0.1:<digits>, localhost:<digits>) normalised; --skip leaves out
+      sections whose label matches, --mask blanks text that differs by
+      machine. Prints each changed, added and removed section; --save writes
+      the normalised NEW output (for saving over the old one).
 
 Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 2 on usage or environment errors.
 """
 
 import argparse
+import difflib
 import html
 import os
 import re
@@ -37,7 +45,7 @@ import time
 import urllib.error
 import urllib.request
 
-VERSION = "0.3.0"
+VERSION = "0.4.0"
 BS = "<BS>"
 BACKSLASH = chr(92)
 SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md")
@@ -628,6 +636,86 @@ def cmd_unbs(a):
     return 0
 
 
+# ---------------------------------------------------------------- diffout
+
+SECTION = re.compile(r"^## (.+)$")
+LOCAL_PORT = re.compile(r"\b(localhost|127\.0\.0\.1|\[::1\]):[0-9]+\b")
+PREAMBLE = "(before the first section)"
+
+
+def diff_normalise(text, masks=()):
+    """LF, no trailing spaces, every local port as <port>, then each mask regex as <masked>."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    text = "\n".join(line.rstrip() for line in text.split("\n"))
+    text = LOCAL_PORT.sub(lambda m: m.group(1) + ":<port>", text)
+    for mask in masks:
+        text = re.sub(mask, "<masked>", text)
+    return text
+
+
+def sections(text):
+    """A verification output as [(label, body lines)], split at its '## label' lines; a repeated label gets ' #2'."""
+    out, seen = [], {}
+    label, body = PREAMBLE, []
+    for line in text.split("\n"):
+        m = SECTION.match(line)
+        if not m:
+            body.append(line)
+            continue
+        if label != PREAMBLE or any(b.strip() for b in body):
+            out.append((label, body))
+        name = m.group(1).strip()
+        seen[name] = seen.get(name, 0) + 1
+        label = name if seen[name] == 1 else "%s #%d" % (name, seen[name])
+        body = []
+    if label != PREAMBLE or any(b.strip() for b in body):
+        out.append((label, body))
+    # A body's trailing blank lines are the separator before the next section, not output.
+    return [(k, v[:len(v) - next((i for i, b in enumerate(reversed(v)) if b.strip()), len(v))]) for k, v in out]
+
+
+def cmd_diffout(a):
+    texts = []
+    for path in (a.old, a.new):
+        try:
+            with open(path, "rb") as fh:
+                texts.append(diff_normalise(fh.read().decode("utf-8", errors="replace"), a.mask))
+        except OSError as e:
+            print("error: %s" % e)
+            return 2
+    skip = [re.compile(s) for s in a.skip]
+    old_list, new_list = sections(texts[0]), sections(texts[1])
+    old, new = dict(old_list), dict(new_list)
+    order = [k for k, _ in old_list] + [k for k, _ in new_list if k not in old]
+    same = changed = added = removed = skipped = 0
+    for label in order:
+        if any(s.search(label) for s in skip):
+            skipped += 1
+        elif label not in new:
+            removed += 1
+            print("--- removed: ## %s" % label)
+        elif label not in old:
+            added += 1
+            print("+++ added: ## %s" % label)
+            for line in new[label][:8]:
+                print("  + " + line)
+        elif old[label] == new[label]:
+            same += 1
+        else:
+            changed += 1
+            print("*** changed: ## %s" % label)
+            for line in difflib.unified_diff(old[label], new[label], lineterm="", n=a.context):
+                if not line.startswith(("---", "+++")):
+                    print("  " + line)
+    if a.save:
+        with open(a.save, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(texts[1].rstrip("\n") + "\n")
+        print("saved the normalised new output to %s" % a.save)
+    print("diffout: %d sections, %d same, %d changed, %d added, %d removed, %d skipped"
+          % (len(order), same, changed, added, removed, skipped))
+    return 1 if changed or added or removed else 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="wikiwright.py", description=__doc__.split("\n")[0])
     ap.add_argument("--version", action="version", version=VERSION)
@@ -658,6 +746,14 @@ def main(argv=None):
     u = sub.add_parser("unbs", help="replace <BS> placeholders with backslashes")
     u.add_argument("files", nargs="+")
     u.set_defaults(fn=cmd_unbs)
+    d = sub.add_parser("diffout", help="compare two runs of a verification script, section by section")
+    d.add_argument("old", help="the saved output (the repository's *-wiki-verify.out.txt)")
+    d.add_argument("new", help="this run's output")
+    d.add_argument("--skip", action="append", default=[], help="leave out sections whose label matches this regex")
+    d.add_argument("--mask", action="append", default=[], help="replace text matching this regex with <masked>")
+    d.add_argument("--context", type=int, default=1, help="unchanged lines around each change (default 1)")
+    d.add_argument("--save", help="write the normalised new output here (ports as <port>)")
+    d.set_defaults(fn=cmd_diffout)
     a = ap.parse_args(argv)
     return a.fn(a)
 

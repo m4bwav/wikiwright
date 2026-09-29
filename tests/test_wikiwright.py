@@ -303,5 +303,51 @@ class PartialCheckTests(unittest.TestCase):
             shutil.rmtree(d)
 
 
+OLD_RUN = ("## installed\nwidget@1.2.0 on Node v24.18.0\n\n## home\nfetched http://127.0.0.1:50123/cat\n\n"
+           "## api\ntrue\n\n## api\nfalse\n\n## gone later\nx\n")
+NEW_RUN = ("## installed\r\nwidget@1.2.0 on Node v20.20.2  \r\n\r\n## home\r\nfetched http://127.0.0.1:61001/cat\r\n\r\n"
+           "## api\r\ntrue\r\n\r\n## api\r\nnull\r\n\r\n## new case\r\ny\r\n")
+
+
+class DiffoutTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        self.old = os.path.join(self.d, "old.txt")
+        self.new = os.path.join(self.d, "new.txt")
+        for path, text in ((self.old, OLD_RUN), (self.new, NEW_RUN)):
+            with open(path, "wb") as fh:
+                fh.write(text.encode("utf-8"))
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def test_sections_compared_with_ports_and_line_endings_normalised(self):
+        code, out = run(["diffout", self.old, self.new])
+        self.assertEqual(code, 1, out)
+        # The port and CRLF differ only by machine: "home" and the first "api" are the same.
+        self.assertIn("*** changed: ## installed", out)
+        self.assertIn("*** changed: ## api #2", out)
+        self.assertIn("  +null", out)
+        self.assertIn("+++ added: ## new case", out)
+        self.assertIn("--- removed: ## gone later", out)
+        self.assertNotIn("## home", out)
+        self.assertIn("diffout: 6 sections, 2 same, 2 changed, 1 added, 1 removed, 0 skipped", out)
+
+    def test_skip_mask_and_save(self):
+        saved = os.path.join(self.d, "saved.txt")
+        code, out = run(["diffout", self.old, self.new, "--skip", "^(api #2|new case|gone later)$",
+                         "--mask", r"Node v[0-9.]+", "--save", saved])
+        self.assertEqual(code, 0, out)
+        self.assertIn("6 sections, 3 same, 0 changed, 0 added, 0 removed, 3 skipped", out)
+        with open(saved, "rb") as fh:
+            raw = fh.read()
+        self.assertNotIn(b"\r", raw)
+        self.assertIn(b"http://127.0.0.1:<port>/cat", raw)
+
+    def test_identical_runs_pass(self):
+        code, out = run(["diffout", self.old, self.old])
+        self.assertEqual(code, 0, out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

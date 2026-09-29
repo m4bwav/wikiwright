@@ -44,30 +44,34 @@
       "m": null,
       "interval_after": 14,
       "note": "0.3.0: third run, NuGet retrofits, outputs reads the NuGet forms; no new research (R-20260928-2 the same day)"
+    },
+    {
+      "date": "2026-09-29",
+      "m": null,
+      "interval_after": 14,
+      "note": "0.4.0: fourth run (markdown-plain-link-replacer), diffout, OLDEST_NODE, requests by host name; no new research"
     }
   ],
   "counts": {
-    "learnings": 34,
-    "changes": 4,
+    "learnings": 37,
+    "changes": 6,
     "research": 2,
-    "tests": 5
+    "tests": 6
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-28T18:29",
-    "harness": "claude -p stream-json via evals/run-action.sh (action-2 re-measure)",
+    "last_run": "2026-09-29T13:24",
+    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh, graded by evals/grade-action.py",
     "env": "DESKTOP-7KS2S6E",
-    "cases": 1,
-    "passed": 0,
-    "failed": 1,
-    "failing": [
-      "action-2"
-    ],
+    "cases": 9,
+    "passed": 9,
+    "failed": 0,
+    "failing": [],
     "last_failure": {
       "date": "2026-09-28",
       "note": "T-20260928-5: preflight 2/2 (fallback gone); run 1 showed an output not in its trace; target now has a wiki, retarget before the next suite"
     },
     "research_after_days": null
   },
-  "version": "0.3.0"
+  "version": "0.4.0"
 }

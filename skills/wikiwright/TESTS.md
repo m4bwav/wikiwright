@@ -8,6 +8,17 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20260929-1 · 2026-09-29 · claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh, graded by evals/grade-action.py (action) · Windows 11 native · 9/9
+- Setup: source committed before the suite (c387d61, action-1 and action-2 retargeted at m4bwav/markdown-plain-link-replacer, whose wiki held only the maintainer's saved page and which had no wiki note); plugin uninstalled and reinstalled, cached SKILL.md, wikiwright.py, npm.md and the npm template equal to the source by SHA-256. action-3 stayed on get-title-at-url and ran before that wiki changed. Runs in `%TEMP%/ww5/<run>`, one at a time; a driver moved aside any sibling wiki clone (none made) and recorded the targets' git status (0 changed after every run).
+- trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without ($1.58). decoy-1, decoy-2: 0/6 in both arms ($0.57).
+- action-1 (hinted), 2/2; its baseline passes too (hinted, L-018).
+- action-2 (unhinted), 2/2: both ran preflight, installed 2.0.0 and every page output was in the trace. Baseline FAIL (no wiki check, no install). Cleared from `tests.failing` (it was flaky 1/5 in T-20260928-4 and invalid in T-20260928-5).
+- action-3 (update mode, unhinted), 2/2; its baseline passes too (the repository's note teaches the procedure, L-013). Both skill runs and the baseline again found the `TextDecoder('windows-1252')` recipe wrong on Node 20; the drafts' `outputs` still missed four page outputs the saved script never printed in the pages' form (not graded; the real update fixed the script).
+- outcome-1: 2/2 on the action-1 drafts (no CR, no wikilinks, no attribution).
+- Side effects: eval runs wrote L-115 and updates to L-021, L-106 and L-107 in the source LEARNINGS.md, a line in references/npm.md and an untracked `skills/wikiwright/package.json` (L-017); reviewed: kept, one line narrowed, one reference corrected, the file deleted.
+- In use: the fourth real run (markdown-plain-link-replacer, the same day): 10 pages, check 0/0, outputs 55 checked 0 missing, live clean, golden replay 154/154 and 18/18 on 1.1.16, the script on Node 24.18.0 and 20.20.2.
+- led to: C-20260929-1, L-115 to L-117
+
 ### T-20260928-5 · 2026-09-28 · claude -p stream-json via evals/run-action.sh (action-2 only), 0.3.0 installed · Windows 11 native · 1/2
 - Re-measure of the flaky action-2 after the release (cache hashes equal to the source). Both runs ran preflight (the Step 1 guard, L-109): the fallback did not recur in 2 of 2.
 - But the target is no longer valid for this case: is-an-image-url had its live wiki (8861236) and wiki note by then, so both runs took the has-pages route (L-013). action-2 · action · wrong-outcome · run 1's Home showed an output block `true` that no tool result in its trace printed (the grader's outputs check, 2 checked, 1 missing); run 2 passed (all outputs in the trace).
