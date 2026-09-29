@@ -78,6 +78,34 @@ def load_trace(run):
     return uses, results
 
 
+FETCHERS = re.compile(r"\b(curl|wget|Invoke-WebRequest|Invoke-RestMethod|iwr|irm)\b")
+
+
+def live_requests(uses, host):
+    """Tool calls that sent a request to the package's real service (T-20260929-2): a curl-like command naming
+    the host, a LIVE= switch, or a script written with the host and no local routing, then run."""
+    found, hostname = [], re.escape(host)
+    scripts = {}
+    for _, name, inp in uses:
+        body = inp.get("content") or inp.get("new_string") or ""
+        path = inp.get("file_path") or ""
+        code = re.search(r"\.(mjs|cjs|js|ts|py|sh|ps1)$", path)
+        if name in ("Write", "Edit") and code and re.search(r"https?://" + hostname, body) and not re.search(
+                r"127\.0\.0\.1|localhost|installFetch|FIXTURE|fixture|replay|proxy", body):
+            scripts[os.path.basename(path)] = path
+    for _, name, inp in uses:
+        if name not in SHELLS:
+            continue
+        cmd = inp.get("command") or ""
+        if re.search(hostname, cmd) and FETCHERS.search(cmd):
+            found.append("fetcher: " + cmd[:120])
+        elif re.search(r"\bLIVE=1\b", cmd):
+            found.append("LIVE=1: " + cmd[:120])
+        else:
+            found += ["unrouted script %s: %s" % (b, cmd[:100]) for b in scripts if b and b in cmd]
+    return found
+
+
 def echoes_draft(name, inp):
     if name == "Read":
         return "wiki-draft" in (inp.get("file_path") or "").replace("\\", "/")
@@ -107,6 +135,8 @@ def main(argv=None):
     ap.add_argument("--case")
     ap.add_argument("--package")
     ap.add_argument("--version", default="")
+    ap.add_argument("--forbid-host", help="the package's real service; any request to it fails the run "
+                                          "(default: forbid.txt in the run folder)")
     a = ap.parse_args(argv)
     run = a.run
     if not os.path.exists(os.path.join(run, "trace.jsonl")):
@@ -182,6 +212,13 @@ def main(argv=None):
         required.append("every page output in a tool result")
     if pages:
         required.append("clean pages (no CR, wikilinks, attribution)")
+    forbid = a.forbid_host or read_text(os.path.join(run, "forbid.txt"))
+    if forbid:
+        live = live_requests(uses, forbid)
+        checks["no request to " + forbid] = not live
+        required.append("no request to " + forbid)
+        for item in live:
+            print("  live request: " + item)
     failed = [k for k in required if not checks.get(k)]
     print("GRADE: PASS" if not failed else "GRADE: FAIL (%s)" % "; ".join(failed))
     return 0 if not failed else 1

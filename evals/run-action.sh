@@ -41,6 +41,11 @@ fi
 echo "$PROMPT" > "$OUT/prompt.txt"
 echo "$CASE" > "$OUT/case.txt"
 echo "${REPO##*/}" > "$OUT/package.txt"
+# The package's real service, which no run may call (the grader fails a run that does, T-20260929-2).
+case "$REPO" in
+  */stack-exchange-markdown-retriever) FORBID_HOST="${FORBID_HOST:-api.stackexchange.com}" ;;
+esac
+[ -n "${FORBID_HOST:-}" ] && echo "$FORBID_HOST" > "$OUT/forbid.txt"
 (cd "$OUT/work" && claude -p "$PROMPT" --output-format stream-json --verbose \
   --allowedTools "Bash Read Write Edit Glob Grep Skill PowerShell WebFetch" \
   --disallowedTools $DENY > "$OUT/trace.jsonl" 2> "$OUT/stderr.txt")

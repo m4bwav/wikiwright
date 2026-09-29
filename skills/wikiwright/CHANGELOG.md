@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-3 · 2026-09-29 · Tune after T-20260929-2: sample content, never a live recording; draft-only updates in SKILL.md (`sample-content-not-live`)
+- because: T-20260929-2 (three of six skill runs against stack-exchange-markdown-retriever requested the real API); L-121 (rejected), L-122; L-107 (helpful 7, promoted)
+- files: SKILL.md (Step 4, a bullet on remote content; Update mode, draft-only requests); evals/grade-action.py (`--forbid-host`, `live_requests`); evals/run-action.sh (`forbid.txt` for the retriever); LEARNINGS.md (L-121 rejected, L-122, L-107 promoted)
+- The runs put a post's real markdown on the page by recording a live answer, because the fixture's content is invented. Step 4 now says what to do instead: show the stand-in's output labelled as sample content and link the real post. The grader fails a run that calls the package's service. L-107's draft-only layout, missed by every update-mode eval run because only LEARNINGS.md had it, is now a paragraph of Update mode.
+
 ### C-20260929-2 · 2026-09-29 · 0.5.0, step 1: suite driver, cachecheck, releasecheck, the host-fixture kit, the 0.4.1 fixes (`tools-before-suite`)
 - because: user request (the 0.5.0 kickoff: token-saving tools before the suite); L-012, L-017, L-116 to L-119
 - files: evals/run-suite.sh (new); scripts/wikiwright.py (`cachecheck`, `releasecheck`, `outputs` node markers and `--node`, `diffout` path masks and `--keep-paths`, UTF-8 stdout); tests/test_wikiwright.py (41 tests); templates/npm/host-fixture.mjs (new) and tests/host-fixture.test.mjs (new, run in CI with Node 24); templates/npm/wiki-verify.template.mjs ("by host name" is an import, `OLDEST_NODE` copies the binary alone, `shell()`); SKILL.md (intro, Step 4, Step 6, Update mode step 3); references/page-sets.md (new section "How `wikiwright.py outputs` reads a page", moved from SKILL.md Step 6); references/npm.md (the kit, the oldest Node); AGENTS.md; .github/workflows/tests.yml
