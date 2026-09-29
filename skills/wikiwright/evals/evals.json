@@ -52,11 +52,11 @@
     {
       "id": "action-1",
       "kind": "action",
-      "prompt": "Draft the Home page of a GitHub wiki for m4bwav/is-an-image-url in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.",
+      "prompt": "Draft the Home page of a GitHub wiki for m4bwav/markdown-plain-link-replacer in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.",
       "expectations": [
         "the wiki repository was checked from the shell (wikiwright.py preflight or git ls-remote of the .wiki.git URL)",
         "wiki-draft/Home.md exists and shows an example output",
-        "the example was run against the published package (npm install is-an-image-url@2 in the trace; the script may live in the session scratchpad when no clone is in the workspace)",
+        "the example was run against the published package (npm install markdown-plain-link-replacer@2 in the trace; the script may live in the session scratchpad when no clone is in the workspace)",
         "every output block on the page appears in a tool result of the trace (wikiwright.py outputs wiki-draft <tool results extracted from trace.jsonl> exits 0)"
       ],
       "evidence": {
@@ -71,21 +71,21 @@
           {
             "type": "trace",
             "tool": "Bash|PowerShell",
-            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*is-an-image-url"
+            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*markdown-plain-link-replacer"
           }
         ]
       },
-      "baseline": "T-20260928-2 (against get-title-at-url): the baseline also checked the wiki and verified its example, because it read the repository's new ai-docs wiki note (L-013 `baseline-learns-from-run`). From T-20260928-3 the case names seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran; see TESTS.md for the arms' results. From T-20260928-4 (0.3.0) the case names is-an-image-url, which had only GitHub's placeholder page and no wiki note when the suite ran; seeded-random-utilities had its wiki note from the second run.",
+      "baseline": "T-20260928-2 (against get-title-at-url): the baseline also checked the wiki and verified its example, because it read the repository's new ai-docs wiki note (L-013 `baseline-learns-from-run`). From T-20260928-3 the case names seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran; see TESTS.md for the arms' results. From T-20260928-4 (0.3.0) the case names is-an-image-url, which had only GitHub's placeholder page and no wiki note when the suite ran; seeded-random-utilities had its wiki note from the second run. From T-20260929-1 (0.4.0) the case names markdown-plain-link-replacer, whose wiki held only the page the maintainer saved and which had no wiki note when the suite ran; is-an-image-url had its wiki and note from the third run.",
       "runs": 3,
       "grader": "evals/grade-action.py (run-action.sh runs it at the end of each run)"
     },
     {
       "id": "action-2",
       "kind": "action",
-      "prompt": "Write a Home page for the GitHub wiki of m4bwav/is-an-image-url into ./wiki-draft/Home.md. Don't push or commit anything anywhere.",
+      "prompt": "Write a Home page for the GitHub wiki of m4bwav/markdown-plain-link-replacer into ./wiki-draft/Home.md. Don't push or commit anything anywhere.",
       "expectations": [
         "the wiki repository was checked from the shell (wikiwright.py preflight or git ls-remote of the .wiki.git URL), unprompted",
-        "the published package was installed from npm and an example run (npm ... install is-an-image-url in the trace), unprompted",
+        "the published package was installed from npm and an example run (npm ... install markdown-plain-link-replacer in the trace), unprompted",
         "wiki-draft/Home.md exists and every output block on it appears in a tool result of the trace (wikiwright.py outputs exits 0 with at least one output checked)"
       ],
       "evidence": {
@@ -100,11 +100,11 @@
           {
             "type": "trace",
             "tool": "Bash|PowerShell",
-            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*is-an-image-url"
+            "input_match": "npm\\b[^\n;&|]*\\b(install|i|add) [^\n;&|]*markdown-plain-link-replacer"
           }
         ]
       },
-      "baseline": "Added in T-20260928-3 because action-1's prompt names the method ('real output', 'check whether the wiki exists') and the baseline followed it; this prompt names neither. Retargeted to is-an-image-url with action-1 for 0.3.0.",
+      "baseline": "Added in T-20260928-3 because action-1's prompt names the method ('real output', 'check whether the wiki exists') and the baseline followed it; this prompt names neither. Retargeted to is-an-image-url with action-1 for 0.3.0, and to markdown-plain-link-replacer for 0.4.0 (T-20260929-1).",
       "runs": 2,
       "grader": "evals/grade-action.py (run-action.sh runs it at the end of each run)"
     },
