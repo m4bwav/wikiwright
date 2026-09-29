@@ -4,6 +4,22 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-12 · 2026-09-29 · LEARNINGS.md consolidated under its budget: merge, retire, promote, tighten (`learnings-consolidation`)
+- because: user request (the 0.7.0 kickoff); the evergreen-protocol budget (active learnings under 200 lines; MAINTENANCE.md "Learnings" and "Links and budgets"), which LEARNINGS.md passed at 503 lines
+- files: LEARNINGS.md (header, every entry); LEARNINGS-ARCHIVE.md (new); evergreen.json (`counts.learnings`)
+- What changed and why, entry by entry (each entry edited on its own, not regenerated):
+  - Merged near-duplicates, each survivor naming what it absorbed: L-003 and L-010 into L-002; L-004 and L-005 into L-105; L-008 and L-022 into L-019; L-020 and L-113 into L-011; L-018 into L-013; L-134 into L-017; L-118 and L-119 into L-106; L-103 into L-110; L-112, L-115, L-117, L-127 and L-129 into L-116; L-128 into L-120; L-124 and L-126 into L-123; L-114 and L-135 into L-125 (L-135 had corrected L-125's Forgejo slug); L-133 into L-130.
+  - Retired the two rejected entries, L-108 and L-121 (harmful 1 > helpful 0 each), to the archive with their reasons.
+  - Promoted in bookkeeping only: L-007, L-009, L-011, L-019, L-021, L-106 and L-109 were already folded into SKILL.md or a reference by C-20260928-2 to C-20260928-4 while their status still said active; each now says `promoted:` with that change. SKILL.md is unchanged.
+  - Shortened every promoted entry to its heading, a `Rule:` line, an `Evidence:` line naming where the rule now lives, and its Status; tightened the seven active entries (L-012 to L-017, L-120). Headings and code names are unchanged.
+  - Nothing is lost: LEARNINGS-ARCHIVE.md holds the retired entries, a list of the 24 merged ones with their survivors, and the full text of all 53 shortened or merged entries as they stood at 1798378. Every L- citation in SKILL.md, references, templates, scripts, evals, tests, TESTS.md, RESEARCH.md, README, AGENTS.md and ai-docs (47 ids, 59 with a code name) resolves in one of the two files with a matching code name. One citation names another entry's code name on purpose: TESTS.md T-20260929-3 records that the eval-written L-130 was renumbered L-132, and stays.
+- Numbers, before and after:
+  - LEARNINGS.md: 503 lines and 91,316 bytes, now 175 lines and 28,308 bytes.
+  - Entries in LEARNINGS.md: 53 (22 with status active, 31 promoted; plus the 2 rejected), now 29 (7 active, 22 promoted). `counts.learnings` 53 to 29.
+  - LEARNINGS-ARCHIVE.md: none, now 560 lines (94,650 bytes); it is read only when an ID is looked up or a search reaches it.
+  - What an agent reads at capture time (the whole of LEARNINGS.md, checked before writing an entry): about 22,800 tokens, now about 7,100 (bytes / 4).
+- `evergreen.py lint` no longer reports "LEARNINGS.md: over 200 lines", nor four "referenced but never defined" learning ids that belong to package-modernize (now written qualified, or kept only in the archive's full text, which the link check does not scan for references).
+
 ### C-20260929-10 · 2026-09-29 · Release 0.6.0: a file-writing package, a grader that sees a recorder, the first wiki on another host (`release-0.6.0`)
 - because: user request (the 0.6.0 kickoff); C-20260929-7 to C-20260929-9; T-20260929-3; R-20260929-2
 - files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history), README
