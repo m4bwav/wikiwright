@@ -50,28 +50,34 @@
       "m": null,
       "interval_after": 14,
       "note": "0.4.0: fourth run (markdown-plain-link-replacer), diffout, OLDEST_NODE, requests by host name; no new research"
+    },
+    {
+      "date": "2026-09-29",
+      "m": 0.6,
+      "interval_after": 14,
+      "note": "0.5.0: R-20260929-1 other hosts measured without an account; suite tools; fifth run (stack-exchange-markdown-retriever)"
     }
   ],
   "counts": {
-    "learnings": 41,
-    "changes": 6,
-    "research": 2,
-    "tests": 6
+    "learnings": 49,
+    "changes": 11,
+    "research": 3,
+    "tests": 7
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-29T13:24",
-    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + claude -p stream-json via evals/run-action.sh, graded by evals/grade-action.py",
+    "last_run": "2026-09-29T17:40",
+    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py with --forbid-host",
     "env": "DESKTOP-7KS2S6E",
     "cases": 9,
     "passed": 9,
     "failed": 0,
     "failing": [],
     "last_failure": {
-      "date": "2026-09-28",
-      "note": "T-20260928-5: preflight 2/2 (fallback gone); run 1 showed an output not in its trace; target now has a wiki, retarget before the next suite"
+      "date": "2026-09-29",
+      "note": "T-20260929-2: three retriever runs requested the real API (forbidden route); tuned (C-20260929-3), rerun 4/4"
     },
     "research_after_days": null
   },
-  "version": "0.4.0"
+  "version": "0.5.0"
 }

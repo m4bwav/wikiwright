@@ -128,10 +128,12 @@ show('cjs exports', Object.keys(cjs).sort());
 const binEntry = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && Object.values(pkg.bin)[0];
 // The published bin, run with this Node; stdout, stderr and the exit code are all recorded.
 // Asynchronous on purpose: spawnSync blocks this process's event loop, and with it the
-// fixture server below, so a CLI call against the fixture would hang (L-007).
+// fixture server below, so a CLI call against the fixture would hang (L-007). CLI_ENV reaches the fixture by host
+// name: set it to fx.env when the kit is in use.
+let CLI_ENV = {};
 function cli(...args) {
 	return new Promise(resolve => {
-		const child = spawn(process.execPath, [path.join(pkgDir, binEntry), ...args]);
+		const child = spawn(process.execPath, [path.join(pkgDir, binEntry), ...args], {env: {...process.env, ...CLI_ENV}});
 		child.stdin.end();
 		let stdout = '';
 		let stderr = '';
@@ -187,6 +189,7 @@ if (false) {
 	show('guard', fx.guardCheck);
 	show('lookups reach the fixture through', fx.route);
 	closers.push(fx);
+	CLI_ENV = fx.env;
 }
 
 // ----- the cases: one per example on the wiki, labelled by page -----
@@ -232,10 +235,22 @@ if (GOLDEN && OLD) {
 			continue;
 		}
 
-		// Adapt the keys to the capture's format: here a list of cases with a name.
-		const got = new Map(JSON.parse(result.stdout).cases.map(entry => [entry.name, JSON.stringify(entry)]));
-		const differing = want.cases.filter(entry => got.get(entry.name) !== JSON.stringify(entry)).map(entry => entry.name);
-		show(label, [`${want.cases.length} cases, ${want.cases.length - differing.length} identical to the golden file`, ...differing].join('\n'));
+		// Compare the answers, the callback timing and the requests apart (L-113). Adapt the three views to the
+		// capture's format: here cases with a name, `returned`/`threw`/`calls[].args` answers, `calls[].sync`
+		// timing and `requests`.
+		const views = {
+			answers: entry => [entry.returned, entry.threw, entry.calls?.map(call => call.args), entry.uncaught],
+			timing: entry => entry.calls?.map(call => call.sync),
+			requests: entry => entry.requests,
+		};
+		const got = new Map(JSON.parse(result.stdout).cases.map(entry => [entry.name, entry]));
+		const lines = [`${want.cases.length} cases`];
+		for (const [view, pick] of Object.entries(views)) {
+			const differing = want.cases.filter(entry => JSON.stringify(pick(got.get(entry.name) ?? {})) !== JSON.stringify(pick(entry)));
+			lines.push(`${view}: ${want.cases.length - differing.length} identical${differing.length > 0 ? `; differ: ${differing.map(entry => entry.name).join(' | ')}` : ''}`);
+		}
+
+		show(label, lines.join('\n'));
 	}
 }
 

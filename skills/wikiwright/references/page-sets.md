@@ -1,6 +1,6 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from six published wikis, written on 2026-09-28 and 29:
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from seven published wikis, written on 2026-09-28 and 29:
 
 - RandomNameGeneratorLibrary: a .NET library with seeded data.
 - JsonPrettyPrinter: a .NET formatter.
@@ -8,12 +8,13 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 - seeded-random-utilities: an npm library without a CLI, with seeded output and golden captures of two old versions.
 - is-an-image-url: an npm library with a CLI that makes requests, with a golden capture of 1.0.4 that starts its own fixture server.
 - markdown-plain-link-replacer (2026-09-29): an npm library with a CLI whose requests go through its dependencies to the hosts its input names, with a golden capture of 1.1.16 that records through its own proxy with TLS.
+- stack-exchange-markdown-retriever (2026-09-29): an npm library with a CLI that calls one fixed HTTPS host, served by name through the host-fixture kit, with a golden capture of 1.1.7 recorded through a proxy with TLS; its post texts are sample content, labelled on every page.
 
 | Kind | Tested on |
 |---|---|
 | Library (npm, without a CLI) | seeded-random-utilities |
 | Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter |
-| Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer (third run: the set held without changes; the behaviour page was `How-Links-Are-Replaced`) |
+| Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever (fourth run, 2026-09-29: the set held again; the behaviour pages were `How-Links-Are-Replaced` and `How-Markdown-Is-Retrieved`) |
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
 | Command-line tool | not yet (the section below is a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
 | Application, website, monorepo | not yet (see the end of this page) |

@@ -10,10 +10,15 @@
 //   });
 //   fx.guardCheck                                  // the guard refused .invalid hosts with its own message: print it
 //   fx.route                                       // how Node children reach the fixture: print it
-//   await run(process.execPath, ['example.mjs'], {env: fx.env});   // children: Node, Deno, Bun, npx, bash
+//   await run(process.execPath, ['example.mjs'], {env: fx.env});   // Node children, bash, the CLI
+//   await run(deno, ['run', '--allow-net', 'x.ts'], {env: fx.runtimeEnv});   // Deno and Bun: no NODE_OPTIONS
 //   await fx.routeThisProcess();                   // this process's fetch too (needs undici@7 for Node 20)
 //   fx.seen                                        // 'GET https://api.example.com/x?y', in order: print one case
 //   await fx.close();
+// npx under fx.env gives npm itself the guard and the proxy: install once with a plain environment, then run
+// `npx --offline <bin>` with fx.env. A proxy that drops CONNECT makes fetch retry until its timeout (hundreds of
+// CONNECTs a second), and late retries land in the next case's request list: close such a case's connections
+// and wait before the next one (L-128).
 //
 // How it works: a plain server and a TLS server share `handle`, behind a stand-in proxy on 127.0.0.1 that
 // answers CONNECT and routes by port (443 to TLS, any other to plain: Node tunnels http: too, L-112). The TLS
@@ -173,10 +178,17 @@ export async function startHostFixture({hosts, handle, dir = 'tls', openssl = pr
 		route = 'undici EnvHttpProxyAgent preloaded';
 	}
 
+	// Deno 2.9.6 runs --require preloads from NODE_OPTIONS (on the Node 20 route it loaded the undici preload and died on
+	// an env permission), and the guard does not reach Deno or Bun anyway: they get the proxy and the CA without
+	// NODE_OPTIONS. Gate each of their examples on a fetch of https://gate.invalid/ through the proxy (the fixture
+	// answers .invalid hosts with 204), so a runtime that skipped the proxy fails before any example runs.
+	const {NODE_OPTIONS: _unused, ...runtimeEnv} = env;
+	let dispatcher;
 	return {
 		proxyUrl,
 		ca,
 		env,
+		runtimeEnv,
 		route,
 		seen,
 		guardFile,
@@ -185,9 +197,12 @@ export async function startHostFixture({hosts, handle, dir = 'tls', openssl = pr
 		async routeThisProcess() {
 			require(path.resolve(guardFile));
 			const {setGlobalDispatcher, ProxyAgent} = require('undici');
-			setGlobalDispatcher(new ProxyAgent({uri: proxyUrl, requestTls: {ca: [...tls.rootCertificates, readFileSync(ca, 'utf8')]}}));
+			dispatcher = new ProxyAgent({uri: proxyUrl, requestTls: {ca: [...tls.rootCertificates, readFileSync(ca, 'utf8')]}});
+			setGlobalDispatcher(dispatcher);
 		},
+		// Closes the servers and this process's agent, whose keep-alive sockets otherwise hold the process open.
 		async close() {
+			await dispatcher?.close();
 			for (const server of [proxy, secure, plain]) {
 				server.closeAllConnections?.();
 				server.close();

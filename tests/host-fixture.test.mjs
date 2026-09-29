@@ -40,6 +40,11 @@ test('children reach the fixture by host name over https and http, and nothing e
 	});
 	try {
 		assert.match(fx.guardCheck, /refused 4 of 4/);
+		// Deno and Bun get the proxy and the CA without the Node preloads (Deno runs --require preloads).
+		assert.equal(fx.runtimeEnv.NODE_OPTIONS, undefined);
+		assert.equal(fx.runtimeEnv.HTTPS_PROXY, fx.proxyUrl);
+		assert.equal(fx.runtimeEnv.DENO_CERT, fx.ca);
+		assert.equal(fx.env.NO_PROXY, '127.0.0.1,localhost,::1');
 		const script = path.join(dir, 'client.mjs');
 		writeFileSync(script, [
 			"for (const url of ['https://api.example.com/2.2/questions/1?site=x', 'http://api.example.com/plain', 'https://not-served.test/']) {",

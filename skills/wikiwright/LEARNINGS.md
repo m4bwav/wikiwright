@@ -406,4 +406,26 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Rule: the kit sets `NO_PROXY` and `no_proxy` to `127.0.0.1,localhost,::1`. The page hosts are real names, so they still go through the proxy.
 - Evidence: package-modernize L-125 and its self-test (fails two checks with `NO_PROXY` empty); tests/host-fixture.test.mjs passed after the change
 - Scope: skill (templates/npm/host-fixture.mjs)
-- Status: promoted: C-20260929-4 · helpful 0 · harmful 0 · last_confirmed 2026-09-29
+- Status: promoted: C-20260929-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-29 (the fifth run's 1.1.7 replay through the kit: 90 of 90 request lines identical)
+
+### L-128 · 2026-09-29 · Behind a proxy that drops CONNECT, fetch retries until its timeout (`connect-retry-leak`)
+- Trigger: the fifth run's golden replay of stack-exchange-markdown-retriever's `capture-1.1.7.cjs` against 2.0.0. In the case "connection dropped during the tunnel", 1.1.7 (request 2.88) failed at once, but 2.0.0's fetch sent CONNECT again and again until the call's timeout: more than 100 CONNECTs in 2 seconds, and about 18,000 in 5 seconds in a side probe. No callback came within the capture's 10 seconds, and late retries landed in the next CLI case's request list, so the count of identical CLI request lines moved between runs (16 or 17 of 20) (2026-09-29).
+- Hypothesis: undici treats a closed tunnel socket as a retryable connection failure and has no backoff, so the loop ends only at the abort.
+- Rule: in a replay, count request lines per case window and expect leakage after a dropped-tunnel case. Put the difference on the page as behaviour (2.0.0 waits for its timeout where 1.1.7 failed at once), and do not treat the moving count as a Node-line difference. A capture or script should close the case's connections and wait before the next case.
+- Evidence: stack-exchange-markdown-retriever ai-docs/notes/2026-09-29-github-wiki.md and its log (the hang-up finding); the run's report
+- Scope: skill (templates/npm/host-fixture.mjs header, references/page-sets.md golden replay)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-129 · 2026-09-29 · The host-fixture kit's first run: runtimes, npx, the CLI's environment and the agent's sockets (`kit-first-run`)
+- Trigger: the fifth real run used `templates/npm/host-fixture.mjs` for the first time and reported six gaps (2026-09-29).
+  1. Deno 2.9.6 runs `--require` preloads from `NODE_OPTIONS`: on the Node 20 route it loaded the undici preload and died on an env permission.
+  2. The guard reaches Node children only; the run gated Deno and Bun with an `.invalid` fetch through the proxy.
+  3. The template's `cli()` took no environment, so the CLI could not reach the kit.
+  4. `npx` under the kit's environment gave npm itself the guard and the proxy; it needed a warm-up with a plain environment, then `--offline`.
+  5. `routeThisProcess()`'s ProxyAgent kept the process alive, and there was no way to close it.
+  6. The template's golden section compared whole entries, mixing answers, timing and requests.
+- Hypothesis: the kit was extracted from a run that used Node children only through `fx.env`; each runtime reads the environment its own way.
+- Rule: the kit returns `runtimeEnv` (without `NODE_OPTIONS`) for Deno and Bun, documents the `.invalid` gate and the npx warm-up, and closes its agent in `close()`. The template's `cli()` takes `CLI_ENV` (set to `fx.env`), and the golden section counts answers, timing and requests apart.
+- Evidence: the fifth run's report (items 2 to 7); stack-exchange-markdown-retriever ai-docs/notes/2026-09-29-wiki-verify.mjs; tests/host-fixture.test.mjs (runtimeEnv)
+- Scope: skill (templates/npm/host-fixture.mjs, templates/npm/wiki-verify.template.mjs)
+- Status: promoted: C-20260929-5 · helpful 1 · harmful 0 · last_confirmed 2026-09-29

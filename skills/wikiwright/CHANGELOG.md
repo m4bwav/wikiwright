@@ -4,6 +4,23 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-6 · 2026-09-29 · Release 0.5.0: tools that save tokens, a tuned network rule, other hosts, the fifth real run (`release-0.5.0`)
+- because: user request (the 0.5.0 kickoff); C-20260929-2 to C-20260929-5; T-20260929-2; R-20260929-1
+- files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history), README
+- 0.5.0 gathers the entries below. `wikiwright.py releasecheck 0.5.0` checks the four version fields, this entry and T-20260929-2.
+- Measured load, before and after:
+  - SKILL.md: 3,059 words before, 2,834 after the trim. The tune, the draft-only paragraph and the other hosts added 194, for 3,028 in the release.
+  - The npm template: 15,606 bytes before, 13,428 after. The host-name code moved to the 10,793-byte kit, and a run reads only its 2,648-byte header.
+  - A nine-run action suite now prints 1,363 bytes into the calling session. The full grades are 7,953 bytes, and the 0.4.0 session also read its driver's output by hand.
+  - `cachecheck` and `releasecheck` each replace a hand check with one line.
+  - The fifth run was one headless session: $11.35, 32 minutes, 158 turns. Its report reached this session at 11 KB. The subagents that measured the hosts kept about 530,000 tokens of their own out of the main context.
+- The fifth run's script was 47.7 KB, against 48.9 KB for the fourth. It imported the kit instead of rebuilding the proxy, and spent its size on more cases: 93 page outputs, against 55.
+
+### C-20260929-5 · 2026-09-29 · Lessons of the fifth run, stack-exchange-markdown-retriever (`fifth-run-lessons`)
+- because: the fifth real run (wiki commit 348a628, the repository's PR #23); its report; L-128, L-129; L-018 (the four-change note)
+- files: templates/npm/host-fixture.mjs (`runtimeEnv` without `NODE_OPTIONS` for Deno and Bun, the `.invalid` gate, the npx warm-up, the connect-retry leak, `close()` closes this process's agent); templates/npm/wiki-verify.template.mjs (`cli()` takes `CLI_ENV`; the golden section counts answers, timing and requests apart); templates/pages/_Sidebar.md (a Commands slot); SKILL.md Step 6 (`--address ''`); references/npm.md (package-modernize's template now removes all four patches); references/page-sets.md (the seventh wiki, the CLI set tested a fourth time); references/hosts.md (three bold labels the prose checker flagged); tests (51 unit tests; the kit test checks `runtimeEnv` and `NO_PROXY`); LEARNINGS.md (L-128, L-129)
+- The run passed every check (outputs 93 of 93, golden replay 90 of 90 and 20 of 20 on 1.1.7, Node 20 run). It also listed eleven places where the skill was wrong, missing or confusing. Each one is now a kit or template change, a line of guidance, or a learning. The exception is Step 8's push and overlay update, which the request had overridden.
+
 ### C-20260929-4 · 2026-09-29 · Other hosts measured without an account; preflight, check and live learn Gitea, Forgejo, GitLab and Azure DevOps (`other-hosts-measured`)
 - because: user request (0.5.0 kickoff: verify every host claim that can be verified without an account); R-20260929-1; L-123 to L-127; package-modernize L-125 (NO_PROXY); T-20260929-2 (L-118's `npx.cmd` addendum)
 - files: scripts/wikiwright.py (`parse_remote` with ports and Azure's ssh form, `detect_kind`, `preflight` for Gitea and Forgejo with `--seed`, GitLab, Azure DevOps, `--kind`; `check --host`; `live` for each host; page names quoted; probes compared without whitespace); tests/test_wikiwright.py (50 tests: a local fake host with the measured status codes, no network); references/hosts.md (rewritten from measurements); RESEARCH.md (R-20260929-1, the open question answered); SKILL.md (Steps 1 and 3); references/page-sets.md; templates/npm/host-fixture.mjs (`NO_PROXY` names the loopback); templates/npm/wiki-verify.template.mjs (the `npx.cmd` note); README; LEARNINGS.md (L-123 to L-127)

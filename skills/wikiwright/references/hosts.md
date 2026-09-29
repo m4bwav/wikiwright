@@ -34,7 +34,7 @@ Measured on 2026-09-29 without an account (R-20260929-1). Gitea 1.27.3 and Forge
 - **Every wiki URL answers 200 before a first page** ("Welcome to the wiki"). A status check therefore cannot tell an empty wiki from a live one; `live` reads the page API first, which answers 404 until a page exists.
 - **File names.** Hyphens show as spaces. A file named with a literal space appears in the list but cannot be opened. A file in a folder is not listed (Gitea 404, Forgejo 500). Keep the wiki flat and hyphenated; `check --host gitea` flags both.
 - **Private repositories.** The API answers 404 anonymously and 200 with a token. The web pages answer 404 even with a token header, so a live check of a private wiki needs the API (not built).
-- **Unverified:** SSH URLs (SSH was off on both instances), `tea wiki`, and what a signed-in writer sees for a missing page.
+- Still unverified: SSH URLs (SSH was off on both instances), `tea wiki`, and what a signed-in writer sees for a missing page.
 
 ## GitLab
 
@@ -45,7 +45,7 @@ Measured on 2026-09-29 without an account (R-20260929-1). Gitea 1.27.3 and Forge
   - A front-matter `title` changes the web heading, not the API title.
   - A pushed `.txt` file is listed and displayed.
 - **Sidebar.** `_sidebar.md` (or `.markdown`) replaces the sidebar. The page HTML is rendered by JavaScript: the page carries `data-has-custom-sidebar` and a `data-content-api` URL. `live` therefore checks `_sidebar` in the API list, not the HTML.
-- **Unverified:** a footer, the 5 MB page limit and name limits, PUT and DELETE through the API, a group's default branch (group wikis need a paid tier), and gitlab.com's behaviour on a push to a new wiki (measured on local CE only).
+- Still unverified: a footer, the 5 MB page limit and name limits, PUT and DELETE through the API, a group's default branch (group wikis need a paid tier), and gitlab.com's behaviour on a push to a new wiki (measured on local CE only).
 
 ## Azure DevOps
 
@@ -55,7 +55,7 @@ Measured on 2026-09-29 without an account (R-20260929-1). Gitea 1.27.3 and Forge
   - A code wiki publishes a folder (`mappedPath`) of another repository.
   - A hyphen in a file name is a space in the page path, and page paths are case-sensitive.
   - `.order` files hold hyphenated names without `.md`. A page missing from `.order` got order 2147483647; no `isNonConformant` field was seen.
-- **Unverified (needs an account):** creating a wiki and its branch name today, the home page and `.order` rules on a new wiki, link forms between pages, updating a page with `If-Match`, `az devops wiki`, attachments and deletion. There is no local substitute: Azure DevOps Server is not free to run.
+- Still unverified, because they need an account: creating a wiki and its branch name today, the home page and `.order` rules on a new wiki, link forms between pages, updating a page with `If-Match`, `az devops wiki`, attachments and deletion. There is no local substitute: Azure DevOps Server is not free to run.
 
 ## Page sets on these hosts (notes for the first run)
 

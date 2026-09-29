@@ -5,6 +5,7 @@ Using it
 - [Getting started](Getting-Started)
 - [API reference](API-Reference)
 - [{{CONTRACT_PAGE_TITLE}}]({{CONTRACT_PAGE}})
+- [Commands](Commands)
 - [{{EDGE_PAGE_TITLE}}]({{EDGE_PAGE}})
 - [Recipes](Recipes)
 - [FAQ](FAQ)

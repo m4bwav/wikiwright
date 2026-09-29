@@ -2,7 +2,7 @@
 name: wikiwright
 description: "Write or update a repository's GitHub wiki from the repository and its registry: survey the README, changelog, source, tests, issues and registry data, verify every example against the published package (npm or NuGet), write the page set for the repository's kind (Home, Getting started, API reference, behaviour, errors, Recipes, Commands, Versions and upgrading, FAQ, Development) with a sidebar and footer, push the .wiki.git repository and check every page is live. Use whenever the user asks to write, fill out, generate, create or update a wiki for a repo or package ('write a wiki for this repo', 'fill out the GitHub wiki', 'update the wiki for 2.4.0', 'wiki pages for my library', 'the wiki is empty'), or a package-modernize run reaches its wiki step. Also for 'refresh wikiwright' and 'is wikiwright stale'. Not for the README alone, a docs site (GitHub Pages, Docusaurus), an Obsidian vault (obsidian-notes) or ai-docs (everlast)."
 metadata:
-  version: "0.4.0"
+  version: "0.5.0"
 ---
 
 # wikiwright
@@ -81,7 +81,7 @@ First reread every page once with one question per sentence: which script output
 
 ```
 WW check <wiki dir> --version X
-WW outputs <wiki dir> <the saved wiki-verify.out.txt>
+WW outputs <wiki dir> <the saved wiki-verify.out.txt> [--address '' when the pages show real host names]
 python <everwrite>/scripts/tells.py <wiki dir>/*.md
 ```
 

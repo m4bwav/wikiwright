@@ -606,6 +606,17 @@ class TemplateTests(unittest.TestCase):
         self.assertNotIn("openssl", text.lower().split("by host name")[1].split("----- the cases")[0].replace(
             "host-fixture.mjs", ""))
 
+    def test_golden_views_and_cli_environment(self):
+        # L-129: the golden replay counts answers, timing and requests apart; the CLI reaches the kit.
+        text = self.read("wiki-verify.template.mjs")
+        for view in ("answers:", "timing:", "requests:"):
+            self.assertIn(view, text)
+        self.assertIn("{env: {...process.env, ...CLI_ENV}}", text)
+        self.assertIn("CLI_ENV = fx.env;", text)
+        kit = self.read("host-fixture.mjs")
+        self.assertIn("runtimeEnv", kit)
+        self.assertIn("await dispatcher?.close();", kit)
+
     def test_kit_guard_reads_the_normalised_array(self):
         # L-117: net.connect() passes [options, callback] as one argument.
         self.assertIn("Array.isArray(args[0]) ? args[0][0] : args[0]", self.read("host-fixture.mjs"))
