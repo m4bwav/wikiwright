@@ -18,7 +18,9 @@ What it reads, all from the trace or the disk:
 
 Cases:
 - action-1, action-2 (a new wiki's Home page): the wiki was checked from the shell,
-  the published package was installed, work/wiki-draft/Home.md exists, and
+  the published package was installed (npm, or NuGet: `dotnet add package`, a
+  `#:package` file-based app, an F# `#r "nuget:"` script or a scratch project's
+  PackageReference, then run or restored), work/wiki-draft/Home.md exists, and
   `wikiwright.py outputs` finds every output on it in the tool results (at least one).
 - action-3 (update mode, "update the wiki for X"): the published package was installed,
   the repository's saved verification script was run, and its output was compared with
@@ -90,20 +92,30 @@ FETCH_WRAPPER = re.compile(r"\b(globalThis|global|window|self)\.fetch\s*=(?!=)")
 ROUTES_LOCALLY = re.compile(r"127\.0\.0\.1|localhost|\[::1\]|x-fixture-url|[A-Z]+_BASE\b|\brefus")
 
 
+DOTNET_SCRIPT = re.compile(r"\.(cs|csx|fs|fsx)$")
+# A .NET program that names the host sends a request only through a client call; an offline check of the same URL
+# (HasImageExtension("https://example.com/a.png")) does not.
+DOTNET_REQUEST = re.compile(r"\bHttpClient\b|\bWebRequest\b|\bGetAsync\b|\bSendAsync\b|UrlAsync\b")
+
+
 def live_requests(uses, host):
     """Tool calls that sent a request to the package's real service (T-20260929-2): a curl-like command naming
     the host, a LIVE= switch, or a script run after it was written with the host and no local routing, or with a
-    fetch wrapper that routes nothing locally."""
+    fetch wrapper that routes nothing locally. A .NET program (.cs, .fsx) counts only when it also makes a
+    client call; its local routing is a handler, a proxy or a loopback address."""
     found, hostname = [], re.escape(host)
     scripts = {}
     for _, name, inp in uses:
         body = inp.get("content") or inp.get("new_string") or ""
         path = inp.get("file_path") or ""
         code = re.search(r"\.(mjs|cjs|js|ts|py|sh|ps1)$", path)
-        if name not in ("Write", "Edit") or not code:
+        dotnet = DOTNET_SCRIPT.search(path)
+        if name not in ("Write", "Edit") or not (code or dotnet):
+            continue
+        if dotnet and not DOTNET_REQUEST.search(body):
             continue
         if re.search(r"https?://" + hostname, body) and not re.search(
-                r"127\.0\.0\.1|localhost|installFetch|FIXTURE|fixture|replay|proxy", body):
+                r"127\.0\.0\.1|localhost|installFetch|FIXTURE|fixture|replay|proxy|Proxy|Handler\b", body):
             scripts[os.path.basename(path)] = "unrouted script"
         elif FETCH_WRAPPER.search(body) and not ROUTES_LOCALLY.search(body):
             scripts[os.path.basename(path)] = "unrouted fetch wrapper"
@@ -118,6 +130,43 @@ def live_requests(uses, host):
         else:
             found += ["%s %s: %s" % (kind, b, cmd[:100]) for b, kind in scripts.items() if b and b in cmd]
     return found
+
+
+def installs(uses, package, version=""):
+    """Evidence that the published package came from its registry: an npm-family install, `dotnet add package`,
+    or a program that pins it (`#:package ID@X` in a file-based app, `#r "nuget: ID"` in an F# script,
+    `<PackageReference Include="ID">` in a scratch project) followed by a dotnet run, fsi, build or restore.
+    NuGet ids are matched without regard to case. Returns the matching texts, shortest first."""
+    pkg = re.escape(package)
+    ver = re.escape(version) if version else ""
+    npm = re.compile(r"\b(npm|pnpm|yarn|bun)\b[^\n;&|]*\b(install|i|add) [^\n;&|]*" + pkg + (("@" + ver) if ver else ""))
+    after = (r"[^\n]*?" + ver) if ver else ""
+    add = re.compile(r"(?i)\bdotnet\s+add\b[^\n;&|]*\bpackage\s+" + pkg + r"\b" + after)
+    pins = re.compile(r"(?i)#:package\s+" + pkg + r"\b" + (("@" + ver) if ver else "")
+                      + r"|#r\s+\"nuget:\s*" + pkg + r"\b" + ((r"\s*,\s*" + ver) if ver else "")
+                      + r"|<PackageReference\s+Include=\"" + pkg + "\"" + after)
+    runs = re.compile(r"(?i)\bdotnet\s+(run|fsi|build|restore|test)\b")
+    found, pinned = [], []
+    for _, name, inp in uses:
+        if name in ("Write", "Edit"):
+            body = inp.get("content") or inp.get("new_string") or ""
+            m = pins.search(body)
+            if m:
+                pinned.append(m.group(0))
+            continue
+        if name not in SHELLS:
+            continue
+        cmd = inp.get("command") or ""
+        for pattern in (npm, add):
+            m = pattern.search(cmd)
+            if m:
+                found.append(m.group(0))
+        m = pins.search(cmd)  # a program written from the shell (a here-string, echo) and run in the same call
+        if m:
+            pinned.append(m.group(0))
+        if pinned and runs.search(cmd):
+            found.append("%s, then %s" % (pinned[-1], runs.search(cmd).group(0)))
+    return sorted(set(found), key=len)
 
 
 def saved_outputs(run, uses):
@@ -179,7 +228,9 @@ def digest(run, uses, show_all=False):
                 flags.append("url:" + ",".join(hosts))
             if re.search(r"\b(npm|pnpm|yarn|bun)\b[^\n;&|]*\b(install|i|add|view|pack)\b", text):
                 flags.append("npm")
-            if re.search(r"\b(node|npx|deno)\b", text):
+            if re.search(r"(?i)\bdotnet\s+(add\b[^\n;&|]*\bpackage|restore)\b|#:package|#r\s+\"nuget:", text):
+                flags.append("nuget")
+            if re.search(r"\b(node|npx|deno)\b|\bdotnet\s+(run|fsi|test|exec)\b|\bdotnet\s+\S+\.dll\b", text):
                 flags.append("run")
             if re.search(r"\bgit\b|\bgh\b", text):
                 flags.append("git")
@@ -192,6 +243,8 @@ def digest(run, uses, show_all=False):
                 flags.append("outside")
             if FETCH_WRAPPER.search(body):
                 flags.append("fetch-wrapper" + ("" if ROUTES_LOCALLY.search(body) else " UNROUTED"))
+            if re.search(r"(?i)#:package\s|#r\s+\"nuget:|<PackageReference\s", body):
+                flags.append("nuget")
         elif name == "Skill":
             text, flags = inp.get("skill") or "", ["skill"]
         if flags or show_all:
@@ -207,8 +260,8 @@ def main(argv=None):
     ap.add_argument("--case")
     ap.add_argument("--package")
     ap.add_argument("--version", default="")
-    ap.add_argument("--forbid-host", help="the package's real service; any request to it fails the run "
-                                          "(default: forbid.txt in the run folder)")
+    ap.add_argument("--forbid-host", help="the package's real hosts, separated by commas; any request to one "
+                                          "fails the run (default: forbid.txt in the run folder)")
     ap.add_argument("--digest", action="store_true", help="print one line per tool call worth reading, not a grade")
     ap.add_argument("--all", action="store_true", help="with --digest, every tool call")
     a = ap.parse_args(argv)
@@ -236,8 +289,7 @@ def main(argv=None):
         fh.write("\n".join(kept))
 
     shell = [inp.get("command") or "" for _, n, inp in uses if n in SHELLS]
-    pkg = re.escape(package) + (("@" + re.escape(a.version)) if a.version else "")
-    install = re.compile(r"\b(npm|pnpm|yarn|bun)\b[^\n;&|]*\b(install|i|add) [^\n;&|]*" + pkg)
+    installed = installs(uses, package, a.version)
     work = os.path.normcase(os.path.abspath(os.path.join(run, "work")))
     outside = sorted({inp.get("file_path") for _, n, inp in uses
                       if n in ("Write", "Edit") and inp.get("file_path")
@@ -246,7 +298,7 @@ def main(argv=None):
     checks = {}
     checks["skill invoked"] = any(n == "Skill" and "wikiwright" in (inp.get("skill") or "") for _, n, inp in uses)
     checks["wiki checked from the shell"] = any(WIKI_CHECK.search(s) for s in shell)
-    checks["published package installed"] = any(install.search(s) for s in shell)
+    checks["published package installed"] = bool(installed)
     draft = os.path.join(run, "work", "wiki-draft")
     pages = sorted(f for f in os.listdir(draft) if f.endswith(".md")) if os.path.isdir(draft) else []
     checks["Home.md written"] = "Home.md" in pages
@@ -258,10 +310,8 @@ def main(argv=None):
 
     for k, v in checks.items():
         print("%-46s %s" % (k, "yes" if v else "NO"))
-    for s in shell:
-        m = install.search(s)
-        if m:
-            print("  install: " + m.group(0)[:140])
+    for s in installed[:3]:
+        print("  install: " + s[:140])
     checked, missing = 0, 0
     if pages:
         checked, missing, report = outputs_check(draft, results_file)
@@ -295,10 +345,10 @@ def main(argv=None):
     if pages:
         required.append("clean pages (no CR, wikilinks, attribution)")
     forbid = a.forbid_host or read_text(os.path.join(run, "forbid.txt"))
-    if forbid:
-        live = live_requests(uses, forbid)
-        checks["no request to " + forbid] = not live
-        required.append("no request to " + forbid)
+    for host in [h.strip() for h in forbid.replace("\n", ",").split(",") if h.strip()]:
+        live = live_requests(uses, host)
+        checks["no request to " + host] = not live
+        required.append("no request to " + host)
         for item in live:
             print("  live request: " + item)
     failed = [k for k in required if not checks.get(k)]

@@ -7,7 +7,7 @@
 #   action-2  unhinted new-wiki Home page (what a user would type)
 #   action-3  unhinted update mode ("update the wiki for X") against a repository whose wiki
 #             and ai-docs wiki note exist; pages go to ./wiki-draft, nothing is pushed
-# REPO is the repository (default m4bwav/format-json-files for action-1 and action-2, which must
+# REPO is the repository (default m4bwav/IsImageUrlDotNet for action-1 and action-2, which must
 # be one the skill has not touched: no wiki pages and no ai-docs wiki note, or the baseline
 # learns the method from the repository, L-013 `baseline-learns-from-run`; default
 # m4bwav/get-title-at-url for action-3). UVERSION is action-3's version (default 3.0.0).
@@ -25,7 +25,7 @@ if [ "$CASE" = "action-3" ]; then
   REPO="${REPO:-m4bwav/get-title-at-url}"
   UVERSION="${UVERSION:-3.0.0}"
 else
-  REPO="${REPO:-m4bwav/format-json-files}"
+  REPO="${REPO:-m4bwav/IsImageUrlDotNet}"
 fi
 HERE="$(cd "$(dirname "$0")" && pwd)"
 mkdir -p "$OUT/work"
@@ -41,9 +41,11 @@ fi
 echo "$PROMPT" > "$OUT/prompt.txt"
 echo "$CASE" > "$OUT/case.txt"
 echo "${REPO##*/}" > "$OUT/package.txt"
-# The package's real service, which no run may call (the grader fails a run that does, T-20260929-2).
+# The package's real hosts, which no run may call (the grader fails a run that does, T-20260929-2): the service a
+# package calls, or the hosts its README's examples name (comma-separated).
 case "$REPO" in
   */stack-exchange-markdown-retriever) FORBID_HOST="${FORBID_HOST:-api.stackexchange.com}" ;;
+  */IsImageUrlDotNet) FORBID_HOST="${FORBID_HOST:-example.com}" ;;
 esac
 [ -n "${FORBID_HOST:-}" ] && echo "$FORBID_HOST" > "$OUT/forbid.txt"
 (cd "$OUT/work" && claude -p "$PROMPT" --output-format stream-json --verbose \

@@ -703,6 +703,48 @@ class TemplateTests(unittest.TestCase):
         finally:
             rmtree(run)
 
+    def test_grader_reads_nuget_installs_and_dotnet_requests(self):
+        # The 0.7.0 evals target a NuGet package: dotnet add, a file-based app's #:package, an F# script's
+        # #r "nuget:", or a scratch project's PackageReference, each then run or restored.
+        spec = importlib.util.spec_from_file_location(
+            "grade_action", os.path.join(HERE, "..", "evals", "grade-action.py"))
+        grade = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(grade)
+        app = "#:package IsImageUrlDotNet@2.0.0\n#:property PublishAot=false\nusing IsImageUrlDotNet;\n"
+        fsx = '#r "nuget: IsImageUrlDotNet, 2.0.0"\nopen IsImageUrlDotNet\n'
+        proj = '<Project><ItemGroup><PackageReference Include="IsImageUrlDotNet" Version="2.0.0" /></ItemGroup></Project>'
+        pid = "IsImageUrlDotNet"
+        self.assertTrue(grade.installs([(1, "Bash", {"command": "dotnet add s/s.csproj package isimageurldotnet --version 2.0.0"})], pid, "2.0.0"))
+        self.assertTrue(grade.installs([(1, "Write", {"file_path": "C:/s/v.cs", "content": app}),
+                                        (2, "Bash", {"command": "dotnet run v.cs"})], pid, "2.0.0"))
+        self.assertTrue(grade.installs([(1, "Write", {"file_path": "C:/s/v.fsx", "content": fsx}),
+                                        (2, "PowerShell", {"command": "dotnet fsi --quiet v.fsx"})], pid))
+        self.assertTrue(grade.installs([(1, "Write", {"file_path": "C:/s/s.fsproj", "content": proj}),
+                                        (2, "Bash", {"command": "dotnet restore C:/s/s.fsproj"})], pid, "2.0.0"))
+        # Written but never run, another package, another version: not an install.
+        self.assertFalse(grade.installs([(1, "Write", {"file_path": "C:/s/v.cs", "content": app})], pid))
+        self.assertFalse(grade.installs([(1, "Write", {"file_path": "C:/s/v.cs", "content": app}),
+                                         (2, "Bash", {"command": "dotnet run v.cs"})], "IsImageUrl"))
+        self.assertFalse(grade.installs([(1, "Write", {"file_path": "C:/s/v.cs", "content": app}),
+                                         (2, "Bash", {"command": "dotnet run v.cs"})], pid, "1.0.2"))
+        self.assertTrue(grade.installs([(1, "Bash", {"command": "npm i -D format-json-files@2.0.0"})], "format-json-files", "2.0.0"))
+        # A .NET program naming the real host requests it only through a client call, and only when nothing routes it.
+        offline = app + 'Console.WriteLine("https://example.com/cat.png".HasImageExtension());\n'
+        online = app + 'Console.WriteLine(await "https://example.com/avatar".IsImageUrlAsync());\n'
+        routed = online + "var client = new HttpClient(new StandIn());  // a DelegatingHandler\n"
+        for body, flagged in ((offline, False), (online, True), (routed, False)):
+            uses = [(1, "Write", {"file_path": "C:/s/v.cs", "content": body}), (2, "Bash", {"command": "dotnet run v.cs"})]
+            self.assertEqual(bool(grade.live_requests(uses, "example.com")), flagged, body)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            grade.digest(tempfile.gettempdir(), [(1, "Write", {"file_path": "C:/s/v.cs", "content": app}),
+                                                 (2, "Bash", {"command": "dotnet run v.cs"}),
+                                                 (3, "Bash", {"command": "dotnet add package IsImageUrlDotNet"})])
+        out = buf.getvalue()
+        self.assertIn("[outside nuget] C:/s/v.cs", out)
+        self.assertIn("[run] dotnet run v.cs", out)
+        self.assertIn("[nuget] dotnet add package", out)
+
     def test_kit_guard_reads_the_normalised_array(self):
         # L-117: net.connect() passes [options, callback] as one argument.
         self.assertIn("Array.isArray(args[0]) ? args[0][0] : args[0]", self.read("host-fixture.mjs"))
