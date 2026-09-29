@@ -61,7 +61,7 @@ import time
 import urllib.error
 import urllib.request
 
-VERSION = "0.5.0"
+VERSION = "0.6.0"
 BS = "<BS>"
 BACKSLASH = chr(92)
 SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md", "_sidebar.md")

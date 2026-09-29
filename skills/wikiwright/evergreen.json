@@ -56,18 +56,24 @@
       "m": 0.6,
       "interval_after": 14,
       "note": "0.5.0: R-20260929-1 other hosts measured without an account; suite tools; fifth run (stack-exchange-markdown-retriever)"
+    },
+    {
+      "date": "2026-09-29",
+      "m": null,
+      "interval_after": 14,
+      "note": "0.6.0: sixth run (format-json-files, the first file-writing package), the file-tree kit, the grader sees a recorder, diffout counts Node lines; no new research"
     }
   ],
   "counts": {
-    "learnings": 49,
-    "changes": 11,
+    "learnings": 52,
+    "changes": 13,
     "research": 3,
-    "tests": 7
+    "tests": 8
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-29T17:40",
-    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py with --forbid-host",
+    "last_run": "2026-09-29T15:45",
+    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py (saved outputs, preflight through a variable, unrouted fetch wrappers)",
     "env": "DESKTOP-7KS2S6E",
     "cases": 9,
     "passed": 9,
@@ -75,9 +81,9 @@
     "failing": [],
     "last_failure": {
       "date": "2026-09-29",
-      "note": "T-20260929-2: three retriever runs requested the real API (forbidden route); tuned (C-20260929-3), rerun 4/4"
+      "note": "T-20260929-3: four skill runs failed on two grader errors (outputs saved to files; preflight through a variable); grader fixed and regraded, no skill change"
     },
     "research_after_days": null
   },
-  "version": "0.5.0"
+  "version": "0.6.0"
 }
