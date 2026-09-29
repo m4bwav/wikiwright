@@ -658,6 +658,17 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("[outside fetch-wrapper] C:/s/route.mjs", out)
         self.assertIn("[fetcher url:api.example.com] curl", out)
         self.assertIn("tools: Bash 3, Write 3", out)
+        # Saved outputs a program wrote count as evidence; a file the agent typed with Write does not.
+        run = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(run, "work", "v"))
+            for name in ("wiki-verify.out.txt", "typed.out.txt", "notes.txt"):
+                with open(os.path.join(run, "work", "v", name), "w") as fh:
+                    fh.write("x")
+            typed = [(1, "Write", {"file_path": os.path.join(run, "work", "v", "typed.out.txt"), "content": "x"})]
+            self.assertEqual([os.path.basename(p) for p in grade.saved_outputs(run, typed)], ["wiki-verify.out.txt"])
+        finally:
+            rmtree(run)
 
     def test_kit_guard_reads_the_normalised_array(self):
         # L-117: net.connect() passes [options, callback] as one argument.

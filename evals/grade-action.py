@@ -35,6 +35,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WW = os.path.join(HERE, "..", "skills", "wikiwright", "scripts", "wikiwright.py")
@@ -114,6 +115,20 @@ def live_requests(uses, host):
         else:
             found += ["%s %s: %s" % (kind, b, cmd[:100]) for b, kind in scripts.items() if b and b in cmd]
     return found
+
+
+def saved_outputs(run, uses):
+    """Verification outputs a program in the run saved to disk (`*.out.txt` in the workspace or the run's session
+    scratchpad) and the Write and Edit tools never touched: a run that sends its script's output to a file and checks
+    the page with `wikiwright.py outputs` prints none of it into the trace (T-20260929-3)."""
+    work = os.path.abspath(os.path.join(run, "work"))
+    typed = {os.path.basename(inp.get("file_path") or "").lower() for _, n, inp in uses if n in ("Write", "Edit")}
+    scratch = os.path.join(tempfile.gettempdir(), "claude", re.sub(r"[^A-Za-z0-9]", "-", work))
+    found = []
+    for root in (work, scratch):
+        for folder, _, files in os.walk(root):
+            found += [os.path.join(folder, f) for f in files if f.endswith(".out.txt") and f.lower() not in typed]
+    return sorted(found)
 
 
 def echoes_draft(name, inp):
@@ -209,6 +224,10 @@ def main(argv=None):
 
     uses, results = load_trace(run)
     kept = [results.get(i, "") for i, n, inp in uses if not echoes_draft(n, inp)]
+    saved = saved_outputs(run, uses)
+    for path in saved:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            kept.append(fh.read())
     results_file = os.path.join(run, "tool-results.txt")
     with open(results_file, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("\n".join(kept))
@@ -243,7 +262,8 @@ def main(argv=None):
     checked, missing = 0, 0
     if pages:
         checked, missing, report = outputs_check(draft, results_file)
-        print("outputs (page outputs found in the trace's tool results, draft echoes left out):")
+        print("outputs (page outputs found in the trace's tool results, draft echoes left out, and %d saved "
+              "output file(s) no Write or Edit touched):" % len(saved))
         print("  " + report.replace("\n", "\n  "))
         cr = links = 0
         attributed = False
