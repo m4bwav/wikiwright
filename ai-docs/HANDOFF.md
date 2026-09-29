@@ -1,30 +1,29 @@
 # Handoff
 
-Updated 2026-09-28 (0.3.0 session). Read this first, then [log.md](log.md) for evidence.
+Updated 2026-09-29 (0.4.0 session). Read this first, then [log.md](log.md) for evidence.
 
 ## Current state
 
-- **wikiwright 0.3.0.** `outputs` reads the forms the NuGet wikis show output in: input and output pairs, code followed by its output, values in comments, closing comment runs, `# =>`. The intro word must sit within six words of the colon, and a command read as output gets a hint. `check` keeps inline code in heading anchors. Update mode says how to adopt a wiki written before its script was saved. Step 4 covers other hosts' snippets, random examples (membership check), golden captures with their own fixture server, and the oldest Node. Both templates carry the helpers. 24 unit tests.
-- **Real runs.** Five wikis. The third skill run was is-an-image-url: 10 pages, wiki commit 8861236, outputs 40/40, golden replay 82/82 on 1.0.4 today. Its note is in that repository's `ai-docs/notes/2026-09-28-github-wiki.md` (PR #26, merged 77a42a2).
-- **Retrofits done.** JsonPrettyPrinter: wiki a8c5574; its program, output and note are on branch `v3-retrofit` (e74b09b, inside that repository's open PR #8). RandomNameGeneratorLibrary: wiki f0bb65b; a new program and output, PR #18 merged 8ab575e.
-- **Eval suite T-20260928-4: 8/9.** Triggers 9/9 (0/9 without), decoys 0/6. action-1 2/2 (baseline passes, hinted). action-2 1/2: one run skipped preflight (fallback), reproduced 0/3, so flaky. action-3 (new, update mode) 2/2, and its baseline passes too, because the note teaches the procedure. `tests.failing` still lists action-2, pending the re-measure below.
+- **wikiwright 0.4.0** (tag v0.4.0, GitHub Release, CI green on Ubuntu, macOS and Windows; installed wikiwright@mark-local, 21 cached files equal to the source). New: `wikiwright.py diffout` (update mode's section-by-section diff), `OLDEST_NODE` in the npm template (L-106 made mechanical), a "by host name" template section for packages that request the hosts their input names (proxy with a throwaway CA, L-116), the fixed socket guard (L-117), captures recorded through a proxy with TLS (references/npm.md). 27 unit tests.
+- **Real runs.** Six wikis. The fourth skill run was markdown-plain-link-replacer: 10 pages, wiki commit ab33614, outputs 55/55, live clean, golden replay 154/154 and 18/18 on 1.1.16, script on Node 24.18.0 and 20.20.2. Its note is that repository's `ai-docs/notes/2026-09-29-github-wiki.md` (PR #13, merged 55a714c).
+- **get-title-at-url** (open work 3 of 0.3.0): its Recipes' `TextDecoder('windows-1252')` advice fixed in update mode, both Node lines run; see that repository's wiki note (dated section of 2026-09-29) and log. **is-an-image-url** ran on Node 20; the diff is in its note.
+- **Eval suite T-20260929-1: 9/9.** Triggers 9/9 (0/9 without), decoys 0/6. action-1 2/2 (baseline passes, hinted), action-2 2/2 (baseline fails: discriminating; cleared from `tests.failing`), action-3 2/2 (baseline passes: the note teaches update mode).
+- **package-modernize**: PR #15 (capture template replays against the next major, C-20260929-1, L-123) and PR #16 (the guard, C-20260929-2, L-124), both merged.
 - Commands: `claude plugin eval <repo> --trust-plugin --no-publish --case "<glob>" -j 4` (one `--case` per call); `CASE=action-2 bash evals/run-action.sh <short out dir> [baseline]`, which ends with `evals/grade-action.py`'s grade.
 
 ## Open work, in order
 
-The next session's prompt (0.4.0 and the markdown-plain-link-replacer wiki, covering items 1 to 3 and 7 below) is in the maintainer's private prompts folder: `2026-09-28-wikiwright-0.4-and-markdown-plain-link-replacer-kickoff.md`.
-
-1. **action-2 stays in `tests.failing`.** Re-measured with 0.3.0 (T-20260928-5): preflight ran in 2 of 2, but run 1 showed an output its trace never printed, and the target now has a wiki. Retarget (item 2), rerun the suite, then clear it.
-2. **Retarget the action cases again** before the next suite. is-an-image-url now has a wiki note (L-013). Next owed with no note: stack-exchange-markdown-retriever.
-3. **get-title-at-url wiki, found by the action-3 eval runs.** Recipes' "decode the bytes with the right `TextDecoder` first" is wrong on Node 20.20.2 and 24.13.0 (L-106). Fix it with update mode; the drafts were in the eval work folders, now gone.
-4. **Next owed wikis** (private inventory): stack-exchange-markdown-retriever, format-json-files, markdown-plain-link-replacer (npm with a CLI), then TrailerClipper, replace-string-at-position, IsImageUrlDotNet, CachingServiceWithAOPSupport.
-5. **Untested page sets:** application, monorepo, command-line tool (candidate: TrailerClipper.Tool, a dotnet tool, command `tclipper`). **Untested hosts:** GitLab, Gitea and Forgejo, Azure DevOps.
-6. ~~JsonPrettyPrinter wiki to 3.0.2~~ Done 2026-09-29 by the JsonPrettyPrinter retrofit session with Update mode: wiki cce45ce, outputs 21 of 21, live 11 pages (that repository's ai-docs/notes/2026-09-28-github-wiki.md).
-7. is-an-image-url's script ran on Node 24.18.0 only; L-106 says to run the oldest Node in `engines` (20) too at the next update.
+0. **0.4.1 fixes from the first uses of 0.4.0** (L-118, L-119): `OLDEST_NODE` must put a folder holding only `node.exe` first on PATH (Git Bash skips the npm `node` package's bin folder and runs the system Node silently); `diffout` must reconfigure stdout to UTF-8 and mask home and temp paths on `--save`; `outputs` needs a way to scope a block to a Node line. Each with a test and a CHANGELOG entry.
+1. **Retarget the action cases** before the next suite: markdown-plain-link-replacer now has a wiki note (L-013). Next owed with no note: stack-exchange-markdown-retriever (npm with a CLI, one fixed HTTPS host: a good second test of the "by host name" section).
+2. **Next owed wikis** (private inventory): stack-exchange-markdown-retriever, format-json-files, replace-string-at-position, then TrailerClipper (and TrailerClipper.Tool, the command-line-tool candidate), IsImageUrlDotNet, CachingServiceWithAOPSupport.
+3. **Untested page sets:** application, monorepo, command-line tool (candidate: TrailerClipper.Tool, command `tclipper`). **Untested hosts:** GitLab, Gitea and Forgejo, Azure DevOps.
+4. **evergreen refresh**: the session-start hook listed other units as due; wikiwright itself is due 2026-10-12.
+5. markdown-plain-link-replacer's doc inaccuracies wait for its next release (its HANDOFF lists them); `next` on npm points to the deprecated 2.0.0-beta.1 (Mark's).
 
 ## Gotchas
 
-- Headless eval runs edit the source LEARNINGS.md (L-017): `git diff` after every suite and after tune runs. On 2026-09-28 they wrote L-106 to L-108; L-108 was rejected (it contradicts L-015).
-- The Skill tool serves the SKILL.md read at session start (L-012). Headless runs read the installed cache, but references and scripts come from the source path the overlay names, so don't edit those while a suite runs.
-- Bash heredocs turn `\n` into a newline and a bare `python -` opens a REPL that hangs. Write Python edit scripts to a file with the Write tool (L-001).
+- Headless eval runs edit the source (L-017): `git status` and `git diff` after every suite; on 2026-09-29 they also left an untracked `package.json` in the skill folder.
+- The Skill tool serves the SKILL.md read at session start (L-012). Headless runs read the installed cache, but references and scripts come from the source path, so don't edit those while a suite runs.
+- Bash heredocs turn `\n` into a newline and a bare `python -` opens a REPL that hangs (it happened again on 2026-09-29). Write Python edit scripts to a file with the Write tool (L-001).
+- `NODE_OPTIONS` drops backslashes: preload paths with forward slashes. A guard reading `args[0].host` lets plain http through (L-117).
 - Never run `wikiwright.py unbs` on SKILL.md or LEARNINGS.md.
