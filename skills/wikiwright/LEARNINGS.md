@@ -366,3 +366,43 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Evidence: TESTS.md T-20260929-2 (traces in the run folders); evals/grade-action.py `live_requests`
 - Scope: skill (SKILL.md Step 4), skill tests
 - Status: promoted: C-20260929-3 · helpful 0 · harmful 0 · last_confirmed 2026-09-29
+
+### L-123 · 2026-09-29 · On Gitea and Forgejo a push never creates the wiki; the API's first page does (`api-seeds-gitea-wiki`)
+- Trigger: measuring the hosts for 0.5.0. On Gitea 1.27.3 and Forgejo 16.0.5, `git push` of a fresh wiki repository was refused on `main` and on `master`: Gitea's `info/refs` answered 500, Forgejo's an empty advertisement. `POST /api/v1/repos/{o}/{r}/wiki/new` with a token answered 201, and git worked from then on (2026-09-29).
+- Hypothesis: both hosts create the wiki's git repository only in their page-writing code path, so the first page has to go through the web UI or the API.
+- Rule: preflight reports `no-wiki-repo` with two ways out: `--seed` with `WIKIWRIGHT_TOKEN` (the API POST), or the maintainer's first page at `/{o}/{r}/wiki/?action=_new`. After that, push to the branch `ls-remote --symref` names (new wikis `main`). Unlike GitHub, no browser is needed.
+- Evidence: R-20260929-1; `preflight --seed` against both local instances (201, then `STATE: exists`)
+- Scope: skill (references/hosts.md, scripts/wikiwright.py preflight)
+- Status: promoted: C-20260929-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-124 · 2026-09-29 · A status code alone cannot tell an empty Gitea wiki from a live one (`status-is-not-state`)
+- Trigger: on both hosts every wiki URL answered 200 before a first page existed ("Welcome to the wiki"), and a missing page answered 303 to `?action=_pages`, which answers 200. A checker that follows redirects, or looks only at status codes, passes a wiki that is not there (2026-09-29).
+- Hypothesis: the hosts render an empty state or the page list instead of an error.
+- Rule: `live` reads the page API first (404 until a page exists) and requires each page in its list, never follows redirects, and treats 303 as missing. GitLab's page HTML is rendered by JavaScript, so the same rule applies there: its wiki API decides.
+- Evidence: R-20260929-1; `live` against the local instances failed the unreachable `Spaced Name` page with 303, and passed Codeberg's `dnkl/foot` (3 pages, sidebar and footer found)
+- Scope: skill (scripts/wikiwright.py live)
+- Status: promoted: C-20260929-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-125 · 2026-09-29 · Each host names its navigation files and slugs its anchors its own way (`host-page-rules`)
+- Trigger: the hosts differ from GitHub where `check` had hard rules. GitLab reads `_sidebar.md` in lower case and ignores an extensionless `_sidebar`, and shows no footer. Gitea and Forgejo resolve wikilinks, but a file name with a space is listed and unreachable, and a file in a folder is not listed. Forgejo collapses repeated hyphens in anchors (`usage-basic-more`, where GitHub and Gitea give `usage-basic--more`). Azure DevOps has neither sidebar nor footer and orders pages by `.order` (2026-09-29).
+- Hypothesis: the page set carries over; the file conventions do not.
+- Rule: `check --host KIND` applies them: navigation files per host, wikilinks a warning on the hosts that resolve them, spaces and folders an error on Gitea and Forgejo, Forgejo's anchor slug. Put the version line on Home where there is no footer.
+- Evidence: R-20260929-1; `check --host gitea` and `--host forgejo` on clones of the local `wiki-seeded` wikis
+- Scope: skill (scripts/wikiwright.py check, references/hosts.md "Page sets on these hosts")
+- Status: promoted: C-20260929-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-126 · 2026-09-29 · Anonymous GitLab project JSON has no wiki fields (`gitlab-anonymous-wiki-state`)
+- Trigger: hosts.md said to read `wiki_access_level` to see whether a GitLab wiki is on. Anonymously, `GET /api/v4/projects/:path` returns no wiki field at all, on gitlab.com and on a local CE; with a token it has `wiki_access_level` and `wiki_enabled` (2026-09-29).
+- Hypothesis: GitLab hides feature settings from callers without a role.
+- Rule: without a token, read the wiki's state from `ls-remote` of `PATH.wiki.git` (refs: readable; no refs: enabled and empty, a push creates it; 401: off or members-only) and the wiki API's status. Preflight does this.
+- Evidence: R-20260929-1 (gitlab-runner, graphviz, gitlab-org/gitlab, inkscape; local CE)
+- Scope: skill (scripts/wikiwright.py preflight, references/hosts.md)
+- Status: promoted: C-20260929-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-127 · 2026-09-29 · A stand-in proxy needs NO_PROXY to name the loopback (`no-proxy-loopback`)
+- Trigger: package-modernize's replayable capture setup (its PR #19, L-125) found that with `NO_PROXY` empty, Node 24.18.0's own proxy support under `NODE_USE_ENV_PROXY=1` also sent request 2.88's connection to the stand-in proxy through the proxy, and the recorded request lines changed. wikiwright's host-fixture kit set `NO_PROXY=''` too, and this run replays 1.1.7 (request 2.88) as a child (2026-09-29).
+- Hypothesis: an empty `NO_PROXY` proxies even connections to 127.0.0.1, the proxy's own address.
+- Rule: the kit sets `NO_PROXY` and `no_proxy` to `127.0.0.1,localhost,::1`. The page hosts are real names, so they still go through the proxy.
+- Evidence: package-modernize L-125 and its self-test (fails two checks with `NO_PROXY` empty); tests/host-fixture.test.mjs passed after the change
+- Scope: skill (templates/npm/host-fixture.mjs)
+- Status: promoted: C-20260929-4 · helpful 0 · harmful 0 · last_confirmed 2026-09-29

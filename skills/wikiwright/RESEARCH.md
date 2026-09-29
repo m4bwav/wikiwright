@@ -19,7 +19,7 @@ Topic: GitHub wiki mechanics (the .wiki.git repository, page and sidebar rules, 
 
 - Answered 2026-09-28: `gh repo edit --enable-wiki` does not create the wiki repository by itself; get-title-at-url's placeholder d652d15 was a first-page save (see Current understanding).
 - Does a wiki whose default branch is not `master` exist in practice, and does it render pushes to it?
-- Page sets for an application, a monorepo and a command-line tool are untested. GitLab, Gitea, Forgejo and Azure DevOps wikis are described from their documentation in references/hosts.md (R-20260928-2) but no run has used one: does a push create a GitLab or Gitea wiki, which branch does Azure DevOps really use (`wikiMain` in the concept docs, `wikiMaster` in the REST sample)?
+- Page sets for an application, a monorepo and a command-line tool are untested. Answered 2026-09-29 without an account (R-20260929-1): a push creates a GitLab wiki (local CE) but never a Gitea or Forgejo one (the API's `wiki/new` does), and new wikis there use `main`. Still open, since it needs an account: the branch of a new Azure DevOps wiki (the one public sample is on `wikiMaster`), its link forms, and a real publish on any of the four hosts.
 
 ## Search plan
 
@@ -63,6 +63,26 @@ Best sources (primary first): docs.github.com wiki pages; github.blog changelog 
 ## Findings log
 
 Newest first. One entry per material finding; a quiet refresh gets one entry saying so. `Track` is subject, tooling, practice, or testing.
+
+### R-20260929-1 · 2026-09-29 · Other hosts measured without an account: Gitea, Forgejo, GitLab, Azure DevOps
+- Summary: two subagents measured every docs-only claim in references/hosts.md. **Gitea 1.27.3** (Windows binary) and **Forgejo 16.0.5** (Linux binary in WSL) ran locally with a local admin user.
+  - Neither has a wiki repository before a first page, and a push is refused on `main` and `master`. `POST /api/v1/repos/{o}/{r}/wiki/new` with a token creates the wiki; after that git works.
+  - New wikis are on `main`. `_Sidebar.md` and `_Footer.md` render and are not hidden (Forgejo's docs say they are).
+  - A missing page answers 303 to `?action=_pages`; every URL answers 200 before a first page.
+  - Links: `[[...]]`, `./Page` and `Page.md` resolve. Forgejo collapses repeated hyphens in anchors.
+  - The page API answers anonymously for public repositories. Codeberg (`dnkl/foot`, `master`) matched.
+  **GitLab**, from anonymous gitlab.com reads and a local **GitLab CE 19.4.1**:
+  - `.wiki.git` works, and a push creates a never-used wiki. New wikis are on `main`, older gitlab.com ones on `master`.
+  - Anonymous project JSON has no wiki fields. The sidebar needs `_sidebar.md`, and a bare link resolves from the wiki root.
+  - A first page made through the API adds `.gitlab/redirects.yml`. Slugs are case-insensitive, and page HTML is rendered client-side.
+  **Azure DevOps**, anonymous reads of public projects:
+  - The project wiki is the hidden repository `PROJECT.wiki`, on `wikiMaster` in the one sample. `count: 0` means no wiki; `.order` files exist; page GETs carry an ETag.
+  - Private and missing projects both answer 302 to sign-in. Creating and editing need an account and stay unverified.
+  The new `preflight`, `check --host` and `live` then ran against the local instances (no-wiki-repo, has-pages, `--seed` answering 201), Codeberg, gitlab.com and Azure DevOps; every result matched the measurements. Raw evidence stayed in the session's scratch folder; the tests carry the status codes as fixtures.
+- Track: subject, tooling
+- Sources: local instances (dl.gitea.com/gitea/1.27.3, codeberg.org/forgejo/forgejo/releases v16.0.5, packages.gitlab.com gitlab-ce 19.4.1); anonymous reads of codeberg.org/dnkl/foot, gitlab.com/gitlab-org/gitlab-runner, gitlab.com/Remmina/Remmina, gitlab.com/graphviz/graphviz, gitlab.com/wireshark/wireshark, dev.azure.com/powershell/PowerShell, dev.azure.com/dnceng-public/public
+- Magnitude: 0.6 (every other-host claim now measured or marked unverified; three contradicted the docs: `_` files are not hidden on Forgejo, GitLab's anonymous project JSON has no wiki fields, a pushed GitLab file keeps its spaces; preflight, check and live learned four hosts)
+- Applied: C-20260929-4 (references/hosts.md rewritten; wikiwright.py preflight, check --host, live; L-123 to L-127)
 
 ### R-20260928-2 · 2026-09-28 · Wikis on GitLab, Gitea/Forgejo and Azure DevOps; enabling a GitHub wiki creates nothing
 - Summary: a research pass over primary docs only (a subagent, about 40 pages and two live swagger files) for the hosts other than GitHub. GitLab: each wiki a separate git repository, clone URL from the UI, branch the instance default else `main`, a `_sidebar` page and no footer, a full wiki REST API (`/projects/:id/wikis`), no glab wiki command, `wiki_access_level` on the project. Gitea and Forgejo: `REPO.wiki.git`, `_Sidebar.md` and `_Footer.md` (Forgejo docs), the same REST routes on both (`/repos/{owner}/{repo}/wiki/new`, `/wiki/page/{name}`), `tea wiki`, Forgejo's `wiki_branch` field (new wikis `main`). Azure DevOps: project wiki repository `PROJECT.wiki`, page order from `.order` files, no sidebar or footer, pages REST API with ETags, `az devops wiki page`, branch `wikiMain` or `wikiMaster` depending on the page read. Gaps the docs leave: whether a push creates a GitLab or Gitea wiki, Gitea's clone URL and branch, file-name to title rules on Gitea. Also this session's test of the open question: enabling the GitHub wiki feature did not create the repository in 61 seconds; the first-page save did, within 11 seconds.
