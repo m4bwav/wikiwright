@@ -1,6 +1,6 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from seven published wikis, written on 2026-09-28 and 29:
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from eight published wikis, written on 2026-09-28 and 29:
 
 - RandomNameGeneratorLibrary: a .NET library with seeded data.
 - JsonPrettyPrinter: a .NET formatter.
@@ -9,13 +9,15 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 - is-an-image-url: an npm library with a CLI that makes requests, with a golden capture of 1.0.4 that starts its own fixture server.
 - markdown-plain-link-replacer (2026-09-29): an npm library with a CLI whose requests go through its dependencies to the hosts its input names, with a golden capture of 1.1.16 that records through its own proxy with TLS.
 - stack-exchange-markdown-retriever (2026-09-29): an npm library with a CLI that calls one fixed HTTPS host, served by name through the host-fixture kit, with a golden capture of 1.1.7 recorded through a proxy with TLS; its post texts are sample content, labelled on every page.
+- format-json-files (2026-09-29): an npm library with a CLI whose output is files on disk (it rewrites JSON files in place and makes no requests), every case on a fresh scratch tree through the file-tree kit, run on Windows and Linux, with a golden capture of 1.0.6 that builds its own trees.
 
 | Kind | Tested on |
 |---|---|
 | Library (npm, without a CLI) | seeded-random-utilities |
 | Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter |
-| Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever (fourth run, 2026-09-29: the set held again; the behaviour pages were `How-Links-Are-Replaced` and `How-Markdown-Is-Retrieved`) |
+| Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever, format-json-files (fifth run, 2026-09-29: the set held again; the behaviour pages were `How-Links-Are-Replaced`, `How-Markdown-Is-Retrieved` and `How-Files-Are-Formatted`) |
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
+| Output is files on disk | format-json-files (the CLI set, with the rules under "Library with a command line") |
 | Command-line tool | not yet (the section below is a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
 | Application, website, monorepo | not yet (see the end of this page) |
 | Hosts other than GitHub | host mechanics measured 2026-09-29 without an account (Gitea, Forgejo, GitLab; Azure DevOps reads only); no wiki published there yet ([hosts.md](hosts.md)) |
@@ -87,13 +89,20 @@ Add Commands (`Commands.md`): the usage text as the bin prints it, every flag, e
 
 A package whose requests go through its dependencies to the hosts its input names, with output computed from the host (markdown-plain-link-replacer names each link's site), needs the fixture served under the real host names, through a `fetch` wrapper or a proxy with TLS ([npm.md](npm.md), "Packages that request by host name through their dependencies"). Its pages then show real addresses with no substitution, and say once, on Home, that each page was a local copy and list the titles the copies had where an output depends on them. Such a package turns every lookup failure into "left unchanged", so Edge cases and errors needs a section on why a link was left, and the FAQ on proxies and trust; both came from the run, not from the README.
 
+A package whose output is files on disk (format-json-files) took the same set with no new page. What changed was how the pages show output, and what Edge cases and errors covers:
+
+- A file is shown as a "before" block and an "after" block, both printed by the script, and the prose beside them states what the text cannot show: the line endings, the BOM, the final newline, and whether an untouched file was written at all.
+- Command examples are terminal transcripts (`$ command`, the merged output, `$ echo $?`), from the template's `term()`, because the order of stdout and stderr is part of what a user sees.
+- Paths print with the platform's separator: the pages show the Linux run and say once that Windows prints `\`.
+- Edge cases and errors covers the file system as well as the input: encodings and BOMs, CRLF, comments and trailing commas, empty files, read-only files, symbolic and hard links, folders named like files, missing paths, and what a glob is (the shell's, not the package's).
+
 ## Command-line tool (a dotnet tool, an npm package that is mostly a bin)
 
 Untested: no run has used this set yet. The first candidate among the maintainer's packages is TrailerClipper.Tool (a dotnet tool, command `tclipper`, in m4bwav/TrailerClipperLib). A sketch: Home, Getting started (install and uninstall, shell completion if any), Commands (one section per command), Configuration (files, environment variables, precedence), Recipes, Versions and upgrading, FAQ, Development.
 
 ## Not yet covered
 
-An application, a website, a monorepo with several packages and a command-line tool have no tested page set (still lacking as of 0.5.0; the command-line candidate is TrailerClipper.Tool). On GitLab, Gitea, Forgejo and Azure DevOps the page set stays and the navigation files change; [hosts.md](hosts.md) has what was measured and what is unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
+An application, a website, a monorepo with several packages and a command-line tool have no tested page set (still lacking as of 0.6.0; the command-line candidate is TrailerClipper.Tool). On GitLab, Gitea, Forgejo and Azure DevOps the page set stays and the navigation files change; [hosts.md](hosts.md) has what was measured and what is unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
 
 ## Conventions every page follows
 

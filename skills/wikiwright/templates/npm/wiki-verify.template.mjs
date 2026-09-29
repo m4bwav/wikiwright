@@ -236,7 +236,9 @@ if (binEntry) {
 // and OLD=<a folder with PACKAGE@<old> and whatever the capture requires installed>. The capture runs as a
 // child process, once against the old version (unchanged) and once here against VERSION (patch only the
 // lines the new layout breaks, such as the bin's path, and name them on the page), one after the other.
-// Compare the answers, the timing and the request lines apart. The golden file is only read.
+// Compare the answers, the timing and the request lines apart. The golden file is only read. A capture that writes
+// files needs TEMP, TMP and TMPDIR pointed into scratch and views for files instead (references/npm.md, "Packages
+// that write files").
 // A capture that records through its own proxy with TLS, replayed against a fetch-based major, also needs
 // undici's EnvHttpProxyAgent after it sets the proxy variables and a fixture copy that serves CONNECT to
 // port 80 in plain HTTP (references/npm.md, "Golden captures that record through a proxy with TLS").
