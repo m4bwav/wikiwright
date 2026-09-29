@@ -429,3 +429,11 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Evidence: the fifth run's report (items 2 to 7); stack-exchange-markdown-retriever ai-docs/notes/2026-09-29-wiki-verify.mjs; tests/host-fixture.test.mjs (runtimeEnv)
 - Scope: skill (templates/npm/host-fixture.mjs, templates/npm/wiki-verify.template.mjs)
 - Status: promoted: C-20260929-5 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-130 · 2026-09-29 · A package whose output is files: a fresh scratch tree per case, and the bytes the text hides (`file-writing-package`)
+- Trigger: the sixth real run's subject, format-json-files 2.0.0, rewrites JSON files in place. Every earlier subject returned values or made requests, and the npm template had no way to run a case in a scratch tree: `cli()` took no working directory, and nothing printed a file before and after. The facts that decide such a package's behaviour (a BOM, CRLF, a final newline, a rewrite that keeps the bytes but touches the file) are invisible in the text a page shows, and `outputs` folds CRLF to LF when it compares (2026-09-29).
+- Hypothesis: for a file-writing package the file is the output. A case that runs on a shared folder shows the previous case's rewrite, and a page that shows only text cannot state line endings or a BOM from evidence.
+- Rule: the npm template's "files on disk" section and `templates/npm/file-tree.mjs`: one fresh copy of the case's tree under `./trees` per case, fixed modification times first, then one line per file (not written, written with the same bytes, changed, created, deleted) and each written file's before and after contents under a header of size, UTF-8, BOM, line endings and final newline. Pages state the header's facts in prose. `cli()` takes `{cwd}` so a case passes relative paths as a user would.
+- Evidence: tests/file-tree.test.mjs (9 tests); the sixth run (format-json-files) is its first use.
+- Scope: skill (templates/npm/file-tree.mjs, templates/npm/wiki-verify.template.mjs, references/npm.md, SKILL.md Step 4)
+- Status: promoted: C-20260929-7 · helpful 0 · harmful 0 · last_confirmed 2026-09-29
