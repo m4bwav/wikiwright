@@ -5,4 +5,4 @@ allowed_tools: [Read, Glob, Grep, Skill, Bash, Write, Edit]
 runs: 3
 ---
 
-Draft the Home page of a GitHub wiki for m4bwav/markdown-plain-link-replacer in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.
+Draft the Home page of a GitHub wiki for m4bwav/stack-exchange-markdown-retriever in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.
