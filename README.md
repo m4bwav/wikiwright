@@ -24,7 +24,7 @@ wikiwright writes those pages from the source, tests, changelog, issues and regi
 
 Update mode ("update the wiki for 2.4.0") re-runs the saved verification script on the new version, compares its output with the saved one section by section (`wikiwright.py diffout`), and fixes the pages that changed. A wiki written before the script was saved is adopted first: the script is completed (or written) until every page output is in its output.
 
-Tested page sets: npm libraries with and without a CLI (the CLI set four times), NuGet libraries, and packages with seeded or deterministic output. Applications, monorepos and command-line tools have no tested page set yet. On Gitea, Forgejo, GitLab and Azure DevOps, `preflight`, `check --host` and `live` follow what was measured on 2026-09-29 without an account (local Gitea, Forgejo and GitLab CE instances, and anonymous reads of public wikis); what needs an account is marked unverified in `references/hosts.md`, and no wiki has been published on those hosts yet.
+Tested page sets: npm libraries with and without a CLI (the CLI set five times), NuGet libraries, packages with seeded or deterministic output, and a package whose output is files on disk. Applications, monorepos and command-line tools have no tested page set yet. On Gitea, Forgejo, GitLab and Azure DevOps, `preflight`, `check --host` and `live` follow what was measured on 2026-09-29 without an account (local Gitea, Forgejo and GitLab CE instances, and anonymous reads of public wikis); what needs an account is marked unverified in `references/hosts.md`, and one real wiki has been published there so far, on a local Forgejo.
 
 ## Install
 

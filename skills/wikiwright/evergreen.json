@@ -14,7 +14,7 @@
   "topic": "GitHub wiki mechanics (the .wiki.git repository, page and sidebar rules, no page API, first-page creation) and writing library documentation whose examples are verified against the published package (npm, NuGet), plus agent tools that generate repository docs",
   "tier": "fast",
   "interval_days": 14,
-  "last_checked": "2026-09-28",
+  "last_checked": "2026-09-29",
   "next_due": "2026-10-12",
   "verify_at_use": false,
   "volatile_claims": [],
@@ -59,15 +59,15 @@
     },
     {
       "date": "2026-09-29",
-      "m": null,
+      "m": 0.3,
       "interval_after": 14,
-      "note": "0.6.0: sixth run (format-json-files, the first file-writing package), the file-tree kit, the grader sees a recorder, diffout counts Node lines; no new research"
+      "note": "0.6.0: R-20260929-2 the first real wiki on Forgejo (anchors corrected); sixth run (format-json-files, the first file-writing package), the file-tree kit, the grader sees a recorder, diffout counts Node lines"
     }
   ],
   "counts": {
-    "learnings": 52,
-    "changes": 13,
-    "research": 3,
+    "learnings": 53,
+    "changes": 15,
+    "research": 4,
     "tests": 8
   },
   "consolidate_every": 25,

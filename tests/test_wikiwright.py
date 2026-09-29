@@ -442,6 +442,16 @@ class HostCheckTests(unittest.TestCase):
     def test_forgejo_collapses_hyphens_in_anchors(self):
         self.assertEqual(wikiwright.slug("Usage (basic) & more"), "usage-basic--more")
         self.assertEqual(wikiwright.slug("Usage (basic) & more", "forgejo"), "usage-basic-more")
+        # Measured on the first wiki published to Forgejo 16.0.5 (2026-09-29): punctuation becomes a hyphen.
+        for heading, forgejo, github in (("The recording of 1.0.6, replayed", "the-recording-of-1-0-6-replayed",
+                                          "the-recording-of-106-replayed"),
+                                         ("Moving from 1.x", "moving-from-1-x", "moving-from-1x"),
+                                         ("`--check`", "check", "--check"),
+                                         ("`formatJsonFiles(path, options?)`", "formatjsonfiles-path-options",
+                                          "formatjsonfilespath-options"),
+                                         ("The report's fields", "the-report-s-fields", "the-reports-fields")):
+            self.assertEqual(wikiwright.slug(heading, "forgejo"), forgejo)
+            self.assertEqual(wikiwright.slug(heading), github)
 
 
 class HeadingAnchorTests(unittest.TestCase):

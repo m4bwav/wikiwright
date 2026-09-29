@@ -493,3 +493,11 @@ The first six entries were seeded on 2026-09-28 from the two wikis written by ha
 - Evidence: this session's `git status` of the source; the sixth run's REPORT item 11
 - Scope: env:agent-harness, skill tests (references/npm.md "The scratch project")
 - Status: promoted: C-20260929-8 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-135 · 2026-09-29 · Forgejo slugs punctuation into hyphens, so a measured rule from a probe page can still be wrong (`forgejo-slug-punctuation`)
+- Trigger: the first real wiki on another host (format-json-files on a local Forgejo 16.0.5). `check --host forgejo` and `live` passed, but Development's link `#the-recording-of-106-replayed` was broken there: Forgejo made the heading `1.0.6` into `1-0-6`. The 0.5.0 measurement had one probe heading (`Usage (basic) & more`), where "collapse runs of hyphens" and "each run of punctuation becomes one hyphen" give the same answer (2026-09-29).
+- Hypothesis: a rule fitted to one example matches every rule that agrees on it; real pages carry dots, apostrophes and brackets that tell the rules apart.
+- Rule: `slug()` for Forgejo lower-cases, turns each run of characters that are not letters, digits or `_` into one hyphen and trims the ends; checked against all 99 ids of the published pages. Measure a host rule on real pages before calling it verified, and keep the pages' headings as test cases. `live` checks status codes only, so an anchor that is wrong on one host passes it; a wiki meant for two hosts links only to headings whose slugs agree.
+- Evidence: R-20260929-2; the subagent's evidence folder (35 HTML pages); tests/test_wikiwright.py (slug cases)
+- Scope: skill (scripts/wikiwright.py check, references/hosts.md)
+- Status: promoted: C-20260929-9 · helpful 1 · harmful 0 · last_confirmed 2026-09-29

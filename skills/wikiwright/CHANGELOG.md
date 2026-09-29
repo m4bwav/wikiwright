@@ -4,6 +4,22 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-10 · 2026-09-29 · Release 0.6.0: a file-writing package, a grader that sees a recorder, the first wiki on another host (`release-0.6.0`)
+- because: user request (the 0.6.0 kickoff); C-20260929-7 to C-20260929-9; T-20260929-3; R-20260929-2
+- files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history), README
+- 0.6.0 gathers the entries below. `wikiwright.py releasecheck 0.6.0` checks the four version fields, this entry and T-20260929-3.
+- Token savings, measured before and after:
+  - Reading a run's trace, which L-122 asks for: the grader's `--digest` turned the 811 KB recorder trace into 2.7 KB, the nine suite traces into about 3 KB each, and the sixth run's 4.6 MB trace into 16 KB.
+  - A Node 20 diff: `diffout` counts the 103 `shell node:` lines instead of listing 103 changed sections, and it finds the L-118 trap that masking hid.
+  - The kit a file-writing run reads is a 2,913-byte header; runs of other packages read none of it. The template grew by 2,797 bytes over 0.5.0 (13,428 to 16,225) for `inTree()`, `term()` and `OLDEST_NODE_BIN`, which the sixth run had written itself.
+  - The suite cost $17.65 for nine action runs and $2.20 for triggers and decoys; the sixth run $15.59 in 49 minutes, reported in 13 KB; the get-title-at-url and Forgejo subagents kept about 270,000 tokens out of the main context.
+- Four grader or checker faults surfaced by real use rather than by their tests (saved outputs, preflight through a variable, the recorder, Forgejo's anchors) are each now a test.
+
+### C-20260929-9 · 2026-09-29 · The first real wiki on another host: Forgejo's anchors corrected (`forgejo-first-wiki`)
+- because: R-20260929-2; L-135
+- files: scripts/wikiwright.py (`slug()` for Forgejo); tests/test_wikiwright.py (five measured headings); references/hosts.md (the intro, the anchors row, `--seed` then a fast-forward, pushing with `http.extraHeader`, sidebar and footer as pages, case-sensitive paths); references/page-sets.md (hosts row); LEARNINGS.md (L-135)
+- The pages published on a local Forgejo 16.0.5 passed `check --host forgejo` and `live`, yet one anchor link was broken there: the rule from 0.5.0's single probe heading was wrong. `slug()` now matches 99 of 99 ids of the published pages, and `check --host forgejo` reports the broken link.
+
 ### C-20260929-8 · 2026-09-29 · Lessons of the sixth run (format-json-files) and of the suite's side effects (`sixth-run-lessons`)
 - because: the sixth real run (wiki commit c9f5fe5, the repository's PR #4); its report (eleven skill items, six kit items); T-20260929-3 (eval-written L-131, L-132); the get-title-at-url third update (wiki 1e449b2, its PR #24); L-001, L-106, L-118, L-130 to L-134
 - files: scripts/wikiwright.py (`diffout` counts `shell node:` lines, masks them, warns on a mixed output, `--keep-node`; the help says exit 1 means differences); tests/test_wikiwright.py (54 tests); templates/npm/wiki-verify.template.mjs (`term()`, `OLDEST_NODE_BIN`, the per-platform `alone` folder and output name, a file-writing capture's golden note); templates/npm/file-tree.mjs (hard links, folder modes, `hide`, `limit`, escaped paths, trimmed link targets) and tests/file-tree.test.mjs (12 tests); templates/wiki-note.template.md (every saved output in the update steps); references/npm.md (the scratch project's `npm init` trap, the stand-in proxy refuses other targets and handles undici 8, transcripts, paths follow the platform with Node from the registry, drvfs, golden captures that write files, the oldest Node's folder and diffout's count); references/page-sets.md (the eighth wiki, the CLI set tested a fifth time, a file-writing package's rules); SKILL.md (Step 2 decoded escapes in shipped docs; Step 4 the Linux run; Update mode a recipe's dependencies at `latest`, diffout's exit); LEARNINGS.md (L-133, L-134; updates to L-001, L-106, L-118, L-130 to L-132)

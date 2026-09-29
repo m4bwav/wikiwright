@@ -64,6 +64,16 @@ Best sources (primary first): docs.github.com wiki pages; github.blog changelog 
 
 Newest first. One entry per material finding; a quiet refresh gets one entry saying so. `Track` is subject, tooling, practice, or testing.
 
+### R-20260929-2 · 2026-09-29 · The first real wiki on another host: format-json-files on a local Forgejo 16.0.5
+- Summary: a subagent set up Forgejo 16.0.5 in WSL (SQLite, offline, a local admin and token; about a minute), made an empty public repository, and ran the skill's route: `preflight` said `no-wiki-repo`, `--seed` answered 201 and left one commit on `main`, the ten pages with sidebar and footer went on top as a fast-forward, `check --host forgejo` and `live` passed (10 pages, sidebar 13 of 13 probes, footer 1 of 1). Compared with the same pages on GitHub:
+  - Heading anchors: Forgejo turns each run of punctuation and spaces into one hyphen and trims the ends, where GitHub drops punctuation (`1.0.6` as `1-0-6` against `106`, `--check` as `check`). 18 of 108 ids differed, and one link (`#the-recording-of-106-replayed`) was broken on Forgejo while `check --host forgejo` passed it: its slug only collapsed hyphens.
+  - `_Sidebar` and `_Footer` are pages of their own (200, in the page list and API); Forgejo adds a table of contents of each page's headings; `/wiki/Home` answers 200 where GitHub redirects; paths are case-sensitive; a missing page is 303 to the page list.
+  - The same: code blocks (125 of 125 identical text), titles from file names, heading and table counts, links between pages.
+- Track: subject, tooling
+- Sources: the local instance (codeberg.org/forgejo/forgejo/releases v16.0.5); https://github.com/m4bwav/format-json-files/wiki, read anonymously; evidence kept in the session's scratch folder (35 HTML pages, compare.txt)
+- Magnitude: 0.3 (one claim corrected: Forgejo's anchors; the rest of hosts.md's Forgejo rows confirmed with real pages)
+- Applied: C-20260929-9 (scripts/wikiwright.py `slug()` for Forgejo, 99 of 99 ids; references/hosts.md; L-135)
+
 ### R-20260929-1 · 2026-09-29 · Other hosts measured without an account: Gitea, Forgejo, GitLab, Azure DevOps
 - Summary: two subagents measured every docs-only claim in references/hosts.md. **Gitea 1.27.3** (Windows binary) and **Forgejo 16.0.5** (Linux binary in WSL) ran locally with a local admin user.
   - Neither has a wiki repository before a first page, and a push is refused on `main` and `master`. `POST /api/v1/repos/{o}/{r}/wiki/new` with a token creates the wiki; after that git works.

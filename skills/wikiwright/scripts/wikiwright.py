@@ -445,14 +445,17 @@ def preflight_azure(a, host, repo):
 # ---------------------------------------------------------------- check
 
 def slug(heading, kind="github"):
-    """GitHub's heading anchor: lower case, drop punctuation, spaces to hyphens. Forgejo 16.0.5 then
-    collapses runs of hyphens (`usage-basic-more` where GitHub and Gitea give `usage-basic--more`)."""
+    """GitHub's heading anchor: lower case, drop punctuation, spaces to hyphens. Forgejo 16.0.5 instead turns
+    each run of characters that are not letters, digits or `_` into one hyphen and trims hyphens at both ends
+    (`1.0.6` gives `1-0-6` where GitHub gives `106`; `--check` gives `check`; measured on a published wiki,
+    2026-09-29, 108 of 108 ids)."""
     text = re.sub(r"`([^`]*)`", r"\1", heading.strip())
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = text.lower()
+    if kind == "forgejo":
+        return re.sub(r"[^\w]+", "-", text).strip("-")
     text = re.sub(r"[^\w\- ]", "", text)
-    text = text.replace(" ", "-")
-    return re.sub(r"-{2,}", "-", text) if kind == "forgejo" else text
+    return text.replace(" ", "-")
 
 
 def page_text(path):

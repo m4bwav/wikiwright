@@ -20,7 +20,7 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 | Output is files on disk | format-json-files (the CLI set, with the rules under "Library with a command line") |
 | Command-line tool | not yet (the section below is a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
 | Application, website, monorepo | not yet (see the end of this page) |
-| Hosts other than GitHub | host mechanics measured 2026-09-29 without an account (Gitea, Forgejo, GitLab; Azure DevOps reads only); no wiki published there yet ([hosts.md](hosts.md)) |
+| Hosts other than GitHub | host mechanics measured 2026-09-29 without an account (Gitea, Forgejo, GitLab; Azure DevOps reads only); one real wiki, format-json-files on a local Forgejo 16.0.5, on 2026-09-29 ([hosts.md](hosts.md)) |
 
 ## Why a wiki beside the README
 
