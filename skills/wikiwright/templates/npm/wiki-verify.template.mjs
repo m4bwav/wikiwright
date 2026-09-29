@@ -129,11 +129,13 @@ const binEntry = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && Object.value
 // The published bin, run with this Node; stdout, stderr and the exit code are all recorded.
 // Asynchronous on purpose: spawnSync blocks this process's event loop, and with it the
 // fixture server below, so a CLI call against the fixture would hang (L-007). CLI_ENV reaches the fixture by host
-// name: set it to fx.env when the kit is in use.
+// name: set it to fx.env when the kit is in use. A last argument that is an object gives the options:
+// cli('--check', '.', {cwd: root}) runs in a scratch tree (the "files on disk" section).
 let CLI_ENV = {};
 function cli(...args) {
+	const {cwd = process.cwd(), env = {}} = typeof args.at(-1) === 'object' ? args.pop() : {};
 	return new Promise(resolve => {
-		const child = spawn(process.execPath, [path.join(pkgDir, binEntry), ...args], {env: {...process.env, ...CLI_ENV}});
+		const child = spawn(process.execPath, [path.join(pkgDir, binEntry), ...args], {cwd, env: {...process.env, ...CLI_ENV, ...env}});
 		child.stdin.end();
 		let stdout = '';
 		let stderr = '';
@@ -191,6 +193,21 @@ if (false) {
 	closers.push(fx);
 	CLI_ENV = fx.env;
 }
+
+// ----- files on disk (delete unless the package writes, moves or deletes files, L-130) -----
+// Copy ../file-tree.mjs beside this script (and into the repository's ai-docs/notes/ with it). Every case gets a
+// fresh scratch copy of its tree under ./trees, so no case sees another's rewrite and nothing touches the
+// repository or the user's files. It prints what the case returned, one line per file (not written, written with
+// the same bytes, changed, created, deleted) and each written file's before and after contents under a header
+// naming its size, BOM, line endings and final newline, which the text cannot show. A page shows a file as its
+// "before" and "after" blocks and states those facts in prose. Read its header for links, read-only files, a
+// folder to copy and the library run in-process ({chdir: true}).
+async function inTree(label, spec, fn, options) {
+	const {treeCase} = await import('./file-tree.mjs');
+	show(label, await treeCase(spec, fn, options));
+}
+// await inTree('commands: a folder', {'data/a.json': '{"a":1}'}, ({root}) => cli('data', {cwd: root}));
+// await inTree('api: report', {'a.json': '{"a":1}'}, () => esm.default('a.json'), {chdir: true});
 
 // ----- the cases: one per example on the wiki, labelled by page -----
 // Getting started

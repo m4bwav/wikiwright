@@ -35,12 +35,16 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 WW = os.path.join(HERE, "..", "skills", "wikiwright", "scripts", "wikiwright.py")
 SHELLS = ("Bash", "PowerShell")
+# Preflight run directly or through a variable holding the helper's path ($WW="...wikiwright.py"; python $WW
+# preflight OWNER/REPO, T-20260929-3); `preflight --help` alone is not a check.
 WIKI_CHECK = re.compile(
-    r"wikiwright\.py[\"']? preflight|ls-remote[^\n]*\.wiki\.git|git -C [^\n]*\.wiki[\"']? (fetch|pull|ls-remote)")
+    r"wikiwright\.py[\"']? preflight|wikiwright\.py[^\n]*\bpreflight [\w.-]+/[\w.-]+"
+    r"|ls-remote[^\n]*\.wiki\.git|git -C [^\n]*\.wiki[\"']? (fetch|pull|ls-remote)")
 ATTRIBUTION = re.compile(rb"(?i)co-authored-by|generated (with|by) (claude|chatgpt|copilot|an? ai)")
 ECHOES_DRAFT = re.compile(r"(?i)\b(cat|type|get-content|head|tail|less|more)\b[^\n|;&]*wiki-draft")
 
@@ -79,20 +83,30 @@ def load_trace(run):
 
 
 FETCHERS = re.compile(r"\b(curl|wget|Invoke-WebRequest|Invoke-RestMethod|iwr|irm)\b")
+# A file that replaces the global fetch: a router to a local stand-in, or a recorder. The recorder of T-20260929-2
+# named no host (the package supplied it) and called the real service through the original fetch (L-122).
+FETCH_WRAPPER = re.compile(r"\b(globalThis|global|window|self)\.fetch\s*=(?!=)")
+# What a wrapper that routes locally contains: a loopback address or a base-URL variable, or a refusal of others.
+ROUTES_LOCALLY = re.compile(r"127\.0\.0\.1|localhost|\[::1\]|x-fixture-url|[A-Z]+_BASE\b|\brefus")
 
 
 def live_requests(uses, host):
     """Tool calls that sent a request to the package's real service (T-20260929-2): a curl-like command naming
-    the host, a LIVE= switch, or a script written with the host and no local routing, then run."""
+    the host, a LIVE= switch, or a script run after it was written with the host and no local routing, or with a
+    fetch wrapper that routes nothing locally."""
     found, hostname = [], re.escape(host)
     scripts = {}
     for _, name, inp in uses:
         body = inp.get("content") or inp.get("new_string") or ""
         path = inp.get("file_path") or ""
         code = re.search(r"\.(mjs|cjs|js|ts|py|sh|ps1)$", path)
-        if name in ("Write", "Edit") and code and re.search(r"https?://" + hostname, body) and not re.search(
+        if name not in ("Write", "Edit") or not code:
+            continue
+        if re.search(r"https?://" + hostname, body) and not re.search(
                 r"127\.0\.0\.1|localhost|installFetch|FIXTURE|fixture|replay|proxy", body):
-            scripts[os.path.basename(path)] = path
+            scripts[os.path.basename(path)] = "unrouted script"
+        elif FETCH_WRAPPER.search(body) and not ROUTES_LOCALLY.search(body):
+            scripts[os.path.basename(path)] = "unrouted fetch wrapper"
     for _, name, inp in uses:
         if name not in SHELLS:
             continue
@@ -102,8 +116,22 @@ def live_requests(uses, host):
         elif re.search(r"\bLIVE=1\b", cmd):
             found.append("LIVE=1: " + cmd[:120])
         else:
-            found += ["unrouted script %s: %s" % (b, cmd[:100]) for b in scripts if b and b in cmd]
+            found += ["%s %s: %s" % (kind, b, cmd[:100]) for b, kind in scripts.items() if b and b in cmd]
     return found
+
+
+def saved_outputs(run, uses):
+    """Verification outputs a program in the run saved to disk (`*.out.txt` in the workspace or the run's session
+    scratchpad) and the Write and Edit tools never touched: a run that sends its script's output to a file and checks
+    the page with `wikiwright.py outputs` prints none of it into the trace (T-20260929-3)."""
+    work = os.path.abspath(os.path.join(run, "work"))
+    typed = {os.path.basename(inp.get("file_path") or "").lower() for _, n, inp in uses if n in ("Write", "Edit")}
+    scratch = os.path.join(tempfile.gettempdir(), "claude", re.sub(r"[^A-Za-z0-9]", "-", work))
+    found = []
+    for root in (work, scratch):
+        for folder, _, files in os.walk(root):
+            found += [os.path.join(folder, f) for f in files if f.endswith(".out.txt") and f.lower() not in typed]
+    return sorted(found)
 
 
 def echoes_draft(name, inp):
@@ -129,6 +157,50 @@ def outputs_check(draft, results_file):
     return checked, missing, p.stdout.strip()
 
 
+URL_HOST = re.compile(r"https?://([A-Za-z0-9.-]+)")
+LOOPBACK = {"127.0.0.1", "localhost"}
+SCRATCH = re.compile(r"[A-Za-z]:[\\/][^\s\"']*?[\\/]scratchpad[\\/]|/[^\s\"']*?/scratchpad/")
+
+
+def digest(run, uses, show_all=False):
+    """One line per tool call worth reading when reviewing a trace (L-122): installs, requests, node runs, fetch
+    wrappers, git, writes outside the workspace. A 300 KB trace becomes a few KB."""
+    work = os.path.normcase(os.path.abspath(os.path.join(run, "work")))
+    counts, lines = {}, []
+    for n, (_, name, inp) in enumerate(uses, 1):
+        counts[name] = counts.get(name, 0) + 1
+        flags, text = [], ""
+        if name in SHELLS:
+            text = inp.get("command") or ""
+            hosts = sorted({h for h in URL_HOST.findall(text) if h not in LOOPBACK})
+            if FETCHERS.search(text):
+                flags.append("fetcher")
+            if hosts:
+                flags.append("url:" + ",".join(hosts))
+            if re.search(r"\b(npm|pnpm|yarn|bun)\b[^\n;&|]*\b(install|i|add|view|pack)\b", text):
+                flags.append("npm")
+            if re.search(r"\b(node|npx|deno)\b", text):
+                flags.append("run")
+            if re.search(r"\bgit\b|\bgh\b", text):
+                flags.append("git")
+            if re.search(r"wikiwright\.py", text):
+                flags.append("ww")
+        elif name in ("Write", "Edit"):
+            text = inp.get("file_path") or ""
+            body = inp.get("content") or inp.get("new_string") or ""
+            if not os.path.normcase(os.path.abspath(text)).startswith(work):
+                flags.append("outside")
+            if FETCH_WRAPPER.search(body):
+                flags.append("fetch-wrapper" + ("" if ROUTES_LOCALLY.search(body) else " UNROUTED"))
+        elif name == "Skill":
+            text, flags = inp.get("skill") or "", ["skill"]
+        if flags or show_all:
+            one = SCRATCH.sub("<scratch>/", " ".join(text.split()))
+            lines.append("%3d %-10s [%s] %s" % (n, name, " ".join(flags), one[:150]))
+    print("\n".join(lines))
+    print("tools: " + ", ".join("%s %d" % kv for kv in sorted(counts.items())))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("run")
@@ -137,11 +209,16 @@ def main(argv=None):
     ap.add_argument("--version", default="")
     ap.add_argument("--forbid-host", help="the package's real service; any request to it fails the run "
                                           "(default: forbid.txt in the run folder)")
+    ap.add_argument("--digest", action="store_true", help="print one line per tool call worth reading, not a grade")
+    ap.add_argument("--all", action="store_true", help="with --digest, every tool call")
     a = ap.parse_args(argv)
     run = a.run
     if not os.path.exists(os.path.join(run, "trace.jsonl")):
         print("error: no trace.jsonl in " + run)
         return 2
+    if a.digest:
+        digest(run, load_trace(run)[0], a.all)
+        return 0
     case = a.case or read_text(os.path.join(run, "case.txt"), "action-1")
     package = a.package or read_text(os.path.join(run, "package.txt"))
     if not package:
@@ -150,6 +227,10 @@ def main(argv=None):
 
     uses, results = load_trace(run)
     kept = [results.get(i, "") for i, n, inp in uses if not echoes_draft(n, inp)]
+    saved = saved_outputs(run, uses)
+    for path in saved:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            kept.append(fh.read())
     results_file = os.path.join(run, "tool-results.txt")
     with open(results_file, "w", encoding="utf-8", newline="\n") as fh:
         fh.write("\n".join(kept))
@@ -184,7 +265,8 @@ def main(argv=None):
     checked, missing = 0, 0
     if pages:
         checked, missing, report = outputs_check(draft, results_file)
-        print("outputs (page outputs found in the trace's tool results, draft echoes left out):")
+        print("outputs (page outputs found in the trace's tool results, draft echoes left out, and %d saved "
+              "output file(s) no Write or Edit touched):" % len(saved))
         print("  " + report.replace("\n", "\n  "))
         cr = links = 0
         attributed = False
