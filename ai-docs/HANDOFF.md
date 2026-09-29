@@ -19,7 +19,7 @@ The next session's prompt (0.4.0 and the markdown-plain-link-replacer wiki, cove
 3. **get-title-at-url wiki, found by the action-3 eval runs.** Recipes' "decode the bytes with the right `TextDecoder` first" is wrong on Node 20.20.2 and 24.13.0 (L-106). Fix it with update mode; the drafts were in the eval work folders, now gone.
 4. **Next owed wikis** (private inventory): stack-exchange-markdown-retriever, format-json-files, markdown-plain-link-replacer (npm with a CLI), then TrailerClipper, replace-string-at-position, IsImageUrlDotNet, CachingServiceWithAOPSupport.
 5. **Untested page sets:** application, monorepo, command-line tool (candidate: TrailerClipper.Tool, a dotnet tool, command `tclipper`). **Untested hosts:** GitLab, Gitea and Forgejo, Azure DevOps.
-6. **JsonPrettyPrinter wiki to 3.0.2** after that repository's PR #8 merges and 3.0.2 releases (its HANDOFF item 6).
+6. ~~JsonPrettyPrinter wiki to 3.0.2~~ Done 2026-09-29 by the JsonPrettyPrinter retrofit session with Update mode: wiki cce45ce, outputs 21 of 21, live 11 pages (that repository's ai-docs/notes/2026-09-28-github-wiki.md).
 7. is-an-image-url's script ran on Node 24.18.0 only; L-106 says to run the oldest Node in `engines` (20) too at the next update.
 
 ## Gotchas
