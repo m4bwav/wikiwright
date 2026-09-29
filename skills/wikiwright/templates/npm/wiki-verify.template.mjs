@@ -244,7 +244,8 @@ if (GOLDEN && OLD) {
 // wiki-verify.node<major>.out.txt. The Node binary is copied alone into its own folder, which goes first on PATH
 // so the shells and bins the cases spawn use it too: the npm node package's bin folder also holds a text file
 // named `node`, and Git Bash skips that folder and runs the system Node without a word (L-118). Every shell case
-// prints the Node it ran (`node --version` inside the shell). Compare with `wikiwright.py diffout <this run's
+// prints the Node it ran (`node --version` inside the shell). On Windows `npx.cmd` runs the node.exe installed
+// beside it, whatever PATH says: run a page's `npx <bin>` case once more as `cli()` does, with process.execPath. Compare with `wikiwright.py diffout <this run's
 // output> wiki-verify.node<major>.out.txt`: every difference is a page claim to scope by version, and a block
 // true on one line only gets <!-- outputs: node>=N --> on the page. Save both outputs in the repository.
 const {OLDEST_NODE, WIKI_VERIFY_CHILD} = process.env;

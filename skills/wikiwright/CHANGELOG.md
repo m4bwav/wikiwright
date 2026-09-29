@@ -4,6 +4,18 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-4 · 2026-09-29 · Other hosts measured without an account; preflight, check and live learn Gitea, Forgejo, GitLab and Azure DevOps (`other-hosts-measured`)
+- because: user request (0.5.0 kickoff: verify every host claim that can be verified without an account); R-20260929-1; L-123 to L-127; package-modernize L-125 (NO_PROXY); T-20260929-2 (L-118's `npx.cmd` addendum)
+- files: scripts/wikiwright.py (`parse_remote` with ports and Azure's ssh form, `detect_kind`, `preflight` for Gitea and Forgejo with `--seed`, GitLab, Azure DevOps, `--kind`; `check --host`; `live` for each host; page names quoted; probes compared without whitespace); tests/test_wikiwright.py (50 tests: a local fake host with the measured status codes, no network); references/hosts.md (rewritten from measurements); RESEARCH.md (R-20260929-1, the open question answered); SKILL.md (Steps 1 and 3); references/page-sets.md; templates/npm/host-fixture.mjs (`NO_PROXY` names the loopback); templates/npm/wiki-verify.template.mjs (the `npx.cmd` note); README; LEARNINGS.md (L-123 to L-127)
+- What changed and why:
+  - hosts.md was docs-only. Local Gitea 1.27.3, Forgejo 16.0.5 and GitLab CE 19.4.1, plus anonymous reads of Codeberg, gitlab.com and Azure DevOps, measured every claim. Three contradicted the docs. Forgejo does not hide `_` files. Anonymous GitLab project JSON has no wiki fields. A pushed GitLab file keeps its spaces.
+  - The biggest difference from GitHub: on Gitea and Forgejo a push never creates the wiki, but one API call does, with no browser. `preflight --seed` makes that call.
+  - `preflight` used to stop at any non-GitHub remote. It now reports each host's state, and it ran against the local instances (`no-wiki-repo`, `has-pages`, `--seed` answering 201), Codeberg, gitlab.com and Azure DevOps.
+  - `check --host` applies each host's navigation files, wikilink tolerance, file-name limits and anchor slugs.
+  - `live` checks pages through each host's API as well as the web. Gitea and Forgejo answer 200 before a first page and 303 for a missing page, and GitLab renders pages in the browser.
+  - What still needs an account (writes on Azure DevOps, gitlab.com write behaviour, a footer on GitLab) is marked unverified.
+  - The kit set `NO_PROXY` empty. package-modernize found that this sends a client's connection to the stand-in proxy through the proxy under `NODE_USE_ENV_PROXY=1`, so the kit now names the loopback.
+
 ### C-20260929-3 · 2026-09-29 · Tune after T-20260929-2: sample content, never a live recording; draft-only updates in SKILL.md (`sample-content-not-live`)
 - because: T-20260929-2 (three of six skill runs against stack-exchange-markdown-retriever requested the real API); L-121 (rejected), L-122; L-107 (helpful 7, promoted)
 - files: SKILL.md (Step 4, a bullet on remote content; Update mode, draft-only requests); evals/grade-action.py (`--forbid-host`, `live_requests`); evals/run-action.sh (`forbid.txt` for the retriever); LEARNINGS.md (L-121 rejected, L-122, L-107 promoted)
