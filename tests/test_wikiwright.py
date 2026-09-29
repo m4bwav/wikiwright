@@ -273,14 +273,174 @@ class HostTests(unittest.TestCase):
             self.assertEqual(wikiwright.resolve_repo(arg), want, arg)
         self.assertEqual(wikiwright.resolve_repo("not a repo"), (None, None))
 
-    def test_other_hosts_stop_with_a_clear_state(self):
-        for url, name in (("https://gitlab.com/a/b", "GitLab"), ("https://codeberg.org/a/b", "Gitea or Forgejo"),
-                          ("https://dev.azure.com/o/p/_git/r", "Azure DevOps"), ("https://git.example.org/a/b", "unknown host")):
-            code, out = run(["preflight", url])
-            self.assertEqual(code, 2, url)
-            self.assertIn("STATE: other-host", out)
-            self.assertIn(name, out)
-            self.assertIn("references/hosts.md", out)
+    def test_parse_remote_keeps_ports_and_maps_azure_ssh(self):
+        self.assertEqual(wikiwright.parse_remote("http://127.0.0.1:3107/ww7admin/wiki-seeded.git"),
+                         ("http", "127.0.0.1:3107", "ww7admin/wiki-seeded"))
+        self.assertEqual(wikiwright.parse_remote("git@ssh.dev.azure.com:v3/org/proj/repo"),
+                         ("https", "dev.azure.com", "org/proj/_git/repo"))
+
+    def test_kind_by_name_needs_no_request(self):
+        for host, kind in (("github.com", "github"), ("codeberg.org", "forgejo"), ("gitlab.com", "gitlab"),
+                           ("dev.azure.com", "azure"), ("acme.visualstudio.com", "azure")):
+            self.assertEqual(wikiwright.detect_kind("https", host), kind, host)
+
+
+# ---------------------------------------------------------------- other hosts, against a local fake
+# Status codes and bodies as measured on Gitea 1.27.3, Forgejo 16.0.5, gitlab.com and GitLab CE 19.4.1
+# (2026-09-29, references/hosts.md). Nothing leaves 127.0.0.1.
+
+import http.server  # noqa: E402
+import json  # noqa: E402
+import threading  # noqa: E402
+
+
+class FakeHost:
+    def __init__(self, routes):
+        self.routes = routes
+        self.seen = []
+        outer = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def answer(self):
+                outer.seen.append("%s %s" % (self.command, self.path))
+                status, headers, body = outer.routes.get(self.path, (404, {}, "{}"))
+                data = body.encode() if isinstance(body, str) else json.dumps(body).encode()
+                self.send_response(status)
+                for k, v in headers.items():
+                    self.send_header(k, v)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            do_GET = do_POST = do_PATCH = answer
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.base = "http://127.0.0.1:%d" % self.server.server_address[1]
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+PAGE_HTML = ('<div class="markup wiki-content-sidebar"><a href="/o/r/wiki/Home">Home</a> '
+             '<a href="/o/r/wiki/Getting-Started">Getting started</a></div>'
+             '<div class="markup wiki-content-footer">This wiki describes widget 1.2.0.</div>')
+GITEA = {
+    "/api/v1/version": (200, {}, {"version": "1.27.3"}),
+    "/api/v1/repos/o/r": (200, {}, {"has_wiki": True, "private": False, "archived": False}),
+    # Before a first page the wiki repository does not exist: Gitea answers info/refs with 500.
+    "/o/r.wiki.git/info/refs?service=git-upload-pack": (500, {}, "not found"),
+    "/api/v1/repos/o/r/wiki/pages?limit=50": (200, {}, [{"title": "Home", "sub_url": "Home"},
+                                                      {"title": "Getting Started", "sub_url": "Getting-Started"}]),
+    "/o/r/wiki/Home": (200, {}, PAGE_HTML),
+    "/o/r/wiki/Getting-Started": (200, {}, PAGE_HTML),
+    "/o/r/wiki/Missing": (303, {"Location": "/o/r/wiki/?action=_pages"}, ""),
+    "/o/r/wiki/": (200, {}, PAGE_HTML),
+}
+
+
+class OtherHostTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def test_gitea_detected_by_api_and_no_wiki_repo_before_a_first_page(self):
+        host = FakeHost(GITEA)
+        try:
+            self.assertEqual(wikiwright.detect_kind("http", host.base[7:]), "gitea")
+            code, out = run(["preflight", host.base + "/o/r"])
+        finally:
+            host.close()
+        self.assertEqual(code, 1, out)
+        self.assertIn("(gitea)", out)
+        self.assertIn("STATE: no-wiki-repo (a push cannot create it on gitea", out)
+        self.assertIn("--seed", out)
+        self.assertIn("/o/r/wiki/?action=_new", out)
+
+    def test_forgejo_detected_by_its_own_version_route(self):
+        host = FakeHost({"/api/forgejo/v1/version": (200, {}, {"version": "16.0.5+gitea-1.22.0"})})
+        try:
+            self.assertEqual(wikiwright.detect_kind("http", host.base[7:]), "forgejo")
+        finally:
+            host.close()
+
+    def test_unknown_host_stops(self):
+        host = FakeHost({})
+        try:
+            code, out = run(["preflight", host.base + "/a/b"])
+        finally:
+            host.close()
+        self.assertEqual(code, 2, out)
+        self.assertIn("STATE: other-host", out)
+
+    def test_gitea_live_fails_a_missing_page_and_reads_sidebar_and_footer(self):
+        write(self.d, {"Home.md": "Widget.\n", "Getting-Started.md": "Go.\n",
+                       "_Sidebar.md": "[Home](Home)\n[Getting started](Getting-Started)\n",
+                       "_Footer.md": "This wiki describes widget 1.2.0.\n"})
+        host = FakeHost(GITEA)
+        try:
+            code, out = run(["live", host.base + "/o/r", self.d, "--kind", "gitea"])
+            self.assertEqual(code, 0, out)
+            self.assertIn("ok   200 page API (2 pages listed)", out)
+            self.assertIn("ok   sidebar renders (2 of 2 probes found)", out)
+            write(self.d, {"Missing.md": "Gone.\n"})
+            code, out = run(["live", host.base + "/o/r", self.d, "--kind", "gitea"])
+        finally:
+            host.close()
+        # A missing page answers 303 to the page list, which answers 200: never follow it.
+        self.assertEqual(code, 1, out)
+        self.assertIn("FAIL 303 Missing -> /o/r/wiki/?action=_pages", out)
+
+    def test_gitlab_live_reads_the_wiki_api(self):
+        write(self.d, {"Home.md": "Widget.\n", "_sidebar.md": "[Home](Home)\n"})
+        host = FakeHost({"/api/v4/projects/o%2Fr/wikis": (200, {}, [{"slug": "home"}, {"slug": "_sidebar"}]),
+                         "/o/r/-/wikis/Home": (200, {}, "<div data-has-custom-sidebar=\"true\"></div>")})
+        try:
+            code, out = run(["live", host.base + "/o/r", self.d, "--kind", "gitlab"])
+        finally:
+            host.close()
+        self.assertEqual(code, 0, out)
+        self.assertIn("ok   sidebar (_sidebar in the API list)", out)
+
+
+class HostCheckTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def test_gitea_accepts_wikilinks_and_refuses_spaces_and_folders(self):
+        pages = dict(GOOD)
+        pages["Home.md"] += "\nAlso [[Getting-Started]].\n"
+        pages["Spaced Name.md"] = "x\n"
+        write(self.d, pages)
+        os.mkdir(os.path.join(self.d, "docs"))
+        write(os.path.join(self.d, "docs"), {"Nested.md": "x\n"})
+        code, out = run(["check", self.d, "--host", "gitea"])
+        self.assertIn("warn: wikilink: gitea resolves it", out)
+        self.assertIn("Spaced Name.md:0: error: a space in the file name", out)
+        self.assertIn("docs:0: error: pages in a folder", out)
+        code, out = run(["check", self.d])
+        self.assertIn("error: wikilink; use [Text](Page-Name)", out)
+
+    def test_gitlab_wants_a_lower_case_sidebar_and_no_footer(self):
+        write(self.d, GOOD)
+        code, out = run(["check", self.d, "--host", "gitlab"])
+        self.assertEqual(code, 1, out)
+        self.assertIn("_sidebar.md:0: error: missing", out)
+        self.assertIn("GitLab reads _sidebar.md (lower case)", out)
+        self.assertIn("gitlab shows no footer", out)
+
+    def test_forgejo_collapses_hyphens_in_anchors(self):
+        self.assertEqual(wikiwright.slug("Usage (basic) & more"), "usage-basic--more")
+        self.assertEqual(wikiwright.slug("Usage (basic) & more", "forgejo"), "usage-basic-more")
 
 
 class HeadingAnchorTests(unittest.TestCase):

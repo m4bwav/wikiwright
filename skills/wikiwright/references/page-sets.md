@@ -17,7 +17,7 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
 | Command-line tool | not yet (the section below is a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
 | Application, website, monorepo | not yet (see the end of this page) |
-| Hosts other than GitHub | not yet ([hosts.md](hosts.md) is unverified) |
+| Hosts other than GitHub | host mechanics measured 2026-09-29 without an account (Gitea, Forgejo, GitLab; Azure DevOps reads only); no wiki published there yet ([hosts.md](hosts.md)) |
 
 ## Why a wiki beside the README
 
@@ -92,7 +92,7 @@ Untested: no run has used this set yet. The first candidate among the maintainer
 
 ## Not yet covered
 
-An application, a website, a monorepo with several packages, a command-line tool, and hosts other than GitHub have no tested page set (still lacking as of 0.4.0; the command-line candidate is TrailerClipper.Tool). [hosts.md](hosts.md) collects what the GitLab, Gitea, Forgejo and Azure DevOps docs say, unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
+An application, a website, a monorepo with several packages and a command-line tool have no tested page set (still lacking as of 0.5.0; the command-line candidate is TrailerClipper.Tool). On GitLab, Gitea, Forgejo and Azure DevOps the page set stays and the navigation files change; [hosts.md](hosts.md) has what was measured and what is unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
 
 ## Conventions every page follows
 

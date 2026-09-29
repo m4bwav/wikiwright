@@ -5,9 +5,10 @@ Subcommands
   preflight OWNER/REPO|URL|CLONE [--enable] [--wait SEC] [--clone DIR]
       Is the wiki feature on, does the .wiki.git repository exist, and is it
       only GitHub's placeholder? Optionally switch the feature on, wait and
-      re-check, and clone the wiki as a working copy. A remote on another
-      host (GitLab, Gitea, Forgejo, Azure DevOps) stops with STATE: other-host.
-  check DIR [--version X] [--partial]
+      re-check, and clone the wiki as a working copy. Gitea and Forgejo
+      (--seed creates the wiki through the API with WIKIWRIGHT_TOKEN), GitLab
+      and Azure DevOps are told apart by name or API (--kind names one).
+  check DIR [--version X] [--partial] [--host KIND]
       Lint a wiki working copy before pushing: page links resolve, anchors
       exist, no wikilinks, LF only, no <BS> placeholders left, sidebar and
       footer present (not with --partial), footer names the version and a
@@ -16,9 +17,10 @@ Subcommands
       Every block a page presents as output, and every //=> value, must
       appear in the verification script's saved output (the fixture's
       http://127.0.0.1:<port> read as https://example.com).
-  live OWNER/REPO DIR
-      After the push: every page answers 200 (Home answers 301 to /wiki),
-      and the sidebar and footer text render on the wiki root.
+  live OWNER/REPO|URL DIR [--kind KIND]
+      After the push: every page answers 200 (on GitHub Home answers 301 to
+      /wiki), and the sidebar and footer text render on the wiki root; on
+      Gitea, Forgejo and GitLab the page API must list every page too.
   unbs FILE...
       Replace every <BS> placeholder with a backslash (for pages written
       with a tool that decodes backslash escapes).
@@ -60,7 +62,7 @@ import urllib.request
 VERSION = "0.4.0"
 BS = "<BS>"
 BACKSLASH = chr(92)
-SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md")
+SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md", "_sidebar.md")
 UA = "wikiwright/" + VERSION + " (+https://github.com/m4bwav/wikiwright)"
 
 ATTRIBUTION = re.compile(
@@ -98,19 +100,33 @@ HOSTS = (
 )
 
 
-def resolve_repo(arg):
-    """(host, OWNER/REPO) from OWNER/REPO, a remote URL, or a local clone's origin."""
+def parse_remote(arg):
+    """(scheme, host, path) from OWNER/REPO, a remote URL (http, https, ssh, scp-like), or a local clone's
+    origin; host keeps its port (127.0.0.1:3107). (None, None, None) when it is none of those."""
     if os.path.isdir(arg):
         p = run(["git", "-C", arg, "remote", "get-url", "origin"])
         if p.returncode != 0:
-            return None, None
+            return None, None, None
         arg = p.stdout.strip()
+    m = re.match(r"^(https?)://(?:[^@/]+@)?([^/]+)/(.+?)(?:\.git)?/?$", arg, re.I)
+    if m:
+        return m.group(1).lower(), m.group(2).lower(), m.group(3)
     m = re.match(r"^(?:[a-z+]+://)?(?:[^@/]+@)?([^/:]+\.[^/:]+)[:/](.+?)(?:\.git)?/?$", arg, re.I)
     if m:
-        return m.group(1).lower(), m.group(2)
+        host, path = m.group(1).lower(), m.group(2)
+        if host == "ssh.dev.azure.com" and path.startswith("v3/"):
+            # ssh.dev.azure.com:v3/ORG/PROJECT/REPO is dev.azure.com/ORG/PROJECT/_git/REPO
+            parts = path[3:].split("/")
+            host, path = "dev.azure.com", "/".join(parts[:2] + ["_git"] + parts[2:])
+        return "https", host, path
     if re.match(r"^[\w.-]+/[\w.-]+$", arg):
-        return "github.com", arg
-    return None, None
+        return "https", "github.com", arg
+    return None, None, None
+
+
+def resolve_repo(arg):
+    """(host, OWNER/REPO) from OWNER/REPO, a remote URL, or a local clone's origin."""
+    return parse_remote(arg)[1:]
 
 
 def host_name(host):
@@ -120,23 +136,128 @@ def host_name(host):
     return "an unknown host"
 
 
+KINDS = ("github", "gitea", "forgejo", "gitlab", "azure")
+
+
+def api_get(url, token=None, token_header="Authorization", method="GET", body=None):
+    """(status, parsed JSON or None, headers) without following redirects."""
+    headers = {"User-Agent": UA, "Accept": "application/json"}
+    if token:
+        headers[token_header] = ("token " + token) if token_header == "Authorization" else token
+    data = None
+    if body is not None:
+        data = json.dumps(body).encode()
+        headers["Content-Type"] = "application/json"
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None
+
+    req = urllib.request.Request(url, data=data, headers=headers, method=method)
+    try:
+        with urllib.request.build_opener(NoRedirect).open(req, timeout=30) as r:
+            text = r.read().decode("utf-8", errors="replace")
+            status, hdrs = r.status, r.headers
+    except urllib.error.HTTPError as e:
+        text, status, hdrs = e.read().decode("utf-8", errors="replace"), e.code, e.headers
+    except (urllib.error.URLError, OSError) as e:
+        return 0, str(e), {}
+    try:
+        return status, json.loads(text), hdrs
+    except ValueError:
+        return status, None, hdrs
+
+
+def detect_kind(scheme, host):
+    """The wiki host kind by name, or by asking its API (anonymous GETs only). Measured 2026-09-29: Gitea
+    1.27.3 answers /api/v1/version and 404 to /api/forgejo/v1/version; Forgejo 16.0.5 answers both;
+    GitLab answers /api/v4/version with 401 anonymously."""
+    name = host.split(":")[0]
+    if name in ("github.com", "www.github.com"):
+        return "github"
+    if name == "codeberg.org" or name.startswith("forgejo."):
+        return "forgejo"
+    if name.startswith("gitea."):
+        return "gitea"
+    if name == "gitlab.com" or name.startswith("gitlab."):
+        return "gitlab"
+    if name == "dev.azure.com" or name.endswith(".visualstudio.com"):
+        return "azure"
+    base = "%s://%s" % (scheme, host)
+    status, data, _ = api_get(base + "/api/forgejo/v1/version")
+    if status == 200 and isinstance(data, dict) and data.get("version"):
+        return "forgejo"
+    status, data, _ = api_get(base + "/api/v1/version")
+    if status == 200 and isinstance(data, dict) and data.get("version"):
+        return "forgejo" if "+gitea" in str(data["version"]) else "gitea"
+    status, _, _ = api_get(base + "/api/v4/version")
+    if status == 401:
+        return "gitlab"
+    return None
+
+
+def ls_remote_symref(url):
+    """(ok, branch HEAD points at or None, [(sha, ref)], error text) for any git URL, never prompting."""
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0")
+    p = subprocess.run(["git", "-c", "credential.helper=", "ls-remote", "--symref", url], capture_output=True,
+                       text=True, encoding="utf-8", errors="replace", env=env)
+    branch, heads = None, []
+    for line in p.stdout.splitlines():
+        m = re.match(r"^ref: refs/heads/(\S+)\s+HEAD$", line)
+        if m:
+            branch = m.group(1)
+        elif "\t" in line:
+            heads.append(tuple(line.split("\t", 1)))
+    return p.returncode == 0, branch, heads, p.stderr.strip()
+
+
+def first_error(err):
+    """git's own error line (Forgejo's ends with a hint line after it)."""
+    lines = [line for line in (err or "").splitlines() if line.strip()]
+    return next((line for line in lines if line.startswith(("fatal:", "error:"))), lines[0] if lines else "no answer")
+
+
+def clone_state(url, clone, branch):
+    """Clone (or fetch) the wiki and print placeholder or has-pages, as for GitHub."""
+    if os.path.exists(clone) and os.listdir(clone):
+        print("clone: %s already exists; using it" % clone)
+        run(["git", "-C", clone, "fetch", "-q", "origin"], check=True)
+    else:
+        run(["git", "clone", "-q", url, clone], check=True)
+        print("clone: %s" % clone)
+    commits = run(["git", "-C", clone, "rev-list", "--count", "origin/" + branch], check=True).stdout.strip()
+    files = run(["git", "-C", clone, "ls-tree", "-r", "--name-only", "origin/" + branch], check=True).stdout.splitlines()
+    print("commits: %s  files: %d (%s)" % (commits, len(files), ", ".join(files[:12]) + (" ..." if len(files) > 12 else "")))
+    if commits == "1" and len(files) == 1 and files[0].lower() in ("home.md", "home.markdown"):
+        print("STATE: placeholder (one first page; write the pages in this clone, commit and push to %s)" % branch)
+    else:
+        print("STATE: has-pages (existing content: read every page first; update, never overwrite)")
+    return 0
+
+
 def cmd_preflight(a):
-    host, repo = resolve_repo(a.repo)
+    scheme, host, repo = parse_remote(a.repo)
     if host is None:
         print("error: %s is not OWNER/REPO, a remote URL or a clone with an origin" % a.repo)
         return 2
-    if host not in ("github.com", "www.github.com"):
-        print("repo: %s on %s" % (repo, host))
-        print("STATE: other-host (%s). preflight, check's link rules and live cover GitHub only." % host_name(host))
-        print("       What that host's wiki needs (clone URL, branch, first page, page names, sidebar,")
-        print("       API) is in references/hosts.md, unverified until a run uses it.")
+    kind = a.kind or detect_kind(scheme, host)
+    if kind != "github":
+        print("repo: %s on %s (%s)" % (repo, host, kind or "unknown"))
+        if kind in ("gitea", "forgejo"):
+            return preflight_gitea(a, scheme, host, repo, kind)
+        if kind == "gitlab":
+            return preflight_gitlab(a, scheme, host, repo)
+        if kind == "azure":
+            return preflight_azure(a, host, repo)
+        print("STATE: other-host (%s, not GitHub, Gitea, Forgejo, GitLab or Azure DevOps by name or API)."
+              % host_name(host))
+        print("       references/hosts.md lists what each host needs; pass --kind to name it.")
         return 2
     a.repo = repo
     p = run(["gh", "repo", "view", a.repo, "--json", "hasWikiEnabled,visibility,isArchived,defaultBranchRef"])
     if p.returncode != 0:
         print("error: gh repo view failed: " + p.stderr.strip())
         return 2
-    import json
     info = json.loads(p.stdout)
     print("repo: %s  visibility: %s  archived: %s  wiki feature: %s" % (
         a.repo, info.get("visibility"), info.get("isArchived"), info.get("hasWikiEnabled")))
@@ -202,15 +323,134 @@ def cmd_preflight(a):
     return 0
 
 
+TOKEN_ENV = "WIKIWRIGHT_TOKEN"
+
+
+def preflight_gitea(a, scheme, host, repo, kind):
+    """Gitea and Forgejo, as measured on Gitea 1.27.3 and Forgejo 16.0.5 (2026-09-29): the wiki repository
+    does not exist before a first page, a push cannot create it, one POST .../wiki/new with a token does,
+    and new wikis are on main (older Codeberg wikis on master)."""
+    base, token = "%s://%s" % (scheme, host), os.environ.get(TOKEN_ENV)
+    api = "%s/api/v1/repos/%s" % (base, repo)
+    status, info, _ = api_get(api, token)
+    if status != 200 or not isinstance(info, dict):
+        print("error: GET %s answered %s%s" % (api, status, "" if token else
+                                                 " (a private repository needs %s)" % TOKEN_ENV))
+        return 2
+    print("visibility: %s  archived: %s  wiki feature: %s%s" % (
+        "private" if info.get("private") else "public", info.get("archived"), info.get("has_wiki"),
+        ("  has_wiki_contents: %s" % info["has_wiki_contents"]) if "has_wiki_contents" in info else ""))
+    if info.get("archived"):
+        print("STATE: archived (unarchive first)")
+        return 1
+    if not info.get("has_wiki"):
+        if not (a.enable and token):
+            print("STATE: feature-off (run again with --enable and %s set: PATCH has_wiki)" % TOKEN_ENV)
+            return 1
+        status, _, _ = api_get(api, token, method="PATCH", body={"has_wiki": True})
+        print("wiki feature: switched on (PATCH answered %s)" % status)
+    url = "%s/%s.wiki.git" % (base, repo)
+    ok, branch, heads, err = ls_remote_symref(url)
+    if not ok and a.seed:
+        if not token:
+            print("error: --seed needs %s (a token that may write the repository)" % TOKEN_ENV)
+            return 2
+        import base64
+        text = base64.b64encode(b"This page is replaced by the first push.\n").decode()
+        status, _, _ = api_get(api + "/wiki/new", token, method="POST",
+                               body={"title": "Home", "content_base64": text, "message": "Create the wiki"})
+        print("seed: POST %s/wiki/new answered %s" % (api, status))
+        ok, branch, heads, err = ls_remote_symref(url)
+    if not ok:
+        print("ls-remote: %s" % first_error(err))
+        print("STATE: no-wiki-repo (a push cannot create it on %s; measured 2026-09-29)" % kind)
+        print("ACTION: create the first page: run again with --seed and %s set (POST %s/wiki/new), or" % (TOKEN_ENV, api))
+        print("        save one in the web UI: %s/%s/wiki/?action=_new" % (base, repo))
+        return 1
+    branch = branch or info.get("wiki_branch") or "main"
+    print("clone URL: %s\nbranch: %s (push here; a push to another branch succeeds and shows nothing)" % (url, branch))
+    if not a.clone:
+        print("STATE: exists (branch %s; clone it with --clone DIR to see whether it is a placeholder)" % branch)
+        return 0
+    return clone_state(url, a.clone, branch)
+
+
+def preflight_gitlab(a, scheme, host, repo):
+    """GitLab, measured on gitlab.com anonymously and a local GitLab CE 19.4.1 (2026-09-29): a push to a
+    never-used wiki creates it; an enabled empty wiki answers ls-remote with no refs; anonymous project JSON
+    has no wiki fields, so the wiki API's status is the anonymous signal."""
+    base = "%s://%s" % (scheme, host)
+    token = os.environ.get(TOKEN_ENV)
+    project = "%s/api/v4/projects/%s" % (base, urllib.request.quote(repo, safe=""))
+    status, pages, _ = api_get(project + "/wikis", token, token_header="PRIVATE-TOKEN")
+    print("wiki API: %s%s" % (status, (" (%d pages)" % len(pages)) if isinstance(pages, list) else ""))
+    url = "%s/%s.wiki.git" % (base, repo)
+    ok, branch, heads, err = ls_remote_symref(url)
+    if not ok:
+        print("ls-remote: %s" % first_error(err))
+        print("STATE: not-readable (the wiki is off, members-only or private; with a token, check wiki_access_level)")
+        return 1
+    if not heads:
+        print("clone URL: %s" % url)
+        print("STATE: empty-wiki (no pages yet; a push creates it: git init -b main, add the pages, push main)")
+        return 0
+    branch = branch or "main"
+    print("clone URL: %s\nbranch: %s (older gitlab.com wikis are on master, new ones on main)" % (url, branch))
+    if not a.clone:
+        print("STATE: exists (branch %s)" % branch)
+        return 0
+    return clone_state(url, a.clone, branch)
+
+
+def preflight_azure(a, host, repo):
+    """Azure DevOps, read anonymously on public projects (2026-09-29): _apis/wiki/wikis lists the wikis
+    (count 0 when there is none), each with its branch in versions; a private or missing project answers
+    302 to sign-in. Creating a wiki needs an account and was not verified."""
+    parts = repo.split("/")
+    if host.endswith(".visualstudio.com"):
+        parts = [host.split(".")[0]] + parts
+    if len(parts) < 2:
+        print("error: expected dev.azure.com/ORG/PROJECT[/_git/REPO]")
+        return 2
+    org, project = parts[0], parts[1]
+    api = "https://dev.azure.com/%s/%s/_apis/wiki/wikis?api-version=7.1" % (org, project)
+    status, data, _ = api_get(api)
+    if status in (302, 401, 203) or status == 0:
+        print("STATE: not-readable (%s: not public, or not found; they look the same without an account)" % status)
+        return 1
+    wikis = (data or {}).get("value") or []
+    if not wikis:
+        print("STATE: no-wiki (a project administrator creates it: the web UI, az devops wiki create, or REST;")
+        print("       needs an account, unverified here)")
+        return 1
+    for w in wikis:
+        versions = ",".join(v.get("version", "?") for v in (w.get("versions") or []))
+        print("wiki: %s  type: %s  branch: %s  mappedPath: %s" % (w.get("name"), w.get("type"), versions, w.get("mappedPath")))
+    wiki = next((w for w in wikis if w.get("type") == "projectWiki"), wikis[0])
+    url = "https://dev.azure.com/%s/%s/_git/%s" % (org, project, wiki.get("name"))
+    ok, branch, heads, err = ls_remote_symref(url)
+    branch = branch or ((wiki.get("versions") or [{}])[0].get("version")) or "wikiMain"
+    print("clone URL: %s\nbranch: %s (read it: wikiMaster and wikiMain both occur)" % (url, branch))
+    if not ok:
+        print("ls-remote: %s" % first_error(err))
+        return 1
+    if not a.clone:
+        print("STATE: exists (branch %s; pages need a .order entry per folder)" % branch)
+        return 0
+    return clone_state(url, a.clone, branch)
+
+
 # ---------------------------------------------------------------- check
 
-def slug(heading):
-    """GitHub's heading anchor: lower case, drop punctuation, spaces to hyphens."""
+def slug(heading, kind="github"):
+    """GitHub's heading anchor: lower case, drop punctuation, spaces to hyphens. Forgejo 16.0.5 then
+    collapses runs of hyphens (`usage-basic-more` where GitHub and Gitea give `usage-basic--more`)."""
     text = re.sub(r"`([^`]*)`", r"\1", heading.strip())
     text = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", text)
     text = text.lower()
     text = re.sub(r"[^\w\- ]", "", text)
-    return text.replace(" ", "-")
+    text = text.replace(" ", "-")
+    return re.sub(r"-{2,}", "-", text) if kind == "forgejo" else text
 
 
 def page_text(path):
@@ -237,7 +477,7 @@ def strip_code(text):
     return out, fence
 
 
-def headings(text):
+def headings(text, kind="github"):
     # strip_code only to skip fenced blocks: a heading keeps its inline code for the slug, as
     # GitHub's does ("Deno answers `false` for every URL" is #deno-answers-false-for-every-url).
     lines, _ = strip_code(text)
@@ -245,7 +485,7 @@ def headings(text):
     for stripped, line in zip(lines, text.split(chr(10))):
         m = re.match(r"^#{1,6}\s+(.*?)\s*#*\s*$", line) if stripped.strip() else None
         if m:
-            s = slug(m.group(1))
+            s = slug(m.group(1), kind)
             n = seen.get(s, 0)
             found.add(s if n == 0 else "%s-%d" % (s, n))
             seen[s] = n + 1
@@ -265,6 +505,8 @@ def cmd_check(a):
     if not os.path.isdir(d):
         print("error: %s is not a directory" % d)
         return 2
+    kind = a.host
+    sidebar = "_sidebar.md" if kind == "gitlab" else "_Sidebar.md"
     pages = sorted(f for f in os.listdir(d) if f.endswith(".md"))
     names = {f[:-3].lower(): f[:-3] for f in pages}
     errors, warnings = [], []
@@ -277,10 +519,26 @@ def cmd_check(a):
 
     if "Home.md" not in pages:
         err("Home.md", 0, "missing (the wiki's front page)")
-    for special in ("_Sidebar.md", "_Footer.md"):
+    # Navigation files per host (hosts.md): GitLab reads _sidebar.md and renders no footer (a footer is
+    # unverified there); Azure DevOps has neither and orders pages with .order.
+    required = {"gitlab": ("_sidebar.md",), "azure": ()}.get(kind, ("_Sidebar.md", "_Footer.md"))
+    for special in required:
         if special not in pages and not a.partial:
             err(special, 0, "missing (a draft of a few pages: --partial)")
-    anchors = {f[:-3].lower(): headings(page_text(os.path.join(d, f))[1]) for f in pages}
+    if kind == "gitlab" and "_Sidebar.md" in pages:
+        err("_Sidebar.md", 0, "GitLab reads _sidebar.md (lower case) and ignores this file")
+    if kind in ("gitlab", "azure") and "_Footer.md" in pages:
+        warn("_Footer.md", 0, "%s shows no footer; put the version line on Home" % kind)
+    if kind == "azure" and not os.path.exists(os.path.join(d, ".order")):
+        warn(".order", 0, "missing: Azure DevOps orders pages by .order (one page name per line, no .md)")
+    for f in os.listdir(d):
+        full = os.path.join(d, f)
+        if kind in ("gitea", "forgejo") and f.endswith(".md") and " " in f:
+            err(f, 0, "a space in the file name: %s lists the page but cannot open it (measured)" % kind)
+        if kind in ("gitea", "forgejo") and os.path.isdir(full) and not f.startswith("."):
+            if any(n.endswith(".md") for n in os.listdir(full)):
+                err(f, 0, "pages in a folder: %s does not list them (keep the wiki flat)" % kind)
+    anchors = {f[:-3].lower(): headings(page_text(os.path.join(d, f))[1], kind) for f in pages}
     linked_from_sidebar = set()
     for f in pages:
         raw, text = page_text(os.path.join(d, f))
@@ -298,7 +556,10 @@ def cmd_check(a):
                 err(f, n, "AI attribution: " + ATTRIBUTION.search(line).group(0))
         for n, line in enumerate(lines, 1):
             if "[[" in line and "]]" in line:
-                err(f, n, "wikilink; use [Text](Page-Name)")
+                if kind in ("gitea", "forgejo", "gitlab"):
+                    warn(f, n, "wikilink: %s resolves it, but [Text](Page-Name) works on every host" % kind)
+                else:
+                    err(f, n, "wikilink; use [Text](Page-Name)")
             m = re.match(r"^#{1,6}\s+(.*)$", line)
             if m and is_title_case(m.group(1)):
                 warn(f, n, "heading looks like Title Case; use sentence case: " + m.group(1).strip())
@@ -324,13 +585,13 @@ def cmd_check(a):
                     warn(f, n, "link %s differs in case from the file %s.md" % (page, names[key]))
                 if anchor and anchor.lower() not in anchors[key]:
                     err(f, n, "no heading for #%s on %s" % (anchor, names[key]))
-                if f == "_Sidebar.md":
+                if f == sidebar:
                     linked_from_sidebar.add(key)
-    if "_Sidebar.md" in pages:
+    if sidebar in pages:
         for f in pages:
             key = f[:-3].lower()
             if f not in SPECIAL and key not in linked_from_sidebar:
-                warn("_Sidebar.md", 0, "does not link %s" % f[:-3])
+                warn(sidebar, 0, "does not link %s" % f[:-3])
     if "_Footer.md" in pages:
         footer = page_text(os.path.join(d, "_Footer.md"))[1]
         if a.version and a.version not in footer:
@@ -370,12 +631,118 @@ def plain(md):
     return " ".join(text.split())
 
 
+def wiki_pages(d):
+    return sorted(f[:-3] for f in os.listdir(d) if f.endswith(".md") and f not in SPECIAL)
+
+
+def render_probes(a, root, sidebar_name="_Sidebar.md"):
+    """(failures, lines) for the sidebar and footer text on a rendered page."""
+    bad, lines = 0, []
+    for special, label in (("_Footer.md", "footer"), (sidebar_name, "sidebar")):
+        path = os.path.join(a.dir, special)
+        if not os.path.exists(path):
+            continue
+        md = page_text(path)[1]
+        probes = [plain(md.strip().split("\n")[0])[:60]] if label == "footer" else [t for t, _ in LINK.findall(md)][:40]
+        # Whitespace ignored: tag boundaries put spaces where the markdown has none ("see Home .").
+        flat = "".join(root.split())
+        missing = [t for t in probes if t and "".join(t.split()) not in flat]
+        lines.append("%s %s renders (%d of %d probes found)%s" % (
+            "ok  " if not missing else "FAIL", label, len(probes) - len(missing), len(probes),
+            ("; missing: " + ", ".join(missing[:5])) if missing else ""))
+        bad += 1 if missing else 0
+    return bad, lines
+
+
+def html_text(body):
+    return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", body)).split())
+
+
+def live_gitea(a, scheme, host, repo, kind):
+    """Gitea and Forgejo (measured 2026-09-29): a page answers 200, a missing one 303 to ?action=_pages,
+    and every wiki URL answers 200 before a first page exists, so the page API is checked first."""
+    base, token = "%s://%s" % (scheme, host), os.environ.get(TOKEN_ENV)
+    status, listed, _ = api_get("%s/api/v1/repos/%s/wiki/pages?limit=50" % (base, repo), token)
+    titles = {str(p.get("sub_url") or p.get("title")) for p in listed} if isinstance(listed, list) else set()
+    print("%s %s page API (%d pages listed)" % ("ok  " if status == 200 else "FAIL", status, len(titles)))
+    bad = 0 if status == 200 else 1
+    pages = wiki_pages(a.dir)
+    for p in pages:
+        s, loc, _ = fetch("%s/%s/wiki/%s" % (base, repo, urllib.request.quote(p)))
+        good = s == 200 and (not titles or p in titles)
+        print("%s %s %s%s" % ("ok  " if good else "FAIL", s, p, (" -> " + loc) if loc else ""))
+        bad += 0 if good else 1
+    s, _, body = fetch("%s/%s/wiki/" % (base, repo))
+    print("%s %s wiki root" % ("ok  " if s == 200 else "FAIL", s))
+    bad += 0 if s == 200 else 1
+    more, lines = render_probes(a, html_text(body))
+    for line in lines:
+        print(line)
+    print("live: %d pages, %d failures" % (len(pages), bad + more))
+    return 1 if bad + more else 0
+
+
+def live_gitlab(a, scheme, host, repo):
+    """GitLab (measured 2026-09-29): page HTML is rendered by JavaScript, so pages are checked through the
+    wiki API (anonymous for a public wiki) and the web status; slugs are case-insensitive."""
+    base, token = "%s://%s" % (scheme, host), os.environ.get(TOKEN_ENV)
+    api = "%s/api/v4/projects/%s/wikis" % (base, urllib.request.quote(repo, safe=""))
+    status, listed, _ = api_get(api, token, token_header="PRIVATE-TOKEN")
+    slugs = {str(p.get("slug", "")).lower() for p in listed} if isinstance(listed, list) else set()
+    print("%s %s wiki API (%d pages listed)" % ("ok  " if status == 200 else "FAIL", status, len(slugs)))
+    bad = 0 if status == 200 else 1
+    pages = wiki_pages(a.dir)
+    for p in pages:
+        s, loc, _ = fetch("%s/%s/-/wikis/%s" % (base, repo, urllib.request.quote(p)))
+        good = s == 200 and p.lower() in slugs
+        print("%s %s %s%s" % ("ok  " if good else "FAIL", s, p, "" if p.lower() in slugs else " (not in the API list)"))
+        bad += 0 if good else 1
+    if os.path.exists(os.path.join(a.dir, "_sidebar.md")):
+        good = "_sidebar" in slugs
+        print("%s sidebar (_sidebar in the API list)" % ("ok  " if good else "FAIL"))
+        bad += 0 if good else 1
+    print("live: %d pages, %d failures" % (len(pages), bad))
+    return 1 if bad else 0
+
+
+def live_azure(a, host, repo):
+    """Azure DevOps (read anonymously on public projects, 2026-09-29): a page GET by path answers 200; a
+    hyphen in a file name is a space in the page path. The web pages are a JavaScript shell."""
+    parts = repo.split("/")
+    org, project = parts[0], parts[1]
+    wiki = parts[3] if len(parts) > 3 and parts[2] == "_git" else project + ".wiki"
+    bad, pages = 0, wiki_pages(a.dir)
+    for p in pages:
+        url = "https://dev.azure.com/%s/%s/_apis/wiki/wikis/%s/pages?path=%s&api-version=7.1" % (
+            org, project, urllib.request.quote(wiki), urllib.request.quote("/" + p.replace("-", " ")))
+        s, _, _ = api_get(url)
+        print("%s %s %s" % ("ok  " if s == 200 else "FAIL", s, p))
+        bad += 0 if s == 200 else 1
+    print("live: %d pages, %d failures" % (len(pages), bad))
+    return 1 if bad else 0
+
+
 def cmd_live(a):
+    scheme, host, repo = parse_remote(a.repo)
+    if host is None:
+        print("error: %s is not OWNER/REPO or a remote URL" % a.repo)
+        return 2
+    kind = a.kind or detect_kind(scheme, host)
+    if kind in ("gitea", "forgejo"):
+        return live_gitea(a, scheme, host, repo, kind)
+    if kind == "gitlab":
+        return live_gitlab(a, scheme, host, repo)
+    if kind == "azure":
+        return live_azure(a, host, repo)
+    if kind != "github":
+        print("error: %s is not a host live knows (pass --kind)" % host)
+        return 2
+    a.repo = repo
     base = "https://github.com/%s/wiki" % a.repo
     pages = sorted(f[:-3] for f in os.listdir(a.dir) if f.endswith(".md") and f not in SPECIAL)
     bad = 0
     for p in pages:
-        status, loc, _ = fetch("%s/%s" % (base, p))
+        status, loc, _ = fetch("%s/%s" % (base, urllib.request.quote(p)))
         good = (status == 200) or (p == "Home" and status == 301 and (loc or "").rstrip("/").endswith("/wiki"))
         print("%s %s %s%s" % ("ok  " if good else "FAIL", status, p, (" -> " + loc) if loc else ""))
         bad += 0 if good else 1
@@ -393,7 +760,9 @@ def cmd_live(a):
             probes = [plain(md.strip().split("\n")[0])[:60]]
         else:
             probes = [t for t, _ in LINK.findall(md)][:40]
-        missing = [t for t in probes if t and t not in root]
+        # Whitespace ignored: tag boundaries put spaces where the markdown has none ("see Home .").
+        flat = "".join(root.split())
+        missing = [t for t in probes if t and "".join(t.split()) not in flat]
         print("%s %s renders (%d of %d probes found)%s" % (
             "ok  " if not missing else "FAIL", label, len(probes) - len(missing), len(probes),
             ("; missing: " + ", ".join(missing[:5])) if missing else ""))
@@ -929,20 +1298,26 @@ def main(argv=None):
     ap.add_argument("--version", action="version", version=VERSION)
     sub = ap.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("preflight", help="wiki feature, wiki repository, placeholder, clone")
-    p.add_argument("repo", help="OWNER/REPO")
+    p.add_argument("repo", help="OWNER/REPO (GitHub), a remote URL, or a clone")
     p.add_argument("--enable", action="store_true", help="switch the wiki feature on when it is off")
     p.add_argument("--wait", type=int, help="seconds to keep re-checking ls-remote (default 60 after --enable)")
     p.add_argument("--clone", help="clone the wiki repository here (a sibling <clone>.wiki)")
+    p.add_argument("--kind", choices=KINDS, help="the host's kind, when neither its name nor its API tells")
+    p.add_argument("--seed", action="store_true",
+                   help="Gitea and Forgejo: create the wiki with a first page through the API (needs %s)" % TOKEN_ENV)
     p.set_defaults(fn=cmd_preflight)
     c = sub.add_parser("check", help="lint a wiki working copy")
     c.add_argument("dir")
     c.add_argument("--version", dest="version", help="the package version the footer must name")
     c.add_argument("--partial", action="store_true",
                    help="a draft of some pages: no sidebar or footer required")
+    c.add_argument("--host", choices=KINDS, default="github",
+                   help="the host's rules: navigation files, wikilinks, anchors, file names (default github)")
     c.set_defaults(fn=cmd_check)
     lv = sub.add_parser("live", help="check the published pages")
-    lv.add_argument("repo", help="OWNER/REPO")
+    lv.add_argument("repo", help="OWNER/REPO (GitHub) or the repository's URL on another host")
     lv.add_argument("dir", help="the working copy (for the page list, sidebar and footer)")
+    lv.add_argument("--kind", choices=KINDS, help="the host's kind, when neither its name nor its API tells")
     lv.set_defaults(fn=cmd_live)
     o = sub.add_parser("outputs", help="every output a page shows appears in the verify output")
     o.add_argument("dir", help="the wiki working copy (or a folder of draft pages)")
