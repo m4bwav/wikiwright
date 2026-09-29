@@ -140,8 +140,11 @@ export async function startHostFixture({hosts, handle, dir = 'tls', openssl = pr
 		proxy.listen(0, '127.0.0.1', resolve);
 	});
 	const proxyUrl = `http://127.0.0.1:${proxy.address().port}`;
+	// NO_PROXY names the loopback addresses: when it is empty, Node 24's own proxy support also sends a client's
+	// connection to the proxy through the proxy (package-modernize L-125, request 2.88 under NODE_USE_ENV_PROXY=1).
+	const LOCAL = '127.0.0.1,localhost,::1';
 	const base = {
-		HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, NO_PROXY: '', http_proxy: proxyUrl, https_proxy: proxyUrl, no_proxy: '',
+		HTTP_PROXY: proxyUrl, HTTPS_PROXY: proxyUrl, NO_PROXY: LOCAL, http_proxy: proxyUrl, https_proxy: proxyUrl, no_proxy: LOCAL,
 		NODE_EXTRA_CA_CERTS: ca, DENO_CERT: ca, NODE_OPTIONS: preload(guardFile),
 	};
 
