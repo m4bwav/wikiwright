@@ -22,13 +22,19 @@
 // its size, the BOM, the line endings and the final newline (`--- data/a.json after: 18 bytes, UTF-8, LF, no
 // final newline`). The contents print with CR and the BOM removed, so a page's code block matches them; bytes
 // that are not UTF-8 print as \xNN. The tree's absolute path prints as <tree>.
+// More spec kinds: {hardlink: 'a.json'} (a second name for a file listed earlier), {dir: true, mode: 0o000} (set after
+// the tree is written, restored before it is removed; drvfs and Windows ignore folder modes).
 // Options: {chdir: true} runs the case with the tree as the working directory (for the library with relative
-// paths); {show: ['x.json']} prints those files' contents even when not written; {keep: true} keeps the tree.
+// paths); {show: ['x.json']} prints those files' contents even when not written; {hide: ['.git']} leaves a folder
+// and everything under it out; {limit: 4000} cuts each printed content at that many characters; {keep: true} keeps
+// the tree. For a terminal transcript (stdout and stderr in the order written), use the template's term() with
+// {cwd: root}.
 // Windows without developer mode refuses file symbolic links (EPERM): the output lists them as unavailable. A
 // read-only file stays writable for root on Linux and macOS, so its case proves nothing under sudo.
 import {
 	chmodSync,
 	cpSync,
+	linkSync,
 	lstatSync,
 	mkdirSync,
 	mkdtempSync,
@@ -45,7 +51,9 @@ import path from 'node:path';
 const FIXED_TIME = new Date('2001-01-01T00:00:00Z');
 let counter = 0;
 
-function build(root, spec) {
+// Folders given a mode ({dir: true, mode: 0o000}) get it after the whole tree is written, and their modes are
+// restored before the tree is removed.
+function build(root, spec, modes) {
 	const unavailable = [];
 	if (typeof spec === 'string') {
 		cpSync(spec, root, {recursive: true, verbatimSymlinks: true});
@@ -59,9 +67,16 @@ function build(root, spec) {
 			writeFileSync(file, value);
 		} else if (value.dir) {
 			mkdirSync(file, {recursive: true});
-		} else if (value.symlink) {
+			if (value.mode !== undefined) {
+				modes.push([file, value.mode]);
+			}
+		} else if (value.symlink || value.hardlink) {
 			try {
-				symlinkSync(value.symlink, file, value.type ?? 'file');
+				if (value.hardlink) {
+					linkSync(path.join(root, ...value.hardlink.split('/')), file);
+				} else {
+					symlinkSync(value.symlink, file, value.type ?? 'file');
+				}
 			} catch (error) {
 				unavailable.push(`${relative} (${error.code})`);
 			}
@@ -76,16 +91,30 @@ function build(root, spec) {
 	return unavailable;
 }
 
-// Every entry under root: relative path with '/', and its kind, bytes and time.
-function snapshot(root) {
+// Every entry under root: relative path with '/', and its kind, bytes and time. Paths in `hide` (a folder such as
+// '.git' and everything under it) are left out; an unreadable folder is listed without its contents.
+function snapshot(root, hide = []) {
 	const entries = new Map();
+	const hidden = relative => hide.some(prefix => relative === prefix || relative.startsWith(`${prefix}/`));
 	const walk = directory => {
-		for (const name of readdirSync(directory).sort()) {
+		let names;
+		try {
+			names = readdirSync(directory).sort();
+		} catch {
+			return;
+		}
+
+		for (const name of names) {
 			const full = path.join(directory, name);
 			const relative = path.relative(root, full).split(path.sep).join('/');
+			if (hidden(relative)) {
+				continue;
+			}
+
 			const stat = lstatSync(full);
 			if (stat.isSymbolicLink()) {
-				entries.set(relative, {kind: 'link', target: readlinkSync(full)});
+				// Node 20 reads a junction's target with a trailing separator, Node 24 without.
+				entries.set(relative, {kind: 'link', target: readlinkSync(full).replace(/[\\/]+$/, '')});
 			} else if (stat.isDirectory()) {
 				entries.set(relative, {kind: 'dir'});
 				walk(full);
@@ -196,13 +225,17 @@ function stringify(value) {
 Builds a fresh tree from `spec` in a new folder under `base` (default: `trees` beside the calling script's working
 directory), runs `fn({root, at})`, and returns the printout described at the top of this file.
 */
-export async function treeCase(spec, fn, {base = 'trees', chdir = false, show = [], keep = false} = {}) {
+export async function treeCase(spec, fn, {base = 'trees', chdir = false, show = [], hide = [], limit = 4000, keep = false} = {}) {
 	mkdirSync(base, {recursive: true});
 	const root = mkdtempSync(path.join(path.resolve(base), `t${++counter}-`));
 	const at = relative => path.join(root, ...relative.split('/'));
-	const unavailable = typeof spec === 'function' ? (await spec(root), []) : build(root, spec);
-	const before = snapshot(root);
+	const modes = [];
+	const unavailable = typeof spec === 'function' ? (await spec(root), []) : build(root, spec, modes);
+	const before = snapshot(root, hide);
 	settle(root, before);
+	for (const [folder, mode] of modes) {
+		chmodSync(folder, mode);
+	}
 	const previous = process.cwd();
 	let result;
 	try {
@@ -217,7 +250,17 @@ export async function treeCase(spec, fn, {base = 'trees', chdir = false, show = 
 		process.chdir(previous);
 	}
 
-	const after = snapshot(root);
+	for (const [folder] of modes) {
+		chmodSync(folder, 0o755);
+	}
+
+	const after = snapshot(root, hide);
+	// A file's contents, cut at `limit` characters so a generated file cannot flood the output.
+	const body = bytes => {
+		const text = showBytes(bytes);
+		return text.length > limit ? `${text.slice(0, limit)}\n... (${text.length - limit} more characters)` : text;
+	};
+
 	const lines = [];
 	if (result !== undefined) {
 		lines.push(stringify(result));
@@ -263,11 +306,11 @@ export async function treeCase(spec, fn, {base = 'trees', chdir = false, show = 
 		const written = state === 'changed' || state === 'created' || state === 'deleted';
 		if (written || show.includes(name)) {
 			if (old) {
-				contents.push(`--- ${name} before: ${describeBytes(old.bytes)}`, showBytes(old.bytes));
+				contents.push(`--- ${name} before: ${describeBytes(old.bytes)}`, body(old.bytes));
 			}
 
 			if (now && written) {
-				contents.push(`--- ${name} after: ${describeBytes(now.bytes)}`, showBytes(now.bytes));
+				contents.push(`--- ${name} after: ${describeBytes(now.bytes)}`, body(now.bytes));
 			}
 		}
 	}
@@ -283,8 +326,9 @@ export async function treeCase(spec, fn, {base = 'trees', chdir = false, show = 
 	}
 
 	const text = [...lines, ...contents].join('\n');
-	// The tree's path as the case printed it, with either separator, and relative to the working directory.
-	return [root, root.split(path.sep).join('/'), path.relative(previous, root)]
+	// The tree's path as the case printed it: escaped as util.inspect and JSON show it (C:\\Users\\...), with either
+	// separator, and relative to the working directory. The longest form goes first.
+	return [root.replaceAll('\\', '\\\\'), root, root.split(path.sep).join('/'), path.relative(previous, root)]
 		.filter(form => form.length > 0)
 		.reduce((out, form) => out.replaceAll(form, '<tree>'), text);
 }

@@ -25,7 +25,7 @@ import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import path from 'node:path';
 import util from 'node:util';
-import {copyFileSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
 // Everything runs in this file's folder, so no shell needs to change directory first.
@@ -102,6 +102,15 @@ function run(file, args, {cwd = process.cwd(), env = {}, shell = false, input = 
 // so an OLDEST_NODE rerun that picked up the system Node shows it (L-118).
 function shell(script, options = {}) {
 	return run(process.env.BASH || 'bash', ['-c', `echo "shell node: $(node --version)"; ${script}`], options);
+}
+
+// A terminal transcript as a page shows it: `$ command`, what it printed with stdout and stderr merged in the order
+// they were written (2>&1 into one pipe; cli() keeps them apart), then `$ echo $?` and the exit code. Put
+// node_modules/.bin first on PATH (env) to run the bin by name, as a user or an npm script would.
+const quote = text => `'${text.replaceAll("'", "'\\''")}'`;
+async function term(command, options = {}) {
+	const result = await shell(`printf '%s\\n' ${quote(`$ ${command}`)}\n{ ${command}\n} 2>&1\nprintf '$ echo $?\\n%s\\n' "$?"`, options);
+	return result.stdout.replace(/\n$/, '') + (result.stderr ? `\n(shell stderr) ${result.stderr}` : '');
 }
 
 async function capture(label, fn) {
@@ -280,16 +289,21 @@ if (GOLDEN && OLD) {
 // beside it, whatever PATH says: run a page's `npx <bin>` case once more as `cli()` does, with process.execPath. Compare with `wikiwright.py diffout <this run's
 // output> wiki-verify.node<major>.out.txt`: every difference is a page claim to scope by version, and a block
 // true on one line only gets <!-- outputs: node>=N --> on the page. Save both outputs in the repository.
-const {OLDEST_NODE, WIKI_VERIFY_CHILD} = process.env;
+// OLDEST_NODE_BIN=<a node binary> uses that binary instead of npx (a Linux run with Node from the registry and no npm).
+// The folder is named per platform: a Windows run and a WSL run in one scratch folder once shared it, and the Linux
+// `node` beside node.exe made Git Bash skip it and run the system Node in every shell case (L-118, a second way in).
+const {OLDEST_NODE, OLDEST_NODE_BIN, WIKI_VERIFY_CHILD} = process.env;
 if (OLDEST_NODE && !WIKI_VERIFY_CHILD) {
-	const found = await run('npx', ['-y', '-p', `node@${OLDEST_NODE}`, 'node', '-p', 'process.execPath'], {shell: process.platform === 'win32', env: {NODE_OPTIONS: ''}});
-	const alone = path.resolve(`node${OLDEST_NODE}-alone`);
+	const found = OLDEST_NODE_BIN || (await run('npx', ['-y', '-p', `node@${OLDEST_NODE}`, 'node', '-p', 'process.execPath'], {shell: process.platform === 'win32', env: {NODE_OPTIONS: ''}})).stdout.trim().split('\n').at(-1);
+	const alone = path.resolve(`node${OLDEST_NODE}-alone-${process.platform}`);
 	mkdirSync(alone, {recursive: true});
-	const oldNode = path.join(alone, path.basename(found.stdout.trim().split('\n').at(-1)));
-	copyFileSync(found.stdout.trim().split('\n').at(-1), oldNode);
+	const oldNode = path.join(alone, path.basename(found));
+	copyFileSync(found, oldNode);
+	chmodSync(oldNode, 0o755);
+	const outName = `wiki-verify.${process.platform === 'win32' ? '' : 'linux.'}node${OLDEST_NODE}.out.txt`;
 	const rerun = await run(oldNode, [fileURLToPath(import.meta.url)], {env: {WIKI_VERIFY_CHILD: '1', PATH: `${alone}${path.delimiter}${process.env.PATH}`}});
-	writeFileSync(`wiki-verify.node${OLDEST_NODE}.out.txt`, rerun.stdout);
-	show(`oldest node: node@${OLDEST_NODE}`, `${(await run(oldNode, ['--version'])).stdout.trim()}, exit ${rerun.code}, output saved as wiki-verify.node${OLDEST_NODE}.out.txt`);
+	writeFileSync(outName, rerun.stdout + (rerun.stderr ? `## stderr of the run\n${rerun.stderr}\n` : ''));
+	show(`oldest node: node@${OLDEST_NODE}`, `${(await run(oldNode, ['--version'])).stdout.trim()}, exit ${rerun.code}, output saved as ${outName}`);
 }
 
 for (const each of [server, ...closers]) {

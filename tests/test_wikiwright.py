@@ -510,6 +510,26 @@ class DiffoutTests(unittest.TestCase):
         code, out = run(["diffout", self.old, self.old])
         self.assertEqual(code, 0, out)
 
+    def test_shell_node_lines_counted_masked_and_mixed_flagged(self):
+        # Every shell case prints its Node; a Node 20 rerun differs there by design, and one output holding two
+        # versions means some cases ran on the wrong Node (L-118, the sixth run's report).
+        paths = []
+        for name, nodes in (("n24", ["v24.18.0"] * 2), ("n20", ["v20.20.2"] * 2), ("mix", ["v20.20.2", "v24.18.0"])):
+            path = os.path.join(self.d, name + ".txt")
+            with open(path, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write("".join("## case %d\nshell node: %s\nok\n\n" % (i, v) for i, v in enumerate(nodes)))
+            paths.append(path)
+        code, out = run(["diffout", paths[0], paths[1]])
+        self.assertEqual(code, 0, out)
+        self.assertIn("shell node: OLD v24.18.0 x2; NEW v20.20.2 x2", out)
+        self.assertIn("2 same, 0 changed", out)
+        code, out = run(["diffout", paths[0], paths[2]])
+        self.assertEqual(code, 1, out)
+        self.assertIn("warning: NEW ran shell cases on more than one Node", out)
+        code, out = run(["diffout", paths[0], paths[1], "--keep-node"])
+        self.assertEqual(code, 1, out)
+        self.assertIn("0 same, 2 changed", out)
+
     def test_local_paths_masked_and_saved(self):
         # Node 20's "bad option" line names node.exe in the run's scratch folder (L-119).
         scratch = os.path.join(self.d, "run")

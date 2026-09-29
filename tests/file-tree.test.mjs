@@ -123,6 +123,42 @@ test('a folder path as the spec is copied, and a function spec builds the tree',
 	assert.match(built, /^2\n--- files\ny\.json: not written$/);
 });
 
+test('hide leaves a folder out, limit cuts long contents, escaped paths print as <tree>', async () => {
+	const out = await treeCase({'a.json': '1', '.git/HEAD': 'ref'}, ({root, at}) => {
+		writeFileSync(at('.git/HEAD'), 'other');
+		writeFileSync(at('big.json'), 'x'.repeat(50));
+		return JSON.stringify(root);
+	}, {base, hide: ['.git'], limit: 10});
+	assert.doesNotMatch(out, /HEAD/);
+	assert.match(out, /--- big\.json after: 50 bytes[^\n]*\nxxxxxxxxxx\n\.\.\. \(40 more characters\)/);
+	assert.equal(out.split('\n')[0], '"<tree>"');
+});
+
+test('a hard link is a second name for the same file', async () => {
+	const out = await treeCase({'a.json': '{"a":1}', 'b.json': {hardlink: 'a.json'}}, ({at}) => {
+		writeFileSync(at('a.json'), '2');
+	}, {base});
+	assert.match(out, /a\.json: changed\nb\.json: changed/);
+});
+
+test('a folder mode is set for the case and restored for the removal', {skip: process.platform === 'win32' && 'Windows ignores folder modes'}, async () => {
+	let root;
+	const out = await treeCase({'locked/x.json': '1', 'locked': {dir: true, mode: 0o000}}, ({root: r, at}) => {
+		root = r;
+		try {
+			readFileSync(at('locked/x.json'));
+			return 'read';
+		} catch (error) {
+			return error.code;
+		}
+	}, {base});
+	if (!(typeof process.getuid === 'function' && process.getuid() === 0)) {
+		assert.equal(out.split('\n')[0], 'EACCES');
+	}
+
+	assert.equal(existsSync(root), false);
+});
+
 test('a symbolic link is listed as a link or as unavailable, never followed', async () => {
 	const out = await treeCase({'a.json': '1', 'link.json': {symlink: 'a.json'}}, () => undefined, {base});
 	if (out.includes('--- unavailable')) {

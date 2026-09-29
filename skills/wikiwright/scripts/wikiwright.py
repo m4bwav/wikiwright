@@ -30,7 +30,9 @@ Subcommands
       (127.0.0.1:<digits>, localhost:<digits>) normalised; --skip leaves out
       sections whose label matches, --mask blanks text that differs by
       machine. Prints each changed, added and removed section; --save writes
-      the normalised NEW output (for saving over the old one).
+      the normalised NEW output (for saving over the old one). "shell node: vN"
+      lines are counted per output and masked; one output with two Node
+      versions is a warning (L-118). Exit 1 means differences, not an error.
   cachecheck [--source DIR] [--cache DIR]
       The installed plugin cache against the source: every tracked file
       under skills/ and .claude-plugin/ compared by SHA-256 (a stale cache
@@ -1115,6 +1117,18 @@ def sections(text):
     return [(k, v[:len(v) - next((i for i, b in enumerate(reversed(v)) if b.strip()), len(v))]) for k, v in out]
 
 
+SHELL_NODE = re.compile(r"^shell node: (v[0-9][^\s]*)\s*$", re.M)
+
+
+def shell_nodes(text):
+    """The Node each shell case ran on, counted: {'v20.20.2': 103}. One output with two versions means some
+    cases ran on the wrong Node (L-118 `oldest-node-path-trap`)."""
+    counts = {}
+    for v in SHELL_NODE.findall(text):
+        counts[v] = counts.get(v, 0) + 1
+    return counts
+
+
 def cmd_diffout(a):
     texts = []
     paths = [] if a.keep_paths else machine_paths(a.new)
@@ -1126,7 +1140,16 @@ def cmd_diffout(a):
             print("error: %s" % e)
             return 2
     skip = [re.compile(s) for s in a.skip]
-    old_list, new_list = sections(texts[0]), sections(texts[1])
+    # Every shell case prints its Node: count them instead of listing each as a change, and flag a mixed output.
+    nodes = [shell_nodes(t) for t in texts]
+    mixed = [name for name, n in zip(("OLD", "NEW"), nodes) if len(n) > 1]
+    if any(nodes):
+        fmt = lambda n: ", ".join("%s x%d" % kv for kv in sorted(n.items())) or "none"
+        print("shell node: OLD %s; NEW %s" % (fmt(nodes[0]), fmt(nodes[1])))
+        for name in mixed:
+            print("warning: %s ran shell cases on more than one Node: some used the wrong one (L-118)" % name)
+    compare = texts if a.keep_node else [SHELL_NODE.sub("shell node: <node>", t) for t in texts]
+    old_list, new_list = sections(compare[0]), sections(compare[1])
     old, new = dict(old_list), dict(new_list)
     order = [k for k, _ in old_list] + [k for k, _ in new_list if k not in old]
     same = changed = added = removed = skipped = 0
@@ -1155,7 +1178,7 @@ def cmd_diffout(a):
         print("saved the normalised new output to %s" % a.save)
     print("diffout: %d sections, %d same, %d changed, %d added, %d removed, %d skipped"
           % (len(order), same, changed, added, removed, skipped))
-    return 1 if changed or added or removed else 0
+    return 1 if changed or added or removed or mixed else 0
 
 
 # ---------------------------------------------------------------- cachecheck, releasecheck
@@ -1341,6 +1364,8 @@ def main(argv=None):
     d.add_argument("--save", help="write the normalised new output here (ports as <port>; the new output's "
                                   "folder, the temp folder and the home folder as <scratch>, <temp>, <home>)")
     d.add_argument("--keep-paths", action="store_true", help="leave local paths as they are")
+    d.add_argument("--keep-node", action="store_true", help="compare 'shell node: vN' lines too (by default they "
+                                                            "are counted per output and masked)")
     d.set_defaults(fn=cmd_diffout)
     cc = sub.add_parser("cachecheck", help="the installed plugin cache against the source, by SHA-256")
     cc.add_argument("--source", help="the plugin's source repository (default: the one holding this script)")
