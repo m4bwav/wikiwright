@@ -13,6 +13,8 @@ Updated 2026-09-29 (0.4.0 session). Read this first, then [log.md](log.md) for e
 
 ## Open work, in order
 
+The next session's prompt (0.5.0, other hosts verified without an account, and the stack-exchange-markdown-retriever wiki, covering items 0 to 3 below) is in the maintainer's private prompts folder: `2026-09-29-wikiwright-0.5-and-stack-exchange-markdown-retriever-kickoff.md`.
+
 0. **0.4.1 fixes from the first uses of 0.4.0** (L-118, L-119): `OLDEST_NODE` must put a folder holding only `node.exe` first on PATH (Git Bash skips the npm `node` package's bin folder and runs the system Node silently); `diffout` must reconfigure stdout to UTF-8 and mask home and temp paths on `--save`; `outputs` needs a way to scope a block to a Node line. Each with a test and a CHANGELOG entry.
 1. **Retarget the action cases** before the next suite: markdown-plain-link-replacer now has a wiki note (L-013). Next owed with no note: stack-exchange-markdown-retriever (npm with a CLI, one fixed HTTPS host: a good second test of the "by host name" section).
 2. **Next owed wikis** (private inventory): stack-exchange-markdown-retriever, format-json-files, replace-string-at-position, then TrailerClipper (and TrailerClipper.Tool, the command-line-tool candidate), IsImageUrlDotNet, CachingServiceWithAOPSupport.
