@@ -139,6 +139,50 @@ def outputs_check(draft, results_file):
     return checked, missing, p.stdout.strip()
 
 
+URL_HOST = re.compile(r"https?://([A-Za-z0-9.-]+)")
+LOOPBACK = {"127.0.0.1", "localhost"}
+SCRATCH = re.compile(r"[A-Za-z]:[\\/][^\s\"']*?[\\/]scratchpad[\\/]|/[^\s\"']*?/scratchpad/")
+
+
+def digest(run, uses, show_all=False):
+    """One line per tool call worth reading when reviewing a trace (L-122): installs, requests, node runs, fetch
+    wrappers, git, writes outside the workspace. A 300 KB trace becomes a few KB."""
+    work = os.path.normcase(os.path.abspath(os.path.join(run, "work")))
+    counts, lines = {}, []
+    for n, (_, name, inp) in enumerate(uses, 1):
+        counts[name] = counts.get(name, 0) + 1
+        flags, text = [], ""
+        if name in SHELLS:
+            text = inp.get("command") or ""
+            hosts = sorted({h for h in URL_HOST.findall(text) if h not in LOOPBACK})
+            if FETCHERS.search(text):
+                flags.append("fetcher")
+            if hosts:
+                flags.append("url:" + ",".join(hosts))
+            if re.search(r"\b(npm|pnpm|yarn|bun)\b[^\n;&|]*\b(install|i|add|view|pack)\b", text):
+                flags.append("npm")
+            if re.search(r"\b(node|npx|deno)\b", text):
+                flags.append("run")
+            if re.search(r"\bgit\b|\bgh\b", text):
+                flags.append("git")
+            if re.search(r"wikiwright\.py", text):
+                flags.append("ww")
+        elif name in ("Write", "Edit"):
+            text = inp.get("file_path") or ""
+            body = inp.get("content") or inp.get("new_string") or ""
+            if not os.path.normcase(os.path.abspath(text)).startswith(work):
+                flags.append("outside")
+            if FETCH_WRAPPER.search(body):
+                flags.append("fetch-wrapper" + ("" if ROUTES_LOCALLY.search(body) else " UNROUTED"))
+        elif name == "Skill":
+            text, flags = inp.get("skill") or "", ["skill"]
+        if flags or show_all:
+            one = SCRATCH.sub("<scratch>/", " ".join(text.split()))
+            lines.append("%3d %-10s [%s] %s" % (n, name, " ".join(flags), one[:150]))
+    print("\n".join(lines))
+    print("tools: " + ", ".join("%s %d" % kv for kv in sorted(counts.items())))
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("run")
@@ -147,11 +191,16 @@ def main(argv=None):
     ap.add_argument("--version", default="")
     ap.add_argument("--forbid-host", help="the package's real service; any request to it fails the run "
                                           "(default: forbid.txt in the run folder)")
+    ap.add_argument("--digest", action="store_true", help="print one line per tool call worth reading, not a grade")
+    ap.add_argument("--all", action="store_true", help="with --digest, every tool call")
     a = ap.parse_args(argv)
     run = a.run
     if not os.path.exists(os.path.join(run, "trace.jsonl")):
         print("error: no trace.jsonl in " + run)
         return 2
+    if a.digest:
+        digest(run, load_trace(run)[0], a.all)
+        return 0
     case = a.case or read_text(os.path.join(run, "case.txt"), "action-1")
     package = a.package or read_text(os.path.join(run, "package.txt"))
     if not package:

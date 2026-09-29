@@ -649,6 +649,15 @@ class TemplateTests(unittest.TestCase):
         self.assertEqual(len(found), 1, found)
         self.assertTrue(found[0].startswith("unrouted fetch wrapper record-live.mjs"), found)
         self.assertEqual(grade.live_requests(uses[1:2] + uses[3:4], "api.example.com"), [])
+        # --digest: one line per call worth reading, the recorder marked.
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            grade.digest(tempfile.gettempdir(), uses + [(6, "Bash", {"command": "curl https://api.example.com/x"})])
+        out = buf.getvalue()
+        self.assertIn("[outside fetch-wrapper UNROUTED] C:/s/record-live.mjs", out)
+        self.assertIn("[outside fetch-wrapper] C:/s/route.mjs", out)
+        self.assertIn("[fetcher url:api.example.com] curl", out)
+        self.assertIn("tools: Bash 3, Write 3", out)
 
     def test_kit_guard_reads_the_normalised_array(self):
         # L-117: net.connect() passes [options, callback] as one argument.
