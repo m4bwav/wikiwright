@@ -19,6 +19,8 @@ Updated 2026-09-29 (0.5.0 session). Read this first, then [log.md](log.md) for e
 
 ## Open work, in order
 
+The next session's prompt (0.6.0 and the format-json-files wiki, covering items 1, 3 and a first local Forgejo wiki) is in the maintainer's private prompts folder: `2026-09-29-wikiwright-0.6-and-format-json-files-kickoff.md`. format-json-files' wiki feature was switched on 2026-09-29; its first page still needs the maintainer's save.
+
 1. **Next owed wikis** (private inventory): format-json-files, replace-string-at-position, then TrailerClipper (and TrailerClipper.Tool, the command-line-tool candidate), IsImageUrlDotNet, CachingServiceWithAOPSupport. Retarget action-1 and action-2 at the next one before its run (L-013): it must have no wiki note.
 2. **Untested page sets:** application, monorepo, command-line tool. **Hosts:** no real wiki published on Gitea, Forgejo, GitLab or Azure DevOps yet. Azure DevOps writes need an account (the hosts.md "Still unverified" lines).
 3. **get-title-at-url wiki:** How titles are found says the decoder is wrong "on Node 20 and some Node 22 and 24 releases", which is too broad (L-106 update of 2026-09-29, from action-3's drafts). Fix it in update mode.
