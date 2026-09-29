@@ -41,6 +41,7 @@ import {
 	readdirSync,
 	readFileSync,
 	readlinkSync,
+	realpathSync,
 	rmSync,
 	symlinkSync,
 	utimesSync,
@@ -227,7 +228,9 @@ directory), runs `fn({root, at})`, and returns the printout described at the top
 */
 export async function treeCase(spec, fn, {base = 'trees', chdir = false, show = [], hide = [], limit = 4000, keep = false} = {}) {
 	mkdirSync(base, {recursive: true});
-	const root = mkdtempSync(path.join(path.resolve(base), `t${++counter}-`));
+	// The real path: on macOS the temp folder is under /var, a link to /private/var, and process.cwd() in the tree
+	// reports the real one (CI, 2026-09-29).
+	const root = realpathSync(mkdtempSync(path.join(path.resolve(base), `t${++counter}-`)));
 	const at = relative => path.join(root, ...relative.split('/'));
 	const modes = [];
 	const unavailable = typeof spec === 'function' ? (await spec(root), []) : build(root, spec, modes);

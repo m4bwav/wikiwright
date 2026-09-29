@@ -14,6 +14,7 @@ Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (ID
   - The kit a file-writing run reads is a 2,913-byte header; runs of other packages read none of it. The template grew by 2,797 bytes over 0.5.0 (13,428 to 16,225) for `inTree()`, `term()` and `OLDEST_NODE_BIN`, which the sixth run had written itself.
   - The suite cost $17.65 for nine action runs and $2.20 for triggers and decoys; the sixth run $15.59 in 49 minutes, reported in 13 KB; the get-title-at-url and Forgejo subagents kept about 270,000 tokens out of the main context.
 - Four grader or checker faults surfaced by real use rather than by their tests (saved outputs, preflight through a variable, the recorder, Forgejo's anchors) are each now a test.
+- CI on macOS failed the kit's `chdir` test: the temp folder is under `/var`, a link to `/private/var`, so `process.cwd()` in a tree was not the path the kit printed as `<tree>`. The kit now resolves the tree's real path.
 
 ### C-20260929-9 · 2026-09-29 · The first real wiki on another host: Forgejo's anchors corrected (`forgejo-first-wiki`)
 - because: R-20260929-2; L-135
