@@ -5,6 +5,7 @@ The network subcommands (preflight, live) are exercised by the eval suite.
 """
 
 import contextlib
+import importlib.util
 import io
 import os
 import shutil
@@ -611,11 +612,43 @@ class TemplateTests(unittest.TestCase):
         text = self.read("wiki-verify.template.mjs")
         for view in ("answers:", "timing:", "requests:"):
             self.assertIn(view, text)
-        self.assertIn("{env: {...process.env, ...CLI_ENV}}", text)
+        self.assertIn("{cwd, env: {...process.env, ...CLI_ENV, ...env}}", text)
         self.assertIn("CLI_ENV = fx.env;", text)
         kit = self.read("host-fixture.mjs")
         self.assertIn("runtimeEnv", kit)
         self.assertIn("await dispatcher?.close();", kit)
+
+    def test_files_on_disk_import_the_tree_kit(self):
+        # L-130: a package that writes files runs each case in a fresh scratch tree; cli() takes a cwd.
+        text = self.read("wiki-verify.template.mjs")
+        self.assertIn("import('./file-tree.mjs')", text)
+        self.assertIn("typeof args.at(-1) === 'object' ? args.pop() : {}", text)
+        kit = self.read("file-tree.mjs")
+        for name in ("export async function treeCase", "export function describeBytes", "export function showBytes"):
+            self.assertIn(name, kit)
+        self.assertNotIn("\uFEFF", kit)
+
+    def test_grader_sees_a_recorder_that_names_no_host(self):
+        # L-122: a fetch wrapper that passes requests through, then run, is a request to the real service.
+        spec = importlib.util.spec_from_file_location(
+            "grade_action", os.path.join(HERE, "..", "evals", "grade-action.py"))
+        grade = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(grade)
+        recorder = ("const original = fetch;\nglobalThis.fetch = async (input, init) => {\n"
+                    "  const response = await original(input, init);\n  return response;\n};\n")
+        router = ("const original = fetch;\nglobalThis.fetch = (input, init) => original(\n"
+                  "  process.env.FIXTURE_BASE + new URL(input).pathname, init);\n")
+        uses = [
+            (1, "Write", {"file_path": "C:/s/record-live.mjs", "content": recorder}),
+            (2, "Write", {"file_path": "C:/s/route.mjs", "content": router}),
+            (3, "Write", {"file_path": "C:/s/unused.mjs", "content": recorder}),
+            (4, "Bash", {"command": "node --import ./route.mjs verify.mjs"}),
+            (5, "Bash", {"command": "node record-live.mjs question scifi 1"}),
+        ]
+        found = grade.live_requests(uses, "api.example.com")
+        self.assertEqual(len(found), 1, found)
+        self.assertTrue(found[0].startswith("unrouted fetch wrapper record-live.mjs"), found)
+        self.assertEqual(grade.live_requests(uses[1:2] + uses[3:4], "api.example.com"), [])
 
     def test_kit_guard_reads_the_normalised_array(self):
         # L-117: net.connect() passes [options, callback] as one argument.

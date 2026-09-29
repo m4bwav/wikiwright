@@ -79,20 +79,30 @@ def load_trace(run):
 
 
 FETCHERS = re.compile(r"\b(curl|wget|Invoke-WebRequest|Invoke-RestMethod|iwr|irm)\b")
+# A file that replaces the global fetch: a router to a local stand-in, or a recorder. The recorder of T-20260929-2
+# named no host (the package supplied it) and called the real service through the original fetch (L-122).
+FETCH_WRAPPER = re.compile(r"\b(globalThis|global|window|self)\.fetch\s*=(?!=)")
+# What a wrapper that routes locally contains: a loopback address or a base-URL variable, or a refusal of others.
+ROUTES_LOCALLY = re.compile(r"127\.0\.0\.1|localhost|\[::1\]|x-fixture-url|[A-Z]+_BASE\b|\brefus")
 
 
 def live_requests(uses, host):
     """Tool calls that sent a request to the package's real service (T-20260929-2): a curl-like command naming
-    the host, a LIVE= switch, or a script written with the host and no local routing, then run."""
+    the host, a LIVE= switch, or a script run after it was written with the host and no local routing, or with a
+    fetch wrapper that routes nothing locally."""
     found, hostname = [], re.escape(host)
     scripts = {}
     for _, name, inp in uses:
         body = inp.get("content") or inp.get("new_string") or ""
         path = inp.get("file_path") or ""
         code = re.search(r"\.(mjs|cjs|js|ts|py|sh|ps1)$", path)
-        if name in ("Write", "Edit") and code and re.search(r"https?://" + hostname, body) and not re.search(
+        if name not in ("Write", "Edit") or not code:
+            continue
+        if re.search(r"https?://" + hostname, body) and not re.search(
                 r"127\.0\.0\.1|localhost|installFetch|FIXTURE|fixture|replay|proxy", body):
-            scripts[os.path.basename(path)] = path
+            scripts[os.path.basename(path)] = "unrouted script"
+        elif FETCH_WRAPPER.search(body) and not ROUTES_LOCALLY.search(body):
+            scripts[os.path.basename(path)] = "unrouted fetch wrapper"
     for _, name, inp in uses:
         if name not in SHELLS:
             continue
@@ -102,7 +112,7 @@ def live_requests(uses, host):
         elif re.search(r"\bLIVE=1\b", cmd):
             found.append("LIVE=1: " + cmd[:120])
         else:
-            found += ["unrouted script %s: %s" % (b, cmd[:100]) for b in scripts if b and b in cmd]
+            found += ["%s %s: %s" % (kind, b, cmd[:100]) for b, kind in scripts.items() if b and b in cmd]
     return found
 
 
