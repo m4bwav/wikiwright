@@ -1,7 +1,7 @@
 """Tests for skills/wikiwright/scripts/wikiwright.py (check, unbs, slug).
 
 Run from the repository root: python tests/test_wikiwright.py
-The network subcommands (preflight, live) are exercised by the eval suite.
+The network subcommands (preflight, live) run here against a local stand-in host (FakeHost) and in the eval suite.
 """
 
 import contextlib
@@ -408,6 +408,104 @@ class OtherHostTests(unittest.TestCase):
             host.close()
         self.assertEqual(code, 0, out)
         self.assertIn("ok   sidebar (_sidebar in the API list)", out)
+
+    def test_gitlab_and_azure_anchors_are_not_guessed(self):
+        write(self.d, {"Home.md": "See [x](Home#usage).\n", "_sidebar.md": "[Home](Home)\n"})
+        host = FakeHost({"/api/v4/projects/o%2Fr/wikis": (200, {}, [{"slug": "home"}, {"slug": "_sidebar"}]),
+                         "/o/r/-/wikis/Home": (200, {}, "<div></div>")})
+        try:
+            code, out = run(["live", host.base + "/o/r", self.d, "--kind", "gitlab"])
+        finally:
+            host.close()
+        self.assertEqual(code, 0, out)
+        self.assertIn("anchors not checked on gitlab: id form unmeasured (1 links with anchors)", out)
+
+
+# GitHub's rendered page as measured on two published wikis (2026-09-29): the heading's id sits on the
+# permalink after it, prefixed user-content-, with non-ASCII kept.
+def github_page(*slugs):
+    heads = "".join('<div class="markdown-heading"><h2 class="heading-element">%s</h2><a id="user-content-%s" '
+                    'class="anchor" href="#%s"></a></div>' % (s, s, s) for s in slugs)
+    return ('<div class="markdown-body">%s</div><div id="wiki-footer">This wiki describes widget 1.2.0.</div>'
+            '<div class="wiki-rightbar"><a href="/o/r/wiki">Home</a> <a href="/o/r/wiki/Getting-Started">'
+            'Getting started</a> <a href="#install">Top</a></div>' % heads)
+
+
+class LiveAnchorTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        write(self.d, {
+            "Home.md": "## Pages\n\n[Install](Getting-Started#install), [again](Getting-Started#install), "
+                       "[caf%C3%A9](Getting-Started#caf%C3%A9) and [top](#pages).\n",
+            "Getting-Started.md": "## Install\n\n## Café\n\nBack to [Home](Home#pages); `[x](Home#not-a-link)`.\n",
+            "_Sidebar.md": "[Home](Home)\n[Getting started](Getting-Started#install)\n[Top](#install)\n",
+            "_Footer.md": "This wiki describes widget 1.2.0.\n"})
+        self.routes = {
+            "/o/r/wiki/Home": (301, {"Location": "/o/r/wiki"}, ""),
+            "/o/r/wiki": (200, {}, github_page("pages")),
+            "/o/r/wiki/Getting-Started": (200, {}, github_page("install", "café")),
+        }
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def live(self, *extra):
+        host = FakeHost(self.routes)
+        try:
+            code, out = run(["live", host.base + "/o/r", self.d, "--kind", "github"] + list(extra))
+        finally:
+            host.close()
+        return code, out, host.seen
+
+    def test_good_anchors_pass_with_one_fetch_per_page(self):
+        code, out, seen = self.live()
+        self.assertEqual(code, 0, out)
+        # Six links checked, the one in inline code skipped; Home's ids come from the wiki root it redirects to.
+        self.assertIn("ok   anchors: 6 links to 2 pages, 0 broken, 0 extra fetches; "
+                      "1 bare #anchor links in the sidebar or footer not checked", out)
+        for path in ("/o/r/wiki/Home", "/o/r/wiki", "/o/r/wiki/Getting-Started"):
+            self.assertEqual(seen.count("GET " + path), 1, seen)
+
+    def test_a_wrong_anchor_fails_with_its_page_link_and_id(self):
+        write(self.d, {"Home.md": "[Install](Getting-Started#installing) [ok](Getting-Started#install) "
+                                  "[same](Getting-Started#installing)\n"})
+        code, out, _ = self.live()
+        self.assertEqual(code, 1, out)
+        self.assertEqual(out.count("FAIL anchor Home: Getting-Started#installing "
+                                   "(no id=\"user-content-installing\" on Getting-Started)"), 1, out)
+        self.assertIn("1 broken", out)
+        code, out, _ = self.live("--no-anchors")
+        self.assertEqual(code, 0, out)
+        self.assertIn("anchors not checked (--no-anchors)", out)
+
+    def test_a_page_outside_the_working_copy_is_fetched_once(self):
+        write(self.d, {"Home.md": "[a](Other#one) [b](Other#two) [c](./Other.md#one) [gone](Gone#x)\n"})
+        self.routes["/o/r/wiki/Other"] = (200, {}, github_page("one"))
+        self.routes["/o/r/wiki/Gone"] = (302, {"Location": "/o/r/wiki"}, "")
+        code, out, seen = self.live()
+        self.assertEqual(code, 1, out)
+        self.assertEqual(seen.count("GET /o/r/wiki/Other"), 1, seen)
+        self.assertIn("FAIL anchor Home: Other#two (no id=\"user-content-two\" on Other)", out)
+        self.assertIn("FAIL anchor Home: Gone#x (Gone did not answer 200)", out)
+        self.assertIn("2 extra fetches", out)
+
+    def test_forgejo_reads_its_own_ids(self):
+        write(self.d, {"Home.md": "[r](Getting-Started#the-recording-of-1-0-6-replayed)\n", "Getting-Started.md": "x\n",
+                       "_Sidebar.md": "[Home](Home)\n[Getting started](Getting-Started)\n"})
+        page = ('<h2 id="user-content-the-recording-of-1-0-6-replayed">The recording of 1.0.6, replayed</h2>'
+                + PAGE_HTML)
+        routes = dict(GITEA, **{"/o/r/wiki/Getting-Started": (200, {}, page)})
+        host = FakeHost(routes)
+        try:
+            code, out = run(["live", host.base + "/o/r", self.d, "--kind", "forgejo"])
+            self.assertEqual(code, 0, out)
+            self.assertIn("ok   anchors: 1 links to 1 pages, 0 broken, 0 extra fetches", out)
+            write(self.d, {"Home.md": "[r](Getting-Started#the-recording-of-106-replayed)\n"})
+            code, out = run(["live", host.base + "/o/r", self.d, "--kind", "forgejo"])
+        finally:
+            host.close()
+        self.assertEqual(code, 1, out)
+        self.assertIn("no id=\"user-content-the-recording-of-106-replayed\" on Getting-Started", out)
 
 
 class HostCheckTests(unittest.TestCase):

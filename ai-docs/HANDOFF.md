@@ -18,7 +18,7 @@ Updated 2026-09-29 (0.6.0 session). Read this first, then [log.md](log.md) for e
 The next session's prompt (0.7.0 and the IsImageUrlDotNet wiki: the evals taught NuGet, `live` checking anchors, LEARNINGS consolidated) is in the maintainer's private prompts folder: `2026-09-29-wikiwright-0.7-and-isimageurldotnet-kickoff.md`.
 
 1. **Next owed wikis** (private inventory): replace-string-at-position, then TrailerClipper (and TrailerClipper.Tool, the command-line-tool candidate), IsImageUrlDotNet, CachingServiceWithAOPSupport. Retarget action-1 and action-2 at the next one before its run (L-013): it must have no wiki note.
-2. **`live` checks status codes only.** An anchor that is wrong on one host passes it (L-135). Fetch each target page and check every `Page#anchor` against its `id="user-content-..."`.
+2. **`live` checks anchors: done on branch `ww07-live-anchors` (C-20260929-11), not yet merged.** Every `Page#anchor` link must find `id="user-content-..."` on the rendered page (GitHub, Gitea, Forgejo); GitLab and Azure DevOps say "not checked: id form unmeasured". No extra requests on the two real wikis measured.
 3. **Untested page sets:** application, monorepo, command-line tool. **Hosts:** one real wiki on Forgejo; none on Gitea, GitLab or Azure DevOps (writes there need an account).
 4. **format-json-files:** nine inaccuracies in its shipped docs wait for its next release (its note, "Inaccuracies"). stack-exchange-markdown-retriever's six still wait too. get-title-at-url's CHANGELOG sentence on the decoder is its note's inaccuracy 5.
 5. **evergreen refresh:** wikiwright is due 2026-10-12. evergreen-protocol PR #5 left LEARNINGS.md over its budget; LEARNINGS.md is 500 lines: consolidate.

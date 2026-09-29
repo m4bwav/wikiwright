@@ -96,7 +96,7 @@ Run preflight again if it was `no-wiki-repo`. In the wiki working copy: commit (
 WW live OWNER/REPO <wiki dir>
 ```
 
-Every page must answer 200 (Home 301 to `/wiki`), and the sidebar and footer must render on the root. Rerun once after a few seconds before calling a failure.
+Every page must answer 200 (Home 301 to `/wiki`), and the sidebar and footer must render on the root. Every `Page#anchor` link must find its heading's id on the rendered page: a slug right on one host can be wrong on another (L-135 `forgejo-slug-punctuation`; `--no-anchors` skips it). Rerun once after a few seconds before calling a failure.
 
 ## Step 8: record
 
