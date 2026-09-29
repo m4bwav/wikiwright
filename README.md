@@ -48,9 +48,11 @@ python skills/wikiwright/scripts/wikiwright.py diffout ai-docs/notes/<date>-wiki
 python skills/wikiwright/scripts/wikiwright.py live OWNER/REPO ../REPO.wiki
 ```
 
-Two more help the skill's own upkeep: `cachecheck` compares the installed plugin with the source by SHA-256, and `releasecheck X.Y.Z` checks the version fields, the CHANGELOG entry and a test run before a tag. `evals/run-suite.sh` runs the action cases with and without the skill and prints one line per run.
+Two more help the skill's own upkeep: `cachecheck` compares the installed plugin with the source by SHA-256, and `releasecheck X.Y.Z` checks the version fields, the CHANGELOG entry and a test run before a tag. `evals/run-suite.sh` runs the action cases with and without the skill and prints one line per run, and `evals/grade-action.py <run> --digest` prints one line per tool call worth reading in a run's trace.
 
 For packages whose requests go to fixed hosts or to the hosts their input names, `templates/npm/host-fixture.mjs` serves local pages under the real host names. It uses a proxy on 127.0.0.1, a throwaway CA and a socket guard that it tests first, so no example reaches the internet.
+
+For packages whose output is files on disk, `templates/npm/file-tree.mjs` gives every case a fresh scratch copy of its fixture tree. It prints each written file before and after, with its size, BOM, line endings and final newline, so no example touches a real file.
 
 ## Private overlay
 
