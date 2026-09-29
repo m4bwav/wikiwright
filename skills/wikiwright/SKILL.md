@@ -100,6 +100,10 @@ Every page must answer 200 (Home 301 to `/wiki`), and the sidebar and footer mus
 
 In the repository, write `ai-docs/notes/<date>-github-wiki.md` from [templates/wiki-note.template.md](templates/wiki-note.template.md), next to the verification script and its saved output. It holds the pages, the working-copy path, how the wiki was published and how the examples were verified. It also lists the facts the README lacks, the numbered inaccuracies, and the update procedure with the pages that name the version. Add a line to `ai-docs/HANDOFF.md` and a log entry (everlast: `everlast.py` or `ai-docs/log.md`), then commit and push the repository. Leave the README and CHANGELOG as they are unless asked. They ship inside the package and reach the registry page only with a release, so list the inaccuracies for the maintainer; they get fixed on request or in the next release. When the overlay keeps a list of wikis, move this repository to done.
 
+## Hand-over with package-modernize
+
+**Hand-over between package-modernize and wikiwright** (the same text is in both skills). A package-modernize run reaches the wiki in Phase 7: after the release is verified from the registry, or, in a retrofit without a release, against the latest published version. A wiki that exists takes wikiwright's Update mode; a hand-written wiki without a saved verification output is adopted first (run its program against the version its footer names, save the output, fix every `outputs` finding), then updated. Versions and upgrading takes its evidence from the repository's golden recordings: `test/golden/` (npm), or `tests/Golden/` with the old versions' recordings and compare reports in `tests/Golden/upgrade/` (NuGet), each replayed or compared today, never trusted alone. Inaccuracies the wiki finds in the shipped README or CHANGELOG go to the kickoff prompt's corrections and to HANDOFF.md for the next release. The repository's `ai-docs/notes/<date>-github-wiki.md` records the program, its saved output and the pages that name the version.
+
 ## Update mode
 
 1. Read the repository's wiki note; `git -C <wiki dir> pull --ff-only`.
