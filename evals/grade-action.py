@@ -40,8 +40,11 @@ import tempfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 WW = os.path.join(HERE, "..", "skills", "wikiwright", "scripts", "wikiwright.py")
 SHELLS = ("Bash", "PowerShell")
+# Preflight run directly or through a variable holding the helper's path ($WW="...wikiwright.py"; python $WW
+# preflight OWNER/REPO, T-20260929-3); `preflight --help` alone is not a check.
 WIKI_CHECK = re.compile(
-    r"wikiwright\.py[\"']? preflight|ls-remote[^\n]*\.wiki\.git|git -C [^\n]*\.wiki[\"']? (fetch|pull|ls-remote)")
+    r"wikiwright\.py[\"']? preflight|wikiwright\.py[^\n]*\bpreflight [\w.-]+/[\w.-]+"
+    r"|ls-remote[^\n]*\.wiki\.git|git -C [^\n]*\.wiki[\"']? (fetch|pull|ls-remote)")
 ATTRIBUTION = re.compile(rb"(?i)co-authored-by|generated (with|by) (claude|chatgpt|copilot|an? ai)")
 ECHOES_DRAFT = re.compile(r"(?i)\b(cat|type|get-content|head|tail|less|more)\b[^\n|;&]*wiki-draft")
 

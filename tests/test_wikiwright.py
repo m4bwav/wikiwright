@@ -658,6 +658,9 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("[outside fetch-wrapper] C:/s/route.mjs", out)
         self.assertIn("[fetcher url:api.example.com] curl", out)
         self.assertIn("tools: Bash 3, Write 3", out)
+        # Preflight through a variable counts as the wiki check; its --help does not.
+        self.assertTrue(grade.WIKI_CHECK.search('$WW="D:\\w\\wikiwright.py"; python $WW preflight m4bwav/format-json-files'))
+        self.assertFalse(grade.WIKI_CHECK.search('$WW="D:\\w\\wikiwright.py"; python $WW preflight --help'))
         # Saved outputs a program wrote count as evidence; a file the agent typed with Write does not.
         run = tempfile.mkdtemp()
         try:
