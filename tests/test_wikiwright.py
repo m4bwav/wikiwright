@@ -750,6 +750,17 @@ class TemplateTests(unittest.TestCase):
         # A run before the routing was removed stays clean; only the later run counts.
         self.assertEqual(len(grade.live_requests(uses + [(4, "Edit", unproxy), (5, "Bash", {"command": "dotnet run v.cs"})],
                                                  "example.com")), 1)
+        # A trace event whose message is a plain string, or a line that is not an object, is skipped.
+        run = tempfile.mkdtemp()
+        try:
+            with open(os.path.join(run, "trace.jsonl"), "w", encoding="utf-8") as fh:
+                fh.write('{"type": "system", "message": "a plain string"}\n[1, 2]\n"text"\n')
+                fh.write(json.dumps({"type": "assistant", "message": {"content": [
+                    {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "dotnet run v.cs"}}]}}) + "\n")
+            uses, _ = grade.load_trace(run)
+            self.assertEqual([u[1] for u in uses], ["Bash"])
+        finally:
+            rmtree(run)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             grade.digest(tempfile.gettempdir(), [(1, "Write", {"file_path": "C:/s/v.cs", "content": app}),

@@ -68,7 +68,9 @@ def load_trace(run):
                 event = json.loads(line)
             except ValueError:
                 continue
-            content = (event.get("message") or {}).get("content") or []
+            message = event.get("message") if isinstance(event, dict) else None
+            # Some events carry a plain string as their message (T-20260929-4 crashed on one).
+            content = (message.get("content") if isinstance(message, dict) else None) or []
             if not isinstance(content, list):
                 continue
             for c in content:
