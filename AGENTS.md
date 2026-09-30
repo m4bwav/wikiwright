@@ -4,7 +4,7 @@ Rules for any AI agent (Claude Code, Copilot, Cursor, Codex, Gemini CLI) working
 
 ## What this is
 
-A cross-agent plugin with one skill, `skills/wikiwright/`: SKILL.md (the eight steps and update mode), `references/` (page sets, publishing, npm, NuGet), `templates/` (verification scripts, the host-name fixture kit, sidebar, footer, the ai-docs note), the single-file helper `scripts/wikiwright.py` (preflight, check, outputs, live, unbs, diffout, cachecheck, releasecheck, registry), and the evergreen companions (RESEARCH, CHANGELOG, LEARNINGS, TESTS, MAINTENANCE, `evergreen.json`, `evals/`). Tests are in `tests/`. Handoff notes, decisions and the log are under `ai-docs/` (start with `ai-docs/HANDOFF.md`).
+A cross-agent plugin with one skill, `skills/wikiwright/`: SKILL.md (the eight steps and update mode), `references/` (page sets, publishing, npm, NuGet), `templates/` (verification scripts, the host-name fixture kit, sidebar, footer, the ai-docs note), the single-file helper `scripts/wikiwright.py` (preflight, check, outputs, snippets, live, unbs, diffout, cachecheck, releasecheck, registry), and the evergreen companions (RESEARCH, CHANGELOG, LEARNINGS, TESTS, MAINTENANCE, `evergreen.json`, `evals/`). Tests are in `tests/`. Handoff notes, decisions and the log are under `ai-docs/` (start with `ai-docs/HANDOFF.md`).
 
 ## Rules
 
