@@ -36,7 +36,8 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 ### L-011 · 2026-09-28 · Run the old majors when there is no golden capture (`run-the-old-majors`)
 - Rule: Versions and upgrading takes its evidence from runs today, not from the changelog. With a golden capture, replay its script against the old version installed today and against the current one, compare case by case and never rewrite the golden file; a capture that starts its own fixture server runs as a child process per version, with answers, timing and requests compared apart. Without one, install each old major in its own folder and run the same cases. A NuGet capture is a project that pins the old version: copy it, change only the pin, build once, run `--no-build -f <tfm>` per framework, and compare with the recording for the same runtime and OS (IsImageUrlDotNet, 2026-09-29: 117 of 117 answers and requests on three recordings). Merges L-020 `replay-the-golden-capture` and L-113 `replay-requesting-capture`.
 - Evidence: rule in SKILL.md Step 4, references/page-sets.md ("Golden captures"), references/npm.md (proxy-recorded captures), the npm template's golden section; get-title-at-url, seeded-random-utilities, is-an-image-url, markdown-plain-link-replacer
-- Status: promoted: C-20260928-2, C-20260928-3 (L-020), C-20260928-4 (L-113), C-20260929-17 (NuGet) · helpful 2 · harmful 0 · last_confirmed 2026-09-29
+- Update 2026-09-30 (replace-string-at-position, a synchronous capture of 1.0.4): it replayed against 2.0.0 with no patches. Compare by parsed value, not bytes, with the header left out and `quirks` apart; 1.0.4 today 71 of 71, 2.0.0 26 identical and 45 differing, each a CHANGELOG line.
+- Status: promoted: C-20260928-2, C-20260928-3 (L-020), C-20260928-4 (L-113), C-20260929-17 (NuGet), C-20260930-9 (synchronous captures) · helpful 3 · harmful 0 · last_confirmed 2026-09-30
 
 ### L-012 · 2026-09-28 · A plugin installed mid-session is not invocable; a user-skills junction is, after a delay (`midsession-skill-load`)
 - Trigger: after `claude plugin install wikiwright@mark-local` the Skill tool answered "Unknown skill"; a junction in `~/.claude/skills/` became invocable a few seconds later. A second run found the Skill tool serving the SKILL.md text read at session start, even through a fresh junction, and `claude plugin update` keeping a stale cache while the version number was unchanged (Claude Code 2.1.281, Windows, 2026-09-28).
@@ -209,3 +210,11 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: T-20260930-3 (action-3, an eval draft; checked in scratch the same day: `require.resolve('typescript/bin/tsc')` gives ERR_PACKAGE_PATH_NOT_EXPORTED under 7.0.2, whose `exports` lists `.`, `./package.json` and `./unstable/*` only); templates/npm/wiki-verify.template.mjs
 - Scope: skill
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-142 · 2026-09-30 · Every script here that prints outside text writes UTF-8 (`utf8-every-printer`)
+- Trigger: the eighth run (replace-string-at-position) ran `evals/grade-action.py <run> --digest > file` on Windows with `PYTHONIOENCODING` unset; it died with `UnicodeEncodeError: 'charmap' codec can't encode character '\u2714'` on a command in the trace. `wikiwright.py diffout` had crashed the same way on 2026-09-29 and was fixed in 0.4.1 (archived), but the grader was not.
+- Hypothesis: the grader prints only ASCII it builds itself.
+- Rule: any script in this repository that prints text it did not write (trace commands, program output, page text) reconfigures stdout and stderr to UTF-8 with replacement at start, and its test runs it as a subprocess with stdout piped and `PYTHONIOENCODING=cp1252`, which reproduces the Windows console on every system.
+- Evidence: evals/grade-action.py (`utf8_streams()`); tests/test_wikiwright.py (`test_grader_digest_writes_utf8_to_a_pipe`, which fails on the 0.7.2 grader); LEARNINGS-ARCHIVE.md (the diffout crash)
+- Scope: skill (helper scripts and evals)
+- Status: promoted: C-20260930-9 · helpful 1 · harmful 0 · last_confirmed 2026-09-30

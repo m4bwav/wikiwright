@@ -1,6 +1,6 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from nine published wikis, written on 2026-09-28 and 29:
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from ten wikis, written from 2026-09-28 to 30:
 
 - RandomNameGeneratorLibrary: a .NET library with seeded data.
 - JsonPrettyPrinter: a .NET formatter.
@@ -11,10 +11,11 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 - stack-exchange-markdown-retriever (2026-09-29): an npm library with a CLI that calls one fixed HTTPS host, served by name through the host-fixture kit, with a golden capture of 1.1.7 recorded through a proxy with TLS; its post texts are sample content, labelled on every page.
 - format-json-files (2026-09-29): an npm library with a CLI whose output is files on disk (it rewrites JSON files in place and makes no requests), every case on a fresh scratch tree through the file-tree kit, run on Windows and Linux, with a golden capture of 1.0.6 that builds its own trees.
 - IsImageUrlDotNet (2026-09-29): an F# NuGet library called from C# and F#, whose online check makes requests (through a stand-in proxy answering `.test` names, labelled on the pages), run on net10.0, .NET Framework 4.8 and net8.0 on Windows and net10.0 on Linux, with golden recordings of 1.0.2 per runtime and OS from a capture project.
+- replace-string-at-position (2026-09-30): the second npm library without a CLI, with no requests and a synchronous golden capture of 1.0.4; the first npm wiki gated by `snippets`. The run committed the wiki and left the push to the maintainer.
 
 | Kind | Tested on |
 |---|---|
-| Library (npm, without a CLI) | seeded-random-utilities |
+| Library (npm, without a CLI) | seeded-random-utilities; replace-string-at-position (2026-09-30: nine pages, the behaviour page `How-Text-Is-Replaced`) |
 | Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter (written by hand, then retrofitted); IsImageUrlDotNet (2026-09-29, the first written by the skill from Step 1, and the first .NET package that makes requests: the same set, the behaviour page `How-Urls-Are-Checked`) |
 | Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever, format-json-files (fifth run, 2026-09-29: the set held again; the behaviour pages were `How-Links-Are-Replaced`, `How-Markdown-Is-Retrieved` and `How-Files-Are-Formatted`) |
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
@@ -52,7 +53,9 @@ Every page earns its place with facts the README does not have. A page that only
 | Optional: Performance (`Performance-and-Threading.md`) | Only with a benchmark or a thread-safety question to answer: the numbers with the machine and date, what is safe to share. |
 | Optional: data sources (`Name-Lists-and-Data-Sources.md`) | Only when the package embeds data: where it comes from, counts, licence, known quirks. |
 
-An npm library without a command line takes exactly the table above: seeded-random-utilities had nine pages, with no Commands page. Its Getting started page ran every install route it names (npm, pnpm, yarn 4, Bun, Deno; see [npm.md](npm.md#other-runtimes-and-package-managers)), both module systems and a TypeScript compile that shows a real type error.
+An npm library without a command line takes exactly the table above: seeded-random-utilities had nine pages, with no Commands page. Its Getting started page ran every install route it names (npm, pnpm, yarn 4, Bun, Deno; see [npm.md](npm.md#other-runtimes-and-package-managers)), both module systems and a TypeScript compile that shows a real type error. replace-string-at-position (2026-09-30) took the same nine pages, with the behaviour page `How-Text-Is-Replaced`. It was the first npm wiki gated by `snippets`: 34 blocks, each held in the program as text. On a copy of the pages with four code blocks and one `//=>` value changed, `snippets` caught 4 of the 4 code changes, and `outputs` caught none of them, only the changed value.
+
+A known limit of the gates: neither checks prose, a table hand-copied from the output (a Versions table of old answers, a table of error messages), or which output belongs to which code block. `outputs` finds each output somewhere in the run, and `snippets` accepts a page block that is part of a longer snippet. The replace-string-at-position run wrote two wrong prose claims that only Step 6's reread caught. Reread the tables against the output line by line.
 
 ## Deterministic or seeded output
 
@@ -72,6 +75,14 @@ A repository modernized with package-modernize, or any repository that recorded 
 4. Put the counts and the differing cases on the page. Only read the golden files, never rewrite them.
 
 On seeded-random-utilities: 1.1.4 today matched its recording in 322 of 322 cases, 2.0.0 in 316 (the six were the documented emoji exception), and 2.0.0 its own recording in 150 of 150.
+
+How to compare, for every capture:
+
+- By parsed value, never by bytes. A capture written before package-modernize's template changed holds raw UTF-8, and the current template writes ASCII escapes (`\u00e9`), so the same answer can differ byte for byte.
+- Leave the header out (`captured`, the date, and `node`, the version it ran on), and compare `quirks` (the export shape, symbol and proxy cases) apart from the results, with its own count.
+- Name each case in the report. Cases without names are reported by index and arguments together (`#37 (1, 'abc', null, 0)`), since an index alone would point at another case if one were ever inserted.
+
+A synchronous capture, from a library that makes no requests, replays against the new major as it is: the same capture script and helpers, copied beside each installed version, with no patches. replace-string-at-position's `capture-1.0.4.cjs` (with `codec.cjs`, 2026-09-30): 1.0.4 today gave 71 of 71 results and 8 of 8 quirks the same; 2.0.0 gave 26 identical and 45 differing (13 now throw `RangeError` and 32 `TypeError`), `ownKeys` gained two exports, and every difference was a CHANGELOG line. The patches below, and the four changes in [npm.md](npm.md), are for captures that make requests or write files.
 
 A package that makes requests records its old version against a fixture server of its own (is-an-image-url's `capture-1.0.4.cjs` with `fixture-server.cjs` and `codec.cjs`, L-113 `replay-requesting-capture`). What that needs:
 
@@ -105,7 +116,7 @@ Untested: no run has used this set yet. The first candidate among the maintainer
 
 ## Not yet covered
 
-An application, a website, a monorepo with several packages and a command-line tool have no tested page set (still lacking as of 0.6.0; the command-line candidate is TrailerClipper.Tool). On GitLab, Gitea, Forgejo and Azure DevOps the page set stays and the navigation files change; [hosts.md](hosts.md) has what was measured and what is unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
+An application, a website, a monorepo with several packages and a command-line tool have no tested page set (still lacking on 2026-09-30, after the tenth wiki; the command-line candidate is TrailerClipper.Tool). On GitLab, Gitea, Forgejo and Azure DevOps the page set stays and the navigation files change; [hosts.md](hosts.md) has what was measured and what is unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
 
 ## Conventions every page follows
 
