@@ -194,3 +194,10 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Rule: a wiki page starts with its first paragraph, never with a heading that repeats the file-name title the host prints, and never puts a heading straight under one with the same words. `check` fails both; the everwrite checker flags them with `--wiki`.
 - Evidence: the maintainer's correction on 2026-09-30 (get-title-at-url's Getting started showed "Getting Started" and then "Getting started"; "saying the same thing twice exactly is a mistake most humans wouldn't make"). page-sets.md had allowed it. Rule in SKILL.md Step 5, references/page-sets.md, scripts/wikiwright.py (check), CheckTests; everwrite C-20260930-1
 - Status: promoted: C-20260930-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-141 · 2026-09-30 · The npm template's tsc lookup throws under TypeScript 7 (`tsc-by-path`)
+- Trigger: an update-mode eval run of get-title-at-url (T-20260930-3, action-3) moved its cases into the template's `snippet()`; the first TypeScript snippet threw `ERR_PACKAGE_PATH_NOT_EXPORTED: Package subpath './bin/tsc' is not defined by "exports"` with `npm install typescript` = 7.0.2 (2026-09-30). The script's own `tscRun`, which joins `node_modules/typescript/bin/tsc`, compiled under 7.0.2 all along.
+- Rule: find a package's bin by path (`path.resolve('node_modules', 'typescript', 'bin', 'tsc')`), not with `require.resolve('<pkg>/bin/...')`: a package with an `exports` map hides every subpath it does not list. The template's `runSnippet` is fixed that way.
+- Evidence: T-20260930-3 (action-3, an eval draft; checked in scratch the same day: `require.resolve('typescript/bin/tsc')` gives ERR_PACKAGE_PATH_NOT_EXPORTED under 7.0.2, whose `exports` lists `.`, `./package.json` and `./unstable/*` only); templates/npm/wiki-verify.template.mjs
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30

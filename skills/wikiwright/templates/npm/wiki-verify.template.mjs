@@ -154,7 +154,8 @@ async function runSnippet(label, code, {type = 'module', before = '', after = ''
 	writeFileSync(file, text);
 	let out = '';
 	if (type === 'typescript' && runtime === process.execPath) {
-		const built = await run(runtime, [require.resolve('typescript/bin/tsc'), ...tsc, '--outDir', 'snippets/tsc', path.relative('.', file)]);
+		// By path: TypeScript 7's exports map hides ./bin/tsc from require.resolve (L-141).
+		const built = await run(runtime, [path.resolve('node_modules', 'typescript', 'bin', 'tsc'), ...tsc, '--outDir', 'snippets/tsc', path.relative('.', file)]);
 		out = `tsc: exit ${built.code}\n${built.stdout}`;
 		file = path.resolve('snippets', 'tsc', `${name}.mjs`);
 	}
