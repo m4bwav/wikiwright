@@ -62,18 +62,24 @@
       "m": 0.3,
       "interval_after": 14,
       "note": "0.6.0: R-20260929-2 the first real wiki on Forgejo (anchors corrected); sixth run (format-json-files, the first file-writing package), the file-tree kit, the grader sees a recorder, diffout counts Node lines"
+    },
+    {
+      "date": "2026-09-29",
+      "m": null,
+      "interval_after": 14,
+      "note": "0.7.0: the evals speak NuGet; seventh run (IsImageUrlDotNet, the first NuGet wiki from Step 1 and the first .NET package that makes requests); the .NET request route, live checks anchors, registry, snippets, LEARNINGS consolidated; no new research"
     }
   ],
   "counts": {
-    "learnings": 29,
-    "changes": 16,
+    "learnings": 32,
+    "changes": 23,
     "research": 4,
-    "tests": 8
+    "tests": 9
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-29T15:45",
-    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py (saved outputs, preflight through a variable, unrouted fetch wrappers)",
+    "last_run": "2026-09-29T23:40",
+    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py (NuGet installs, .NET requests judged on the whole file)",
     "env": "DESKTOP-7KS2S6E",
     "cases": 9,
     "passed": 9,
@@ -81,9 +87,9 @@
     "failing": [],
     "last_failure": {
       "date": "2026-09-29",
-      "note": "T-20260929-3: four skill runs failed on two grader errors (outputs saved to files; preflight through a variable); grader fixed and regraded, no skill change"
+      "note": "T-20260929-4: two skill runs failed on grader faults (an Edit judged on its fragment; a trace event with a string message); fixed, tested and regraded, no skill change"
     },
     "research_after_days": null
   },
-  "version": "0.6.0"
+  "version": "0.7.0"
 }

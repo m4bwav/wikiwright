@@ -4,6 +4,29 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-18 · 2026-09-29 · Release 0.7.0: NuGet end to end, `live` checks anchors, LEARNINGS consolidated, `registry` and `snippets` (`release-0.7.0`)
+- because: user request (the 0.7.0 kickoff); C-20260929-11 to C-20260929-17; T-20260929-4
+- files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history), README
+- 0.7.0 gathers the entries below. `wikiwright.py releasecheck 0.7.0` checks the four version fields, this entry and T-20260929-4.
+- Token savings, measured before and after:
+  - LEARNINGS.md, read whenever a lesson is captured: 91,316 bytes (about 22,800 tokens, 503 lines) at 0.6.0, 32,655 bytes (about 8,200 tokens, 200 lines) now, with every shortened entry's full text in LEARNINGS-ARCHIVE.md.
+  - The registry survey: `wikiwright.py registry` prints 1,490 bytes for IsImageUrlDotNet where the raw JSON and the package listing were 13,656 (9x), and 1,163 for get-title-at-url against a 76,633-byte packument (66x), in one tool call instead of three or four.
+  - The .NET request route: the seventh run wrote a 51 KB program, most of it a stand-in proxy, its gate and per-framework children. The NuGet template now carries them (4,936 to 20,869 bytes); a run reads its 1,837-byte header and the requests blocks only for a package that makes requests, and deletes them otherwise.
+  - `snippets` replaces the checker the seventh run wrote for itself; `live` checks 20 to 25 anchor links per wiki with no extra request.
+  - The suite: nine action runs $15.71, triggers and decoys $2.23, twelve lines into the session. Five subagents built the 0.7.0 tools in worktrees and kept about 850,000 tokens of their own out of the main context.
+  - What grew: SKILL.md 3,192 to 3,410 words (the .NET route, `snippets`, the NuGet golden replay, tools a page names); references/nuget.md 4,406 to 8,338 bytes; page-sets.md 17,435 to 20,942.
+- Tests: 72 unit tests and the two kit suites, on the three systems.
+
+### C-20260929-17 · 2026-09-29 · Lessons of the seventh run (IsImageUrlDotNet), the first NuGet wiki written by the skill (`seventh-run-lessons`)
+- because: the seventh real run (wiki commit 737a3d2, the repository's PR #10); its report (sixteen items); L-011, L-137, L-138
+- files: SKILL.md (Step 4 the .NET route and NuGet capture projects, Step 6 `snippets` scoped, the hand-over text, learnings when a request forbids editing the skill); references/page-sets.md (the ninth wiki, the NuGet set tested through the skill, NuGet golden capture projects, the sidebar's Commands line); templates/pages/_Sidebar.md (no Commands line); templates/wiki-note.template.md (update steps per framework and for the golden replay); LEARNINGS.md (L-011); package-modernize's SKILL.md (the same hand-over text, its PR #24)
+- What changed and why:
+  - The run passed every check (check 0/0, outputs 38 of 38 from four saved outputs, golden 117 of 117 answers and requests on three recordings, repository tests 232 passed, live 9 pages and 25 anchor links clean). It listed sixteen places where the skill was wrong, missing or confusing for a NuGet package. Items 1 to 7, 13, 14 and 16 became C-20260929-15 (the .NET request route and the reference), item 12 became C-20260929-16 (`snippets`), and the rest are here.
+  - The golden guidance was npm-shaped: install the old version in a folder, the four npm patches, a timing dimension. A NuGet capture is a project pinned to the old version with one recording per runtime and OS; page-sets.md and Step 4 now say how to replay it, and the hand-over text (in both skills) no longer promises `tests/Golden/upgrade/` reports every NuGet repository has.
+  - The sidebar template carried a Commands line every library deleted by hand; `check` already fails a page the sidebar leaves out, so a CLI wiki cannot forget it.
+  - The note template's update step named only `OLDEST_NODE`; it now names each framework's run and the golden replay.
+- Measured: the seventh run was one headless session, $10.13, 34 minutes, 145 turns (the sixth: $15.59, 49 minutes, 229 turns); its 3.2 MB trace was read as a 9 KB digest and its report was 17 KB. It wrote a 51 KB program, most of it the request route the template now carries.
+
 ### C-20260929-16 · 2026-09-29 · `wikiwright.py snippets`: every code block on the pages is in the verification program (`snippets-in-program`)
 - because: user request; the seventh run's report, item 12 (IsImageUrlDotNet: `outputs` proved each output came from the saved run, but nothing proved the page's code was what ran, so the run wrote its own checker and found 18 of 18 C# and F# blocks in the program)
 - files: scripts/wikiwright.py (`snippets`, `code_line`, `string_snippets`, `is_command_block`; `fences()` reads the new marker); tests/test_wikiwright.py (`SnippetsTests`, 71 tests); references/page-sets.md ("How `wikiwright.py snippets` reads a page"); SKILL.md (Step 6); AGENTS.md; README.md
