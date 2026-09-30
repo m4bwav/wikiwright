@@ -893,7 +893,7 @@ class TemplateTests(unittest.TestCase):
         for piece in ("async function runSnippet(label, code, {type = 'module', before = '', after = '', "
                       "runtime = process.execPath,", "async function snippet(label, code, options)",
                       "function prints(code)", "console.log('%O', ", "SNIPPET.replace = {'https://example.com': base};",
-                      "SNIPPET.env = fx.env;", "require.resolve('typescript/bin/tsc')",
+                      "SNIPPET.env = fx.env;", "path.resolve('node_modules', 'typescript', 'bin', 'tsc')",
                       "// ----- end of page examples -----", "Not String.raw"):
             self.assertIn(piece, text)
         note = " ".join(line.lstrip("/ ") for line in text.splitlines() if line.startswith("//"))
