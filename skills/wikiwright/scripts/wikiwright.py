@@ -46,6 +46,15 @@ Subcommands
       Before tagging: plugin.json, VERSION, SKILL.md's metadata.version and
       evergreen.json name X.Y.Z; CHANGELOG has an entry naming it; TESTS has
       a run the last tag's TESTS did not.
+  registry NAME [--nuget|--npm] [--version X] [--limit N] [--no-nupkg] [--json]
+      A compact survey of the published package, one fact per line, in
+      place of the raw registry JSON. NuGet: every version with its date,
+      listing, downloads, deprecation and vulnerabilities; the latest (or
+      --version) package's lib/ and ref/ folders, README, icon, size and
+      dependency groups. npm: versions with dates, dist-tags, deprecations,
+      engines, entry points, dependencies, unpacked size, file count and
+      last week's downloads. Without a flag, a name with capitals is NuGet,
+      a scoped one npm, and a lower-case one npm first, then NuGet.
 
 Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 2 on usage or environment errors.
@@ -53,8 +62,10 @@ Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 
 import argparse
 import difflib
+import gzip
 import hashlib
 import html
+import io
 import json
 import os
 import re
@@ -65,6 +76,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 
 VERSION = "0.6.0"
 BS = "<BS>"
@@ -1270,6 +1282,399 @@ def cmd_diffout(a):
     return 1 if changed or added or removed or mixed else 0
 
 
+# ---------------------------------------------------------------- registry
+
+NUGET_REG = "https://api.nuget.org/v3/registration5-gz-semver2"
+NUGET_FLAT = "https://api.nuget.org/v3-flatcontainer"
+NUGET_SEARCH = "https://azuresearch-usnc.nuget.org/query"
+NPM_REG = "https://registry.npmjs.org"
+NPM_API = "https://api.npmjs.org"
+GZIP_MAGIC = bytes((0x1F, 0x8B))
+SEVERITY = {"0": "low", "1": "moderate", "2": "high", "3": "critical"}
+NUPKG_META = ("[Content_Types].xml", "_rels/", "package/", ".signature.p7s")
+
+
+class Reader:
+    """Anonymous GETs against the public registries, counting requests and bytes (on the wire and
+    decoded). The registration5-gz-semver2 index is served gzip-encoded (checked 2026-09-29), so every
+    request asks for gzip and every gzip body is decoded."""
+
+    def __init__(self):
+        self.requests, self.wire, self.decoded = 0, 0, 0
+
+    def get(self, url, accept="application/json"):
+        """(status, body bytes); status 0 and the error text on a network failure."""
+        req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": accept, "Accept-Encoding": "gzip"})
+        self.requests += 1
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                status, body, enc = r.status, r.read(), r.headers.get("Content-Encoding") or ""
+        except urllib.error.HTTPError as e:
+            status, body, enc = e.code, e.read(), (e.headers.get("Content-Encoding") or "") if e.headers else ""
+        except (urllib.error.URLError, OSError) as e:
+            return 0, str(e).encode()
+        self.wire += len(body)
+        if "gzip" in enc.lower() or body[:2] == GZIP_MAGIC:
+            body = gzip.decompress(body)
+        self.decoded += len(body)
+        return status, body
+
+    def json(self, url):
+        status, body = self.get(url)
+        if status != 200:
+            return status, None
+        try:
+            return status, json.loads(body.decode("utf-8"))
+        except ValueError:
+            return status, None
+
+
+def day(stamp):
+    """YYYY-MM-DD from an ISO time stamp; None for nuget.org's 1900-01-01 (an unlisted version)."""
+    stamp = str(stamp or "")[:10]
+    return None if not stamp or stamp.startswith("1900") else stamp
+
+
+def nuspec_field(nuspec, tag):
+    m = re.search(r"<%s(\s[^>]*)?>([^<]*)</%s>" % (tag, tag), nuspec)
+    return m.group(2).strip() if m else None
+
+
+def nupkg_listing(body):
+    """The facts a wiki needs from a .nupkg's zip listing: lib/ and ref/ folders with their files, other
+    folders with file counts, root files, and the nuspec's readme, icon, license and repository."""
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(body))
+    except zipfile.BadZipFile:
+        return {"error": "not a zip file"}
+    names = [n for n in zf.namelist() if not n.endswith("/")]
+    lib, ref, other, root, nuspec = {}, {}, {}, [], ""
+    for n in names:
+        parts = n.split("/")
+        if any(n.startswith(m) for m in NUPKG_META):
+            continue
+        if len(parts) == 1:
+            if n.lower().endswith(".nuspec"):
+                nuspec = zf.read(n).decode("utf-8", errors="replace")
+            else:
+                root.append(n)
+        elif parts[0].lower() in ("lib", "ref") and len(parts) >= 3:
+            (lib if parts[0].lower() == "lib" else ref).setdefault(parts[1], []).append("/".join(parts[2:]))
+        else:
+            other.setdefault(parts[0], []).append(n)
+    readme, icon = nuspec_field(nuspec, "readme"), nuspec_field(nuspec, "icon")
+    lic = re.search(r'<license\s+type="([^"]+)"[^>]*>([^<]*)</license>', nuspec)
+    repo = re.search(r"<repository\s([^>]*)/?>", nuspec)
+    attrs = dict(re.findall(r'(\w+)="([^"]*)"', repo.group(1))) if repo else {}
+    inside = set(n.replace(BACKSLASH, "/").lower() for n in names)
+    return {
+        "size": len(body),
+        "lib": lib, "ref": ref, "other": other, "root": sorted(root),
+        "readme": readme, "readme_in_package": bool(readme) and readme.replace(BACKSLASH, "/").lower() in inside,
+        "icon": icon, "icon_in_package": bool(icon) and icon.replace(BACKSLASH, "/").lower() in inside,
+        "icon_url": nuspec_field(nuspec, "iconUrl"),
+        "license": ("%s %s" % (lic.group(1), lic.group(2).strip())) if lic else nuspec_field(nuspec, "licenseUrl"),
+        "repository": {k: attrs[k] for k in ("type", "url", "branch", "commit") if k in attrs} or None,
+    }
+
+
+def pick_latest(records, prerelease_key):
+    listed = [r for r in records if r.get("listed", True)]
+    stable = [r for r in listed if not prerelease_key(r["version"])]
+    return (stable or listed or records or [None])[-1]
+
+
+def nuget_survey(rd, ident, want=None, nupkg=True):
+    """(survey, error): versions, deprecations, vulnerabilities, downloads and one version's package."""
+    low = ident.lower()
+    status, index = rd.json("%s/%s/index.json" % (NUGET_REG, urllib.parse.quote(low)))
+    if status != 200 or not isinstance(index, dict):
+        return None, "nuget.org has no registration for %s (HTTP %s)" % (ident, status)
+    leaves = []
+    for page in index.get("items", []):
+        items = page.get("items")
+        if items is None:  # a paged index: the page's leaves are at its own URL
+            st, full = rd.json(page.get("@id", ""))
+            if st != 200 or not isinstance(full, dict):
+                return None, "registration page %s answered HTTP %s" % (page.get("@id"), st)
+            items = full.get("items", [])
+        leaves += items
+    records, meta = [], {}
+    for leaf in leaves:
+        c = leaf.get("catalogEntry") or {}
+        dep = c.get("deprecation")
+        if dep:
+            alt = dep.get("alternatePackage") or {}
+            dep = {"reasons": dep.get("reasons", []), "message": dep.get("message") or "",
+                   "alternate": ("%s %s" % (alt.get("id", ""), alt.get("range", ""))).strip() or None}
+        groups = []
+        for g in c.get("dependencyGroups") or []:
+            groups.append({"framework": g.get("targetFramework") or "any",
+                           "dependencies": ["%s %s" % (d.get("id", ""), d.get("range", "")) for d in
+                                            g.get("dependencies") or []]})
+        records.append({
+            "version": c.get("version", ""), "published": day(c.get("published")), "listed": c.get("listed", True),
+            "deprecation": dep or None,
+            "vulnerabilities": ["%s %s" % (SEVERITY.get(str(v.get("severity")), v.get("severity")), v.get("advisoryUrl"))
+                                for v in c.get("vulnerabilities") or []],
+            "dependency_groups": groups, "package": leaf.get("packageContent") or c.get("packageContent"),
+        })
+        meta = c
+    if not records:
+        return None, "nuget.org lists no versions of %s" % ident
+    st, search = rd.json("%s?q=packageid:%s&prerelease=true&semVerLevel=2.0.0" % (NUGET_SEARCH, urllib.parse.quote(low)))
+    hit = (search or {}).get("data", [{}])[0] if isinstance(search, dict) and search.get("data") else {}
+    per = {str(v.get("version", "")).lower(): v.get("downloads") for v in hit.get("versions", [])}
+    for r in records:
+        r["downloads"] = per.get(r["version"].lower())
+    latest = pick_latest(records, lambda v: "-" in v)
+    target = latest
+    if want:
+        target = next((r for r in records if r["version"].lower() == want.lower()), None)
+        if target is None:
+            return None, "nuget.org has no version %s of %s (versions: %s)" % (
+                want, ident, ", ".join(r["version"] for r in records))
+    listing = None
+    if nupkg:
+        v = target["version"].lower()
+        url = target["package"] or "%s/%s/%s/%s.%s.nupkg" % (NUGET_FLAT, low, v, low, v)
+        st, body = rd.get(url, accept="application/octet-stream")
+        listing = nupkg_listing(body) if st == 200 else {"error": "HTTP %s from %s" % (st, url)}
+    return {
+        "registry": "nuget.org", "id": meta.get("id") or hit.get("id") or ident, "title": meta.get("title") or None,
+        "authors": meta.get("authors"), "owners": hit.get("owners"),
+        "license": meta.get("licenseExpression") or meta.get("licenseUrl") or None,
+        "project": meta.get("projectUrl") or None, "description": meta.get("description") or None,
+        "tags": [t for t in meta.get("tags") or [] if t], "total_downloads": hit.get("totalDownloads"),
+        "search": "HTTP %s" % st if st != 200 else "ok",
+        "latest": latest["version"], "target": target["version"], "versions": records, "nupkg": listing,
+    }, None
+
+
+def npm_survey(rd, name, want=None):
+    """(survey, error): versions with dates, dist-tags, deprecations, one version's manifest, weekly downloads."""
+    status, doc = rd.json("%s/%s" % (NPM_REG, urllib.parse.quote(name, safe="@")))
+    if status != 200 or not isinstance(doc, dict):
+        return None, "registry.npmjs.org has no package %s (HTTP %s)" % (name, status)
+    times, manifests = doc.get("time") or {}, doc.get("versions") or {}
+    if not manifests:
+        return None, "%s has no versions (unpublished %s)" % (name, day((times.get("unpublished") or {}).get("time")))
+    order = sorted(manifests, key=lambda v: times.get(v, ""))
+    tags = doc.get("dist-tags") or {}
+    records = [{"version": v, "published": day(times.get(v)), "deprecated": manifests[v].get("deprecated") or None}
+               for v in order]
+    latest = tags.get("latest") if tags.get("latest") in manifests else order[-1]
+    target = want or latest
+    if target not in manifests:
+        return None, "%s has no version %s (versions: %s)" % (name, want, ", ".join(order))
+    m = manifests[target]
+    dist = m.get("dist") or {}
+    repo = m.get("repository") or doc.get("repository")
+    bin_ = m.get("bin")
+    exports = m.get("exports")
+    st, dl = rd.json("%s/downloads/point/last-week/%s" % (NPM_API, name))
+    return {
+        "registry": "npmjs.org", "id": doc.get("name") or name, "description": doc.get("description") or None,
+        "license": m.get("license") or doc.get("license"), "homepage": m.get("homepage") or doc.get("homepage"),
+        "repository": repo.get("url") if isinstance(repo, dict) else repo, "git_head": m.get("gitHead"),
+        "maintainers": [p.get("name") for p in doc.get("maintainers") or [] if isinstance(p, dict)],
+        "dist_tags": tags, "latest": latest, "target": target, "versions": records,
+        "manifest": {
+            "engines": m.get("engines") or {}, "type": m.get("type"), "main": m.get("main"),
+            "types": m.get("types") or m.get("typings"),
+            "bin": sorted(bin_) if isinstance(bin_, dict) else ([m.get("name")] if bin_ else []),
+            "exports": (sorted(exports) if isinstance(exports, dict) and all(k.startswith(".") for k in exports)
+                        else (["."] if exports else [])),
+            "dependencies": m.get("dependencies") or {}, "peerDependencies": m.get("peerDependencies") or {},
+            "optionalDependencies": m.get("optionalDependencies") or {},
+        },
+        "dist": {"unpackedSize": dist.get("unpackedSize"), "fileCount": dist.get("fileCount"),
+                 "integrity": dist.get("integrity"), "provenance": bool((dist.get("attestations") or {}).get("provenance"))},
+        "weekly_downloads": dl if isinstance(dl, dict) and "downloads" in dl else {"error": "HTTP %s" % st},
+    }, None
+
+
+def short(text, limit=200):
+    text = " ".join(str(text).split())
+    return text if len(text) <= limit else text[:limit].rstrip() + "..."
+
+
+def dep_list(deps):
+    return ", ".join("%s %s" % kv for kv in sorted(deps.items())) or "none"
+
+
+def shown_versions(records, limit, target):
+    """The newest `limit` versions, plus the target version when it is older."""
+    if limit and len(records) > limit:
+        shown = records[-limit:]
+        older = [r for r in records[:-limit] if r["version"] == target]
+        return older + shown, ["  ... %d older version(s) not shown (--limit 0 shows all); the first, %s, on %s" % (
+            len(records) - limit - len(older), records[0]["version"], records[0]["published"] or "an unknown date")]
+    return records, []
+
+
+def render_nuget(s, limit):
+    out = ["nuget.org %s%s" % (s["id"], (" (" + s["title"] + ")") if s["title"] and s["title"] != s["id"] else "")]
+    out.append("authors: %s; owners: %s; license: %s" % (s["authors"] or "none", ", ".join(s["owners"] or []) or "unknown",
+                                                         s["license"] or "none"))
+    if s["project"]:
+        out.append("project: %s" % s["project"])
+    if s["description"]:
+        out.append("description: %s" % short(s["description"]))
+    if s["tags"]:
+        out.append("tags: %s" % ", ".join(s["tags"]))
+    recs = s["versions"]
+    unlisted = sum(1 for r in recs if not r["listed"])
+    out.append("versions: %d (%d unlisted), latest %s; total downloads %s%s" % (
+        len(recs), unlisted, s["latest"], s["total_downloads"] if s["total_downloads"] is not None else "unknown",
+        "" if s["search"] == "ok" else " (search " + s["search"] + ")"))
+    shown, more = shown_versions(recs, limit, s["target"])
+    out += more
+    width = max(len(r["version"]) for r in shown)
+    said = {}
+    for r in shown:
+        line = "  %s  %s  %s  %s downloads" % (r["version"].ljust(width), r["published"] or "----------",
+                                               "listed" if r["listed"] else "UNLISTED",
+                                               r["downloads"] if r["downloads"] is not None else "?")
+        d = r["deprecation"]
+        if d:
+            key = json.dumps(d, sort_keys=True)
+            if key in said:
+                line += "  deprecated (as %s)" % said[key]
+            else:
+                said[key] = r["version"]
+                line += "  deprecated %s: %s%s" % ("/".join(d["reasons"]) or "?", d["message"] or "(no message)",
+                                                    ("; use " + d["alternate"]) if d["alternate"] else "")
+        for v in r["vulnerabilities"]:
+            line += "  vulnerable %s" % v
+        out.append(line)
+    t = next(r for r in recs if r["version"] == s["target"])
+    v = t["version"]
+    n = s["nupkg"]
+    if n is not None:
+        if n.get("error"):
+            out.append("%s nupkg: %s" % (v, n["error"]))
+        else:
+            out.append("%s nupkg: %d bytes; readme %s; icon %s" % (
+                v, n["size"],
+                ("%s (%s)" % (n["readme"], "in package" if n["readme_in_package"] else "NOT in package")) if n["readme"] else "none",
+                ("%s (%s)" % (n["icon"], "in package" if n["icon_in_package"] else "NOT in package")) if n["icon"]
+                else ("iconUrl " + n["icon_url"] if n["icon_url"] else "none")))
+            if n["license"]:
+                out.append("%s license in nuspec: %s" % (v, n["license"]))
+            if n["repository"]:
+                out.append("%s repository: %s" % (v, " ".join("%s=%s" % kv for kv in n["repository"].items())))
+            for folder in ("lib", "ref"):
+                for tfm in sorted(n[folder]):
+                    files = n[folder][tfm]
+                    out.append("%s %s/%s: %s" % (v, folder, tfm, ", ".join(files[:6]) + (
+                        " and %d more" % (len(files) - 6) if len(files) > 6 else "")))
+            if not n["lib"] and not n["ref"]:
+                out.append("%s lib/, ref/: none" % v)
+            named = set(x.replace(BACKSLASH, "/").lower() for x in (n["readme"], n["icon"]) if x)
+            root = [f for f in n["root"] if f.lower() not in named]
+            other = {k: len([f for f in files if f.lower() not in named]) for k, files in n["other"].items()}
+            other = {k: c for k, c in other.items() if c}
+            if other or root:
+                out.append("%s other files: %s" % (v, ", ".join(
+                    ["%s/ (%d)" % kv for kv in sorted(other.items())] + root)))
+    for g in t["dependency_groups"]:
+        out.append("%s dependencies %s: %s" % (v, g["framework"], ", ".join(g["dependencies"]) or "none"))
+    if not t["dependency_groups"]:
+        out.append("%s dependencies: no groups declared" % v)
+    return out
+
+
+def render_npm(s, limit):
+    out = ["npmjs.org %s" % s["id"]]
+    out.append("license: %s; maintainers: %s" % (s["license"] or "none", ", ".join(s["maintainers"]) or "none"))
+    if s["repository"]:
+        out.append("repository: %s" % s["repository"])
+    if s["homepage"]:
+        out.append("homepage: %s" % s["homepage"])
+    if s["description"]:
+        out.append("description: %s" % short(s["description"]))
+    out.append("dist-tags: %s" % ", ".join("%s %s" % kv for kv in sorted(s["dist_tags"].items())))
+    recs = s["versions"]
+    out.append("versions: %d (%d deprecated), latest %s" % (len(recs), sum(1 for r in recs if r["deprecated"]), s["latest"]))
+    shown, more = shown_versions(recs, limit, s["target"])
+    out += more
+    runs = []  # consecutive versions published the same day with the same deprecation share a line
+    for r in shown:
+        if runs and runs[-1][0]["published"] == r["published"] and runs[-1][0]["deprecated"] == r["deprecated"]:
+            runs[-1].append(r)
+        else:
+            runs.append([r])
+    said = {}
+    for run_ in runs:
+        first = run_[0]
+        line = "  %s  %s" % (first["published"] or "----------", ", ".join(r["version"] for r in run_))
+        if first["deprecated"]:
+            if first["deprecated"] in said:
+                line += "  deprecated (as %s)" % said[first["deprecated"]]
+            else:
+                said[first["deprecated"]] = first["version"]
+                line += "  deprecated: %s" % first["deprecated"]
+        out.append(line)
+    v, m, d = s["target"], s["manifest"], s["dist"]
+    out.append("%s engines: %s" % (v, ", ".join("%s %s" % kv for kv in sorted(m["engines"].items())) or "none"))
+    out.append("%s type %s; main %s; types %s; exports %s; bin %s" % (
+        v, m["type"] or "commonjs (unset)", m["main"] or "unset", m["types"] or "unset",
+        ", ".join(m["exports"]) or "unset", ", ".join(m["bin"]) or "none"))
+    out.append("%s dependencies: %s" % (v, dep_list(m["dependencies"])))
+    for key in ("peerDependencies", "optionalDependencies"):
+        if m[key]:
+            out.append("%s %s: %s" % (v, key, dep_list(m[key])))
+    out.append("%s unpacked %s bytes, %s files; provenance %s" % (
+        v, d["unpackedSize"] if d["unpackedSize"] is not None else "?", d["fileCount"] if d["fileCount"] is not None else "?",
+        "yes" if d["provenance"] else "no"))
+    if s["git_head"]:
+        out.append("%s gitHead: %s" % (v, s["git_head"]))
+    w = s["weekly_downloads"]
+    out.append("downloads last week: %s" % (("%s (%s to %s)" % (w["downloads"], w.get("start"), w.get("end")))
+                                            if "downloads" in w else w["error"]))
+    return out
+
+
+def registry_kind(name):
+    """npm for scoped or slashed names, nuget for names with capitals (npm refuses new ones), else None."""
+    if name.startswith("@") or "/" in name:
+        return "npm"
+    if name != name.lower():
+        return "nuget"
+    return None
+
+
+def cmd_registry(a):
+    kind = "nuget" if a.nuget else "npm" if a.npm else registry_kind(a.name)
+    rd = Reader()
+    s, err, fallback = None, None, ""
+    if kind in (None, "npm"):
+        s, err = npm_survey(rd, a.name, a.version)
+        if s is None and kind is None and "has no package" in err:
+            s, err = nuget_survey(rd, a.name, a.version, nupkg=not a.no_nupkg)
+            fallback = " (not on npm; read from nuget.org)"
+            if s is None and "no registration" in err:
+                err = "neither registry.npmjs.org nor nuget.org has a package named %s" % a.name
+        elif s is not None and kind is None:
+            fallback = " (a lower-case name is read from npm first; --nuget reads nuget.org)"
+    else:
+        s, err = nuget_survey(rd, a.name, a.version, nupkg=not a.no_nupkg)
+    stamp = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
+    if s is None:
+        print("error: %s" % err)
+        return 2
+    s["read"] = {"at": stamp, "requests": rd.requests, "bytes_on_wire": rd.wire, "bytes_decoded": rd.decoded}
+    if a.json:
+        print(json.dumps(s, indent=1))
+        return 0
+    lines = render_nuget(s, a.limit) if s["registry"] == "nuget.org" else render_npm(s, a.limit)
+    lines[0] += fallback
+    lines.append("read %s: %d requests, %d bytes on the wire (%d decoded)" % (stamp, rd.requests, rd.wire, rd.decoded))
+    print("\n".join(lines))
+    return 0
+
+
 # ---------------------------------------------------------------- cachecheck, releasecheck
 
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -1467,6 +1872,16 @@ def main(argv=None):
     rc.add_argument("release", help="the version about to be tagged, X.Y.Z")
     rc.add_argument("--root", help="the plugin's repository (default: the one holding this script)")
     rc.set_defaults(fn=cmd_releasecheck)
+    rg = sub.add_parser("registry", help="a compact registry survey of an npm or NuGet package")
+    rg.add_argument("name", help="the package name (npm) or id (NuGet)")
+    which = rg.add_mutually_exclusive_group()
+    which.add_argument("--nuget", action="store_true", help="read nuget.org")
+    which.add_argument("--npm", action="store_true", help="read registry.npmjs.org")
+    rg.add_argument("--version", dest="version", help="the version whose package to describe (default: latest)")
+    rg.add_argument("--limit", type=int, default=40, help="show the newest N versions (default 40; 0 shows all)")
+    rg.add_argument("--no-nupkg", action="store_true", help="NuGet: skip downloading the .nupkg")
+    rg.add_argument("--json", action="store_true", help="print the full structured survey as JSON")
+    rg.set_defaults(fn=cmd_registry)
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure:
         # A cp1252 console cannot print every character an output holds (L-119).

@@ -42,6 +42,7 @@ The helper script needs Python 3.9 or newer, `git`, and the GitHub CLI (`gh`) lo
 
 ```
 python skills/wikiwright/scripts/wikiwright.py preflight OWNER/REPO --enable --clone ../REPO.wiki
+python skills/wikiwright/scripts/wikiwright.py registry PACKAGE        # npm or NuGet facts, one per line
 python skills/wikiwright/scripts/wikiwright.py check ../REPO.wiki --version 1.2.0
 python skills/wikiwright/scripts/wikiwright.py outputs ../REPO.wiki ai-docs/notes/<date>-wiki-verify.out.txt
 python skills/wikiwright/scripts/wikiwright.py diffout ai-docs/notes/<date>-wiki-verify.out.txt new-run.out.txt

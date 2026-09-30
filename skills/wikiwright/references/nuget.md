@@ -2,16 +2,21 @@
 
 ## Registry facts for the survey
 
-nuget.org's JSON API, with `curl --compressed` (the registration index is served gzip-encoded; without the flag the body is gzip bytes). Package ids are lower case in these URLs.
+Start with the helper. It reads the registration index (gzip-decoded, paged indexes followed), the search service and the latest `.nupkg`, and prints one fact per line:
 
 ```sh
-curl -s --compressed https://api.nuget.org/v3/registration5-gz-semver2/ID/index.json   # versions, listed, published dates, dependency groups
-curl -s https://api.nuget.org/v3-flatcontainer/ID/index.json                          # every version
-curl -sO https://api.nuget.org/v3-flatcontainer/ID/VERSION/ID.VERSION.nupkg              # the package; unzip -l shows lib/ folders, README, icon
-curl -s "https://azuresearch-usnc.nuget.org/query?q=packageid:ID&prerelease=true"      # totalDownloads and per-version downloads
+python scripts/wikiwright.py registry ID --nuget     # add --version X for an older package, --json for everything
 ```
 
-Record sizes, target frameworks, dependencies per framework, the listed versions with dates and the downloads, each with the date read.
+It prints every version with its published date, listed or not, downloads, deprecation (reasons, message, alternate package) and vulnerabilities. For the latest version it prints the `.nupkg` size, the README and icon, the nuspec's license and repository commit, each `lib/` and `ref/` folder with its files, and the dependency groups per framework. The last line gives the time read. On 2026-09-29 it printed about 1.5 KB where the raw JSON and zip listing came to 13.7 KB (IsImageUrlDotNet) and 20.4 KB (JsonPrettyPrinter). Copy the numbers and the time read into the notes.
+
+Without the helper, use nuget.org's JSON API with `curl --compressed`: the registration index is served gzip-encoded, and without the flag the body is gzip bytes. Ids are lower case in these URLs.
+
+```sh
+curl -s --compressed https://api.nuget.org/v3/registration5-gz-semver2/ID/index.json   # versions, listed, dates, deprecation, dependency groups
+curl -s "https://azuresearch-usnc.nuget.org/query?q=packageid:ID&prerelease=true"      # downloads
+curl -sO https://api.nuget.org/v3-flatcontainer/ID/VERSION/ID.VERSION.nupkg              # unzip -l: lib/ folders, README, icon
+```
 
 ## The verification program
 

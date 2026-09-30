@@ -2,11 +2,19 @@
 
 ## Registry facts for the survey
 
+Start with the helper. It reads the packument and last week's downloads and prints one fact per line:
+
 ```sh
-npm view PACKAGE --json                      # versions, time (publish date per version), dist-tags, engines, bin, exports
-npm view PACKAGE@VERSION dist --json         # tarball size, unpackedSize, fileCount, integrity, attestations
+python scripts/wikiwright.py registry PACKAGE --npm   # add --version X for an older version, --json for everything
+```
+
+It prints the versions with their dates (same-day releases share a line), dist-tags, and deprecations. For the latest version it prints `engines`, type, main, types, exports and bin, the dependencies, unpacked size and file count, provenance and `gitHead`. It also prints last week's downloads and the time read. On 2026-09-29 it printed about 1.1 KB where the packument came to 76.6 KB (get-title-at-url) and 35.9 KB (format-json-files).
+
+For what it leaves out, and without it:
+
+```sh
+npm view PACKAGE --json                      # the full manifest: versions, time, dist-tags, engines, bin, exports
 npm pack PACKAGE@VERSION --dry-run --json    # the files inside the published tarball
-curl -s https://api.npmjs.org/downloads/point/last-month/PACKAGE
 curl -s https://api.npmjs.org/downloads/range/START:END/PACKAGE   # one entry per day; any START older than 18 months is moved up to 18 months ago without an error (checked 2026-09-28), so all-time totals are not available here
 npm ls --all --prefix <scratch>              # the installed dependency tree, from the scratch project below
 ```

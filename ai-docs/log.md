@@ -45,3 +45,4 @@ Append-only. One line per operation: `## [YYYY-MM-DD] op | title` where op is on
 ## [2026-09-29] add | release 0.6.0 (C-20260929-10): releasecheck ready, CI green on three systems after a macOS /var fix in the kit, tag v0.6.0 with a GitHub Release, reinstalled, cachecheck 23/23
 ## [2026-09-29] index | rebuilt (1 entries)
 ## [2026-09-29] add | live checks anchors (C-20260929-11, L-135): GitHub ids measured on two published wikis (166/166 match slug()), user-content- ids required on GitHub, Gitea, Forgejo; GitLab and Azure say not checked; 0 extra requests on format-json-files (11) and get-title-at-url (10), no broken anchors; tests 60
+## [2026-09-29] add | wikiwright.py registry (C-20260929-14): compact npm/NuGet survey for Step 2, gzip and paged registration handled; output 1.0-1.5 KB vs 13.7-76.6 KB raw (9x to 66x less) on IsImageUrlDotNet, JsonPrettyPrinter, get-title-at-url, format-json-files; tests 66

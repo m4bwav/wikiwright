@@ -328,7 +328,8 @@ class FakeHost:
             def answer(self):
                 outer.seen.append("%s %s" % (self.command, self.path))
                 status, headers, body = outer.routes.get(self.path, (404, {}, "{}"))
-                data = body.encode() if isinstance(body, str) else json.dumps(body).encode()
+                data = (body if isinstance(body, bytes) else body.encode() if isinstance(body, str)
+                        else json.dumps(body).encode())
                 self.send_response(status)
                 for k, v in headers.items():
                     self.send_header(k, v)
@@ -997,6 +998,202 @@ class ReleaseCheckTests(unittest.TestCase):
     def test_existing_tag_fails(self):
         code, out = run(["releasecheck", "0.1.0", "--root", self.d])
         self.assertIn("FAIL tag v0.1.0 exists already", out)
+
+
+# ---------------------------------------------------------------- registry, against a local fake
+# Shapes as served on 2026-09-29 by nuget.org (registration5-gz-semver2, gzip-encoded; azuresearch) and
+# registry.npmjs.org / api.npmjs.org. Nothing leaves 127.0.0.1.
+
+import gzip  # noqa: E402
+import zipfile  # noqa: E402
+
+GZ = {"Content-Encoding": "gzip", "Content-Type": "application/json"}
+
+
+def gz(obj):
+    return gzip.compress(json.dumps(obj).encode())
+
+
+def nupkg():
+    buf = io.BytesIO()
+    nuspec = ('<?xml version="1.0"?><package><metadata><id>Widget</id><version>2.0.0</version>'
+              '<license type="expression">MIT</license><icon>icon.png</icon><readme>docs/README.md</readme>'
+              '<repository type="git" url="https://example.com/o/widget" commit="abc123" /></metadata></package>')
+    with zipfile.ZipFile(buf, "w") as z:
+        for name, text in (("Widget.nuspec", nuspec), ("lib/net8.0/Widget.dll", "x"), ("lib/net8.0/Widget.xml", "x"),
+                           ("lib/netstandard2.0/Widget.dll", "x"), ("ref/net8.0/Widget.dll", "x"),
+                           ("build/Widget.targets", "x"), ("icon.png", "x"), ("docs/README.md", "x"),
+                           ("LICENSE.txt", "x"), ("[Content_Types].xml", "x"), ("_rels/.rels", "x"),
+                           ("package/services/metadata/core-properties/1.psmdcp", "x"), (".signature.p7s", "x")):
+            z.writestr(name, text)
+    return buf.getvalue()
+
+
+def leaf(version, published="2026-09-01T10:00:00+00:00", listed=True, package=None, **extra):
+    entry = dict({"id": "Widget", "version": version, "published": published, "listed": listed,
+                  "authors": "A. Maintainer", "licenseExpression": "MIT", "projectUrl": "https://example.com/o/widget",
+                  "description": "Does one thing.", "tags": ["widget", ""]}, **extra)
+    out = {"@id": "leaf/" + version, "catalogEntry": entry}
+    if package:
+        out["packageContent"] = package
+    return out
+
+
+class RegistryTests(unittest.TestCase):
+    def setUp(self):
+        self.host = FakeHost({})
+        b = self.host.base
+        self.saved = {k: getattr(wikiwright, k) for k in ("NUGET_REG", "NUGET_FLAT", "NUGET_SEARCH", "NPM_REG", "NPM_API")}
+        wikiwright.NUGET_REG, wikiwright.NUGET_FLAT, wikiwright.NUGET_SEARCH = b + "/reg", b + "/flat", b + "/query"
+        wikiwright.NPM_REG, wikiwright.NPM_API = b + "/npm", b + "/api"
+        self.host.routes.update({
+            "/query?q=packageid:widget&prerelease=true&semVerLevel=2.0.0": (200, {}, {"data": [{
+                "id": "Widget", "totalDownloads": 1234, "owners": ["someone"],
+                "versions": [{"version": "1.0.0", "downloads": 1000}, {"version": "2.0.0-beta.1", "downloads": 34},
+                             {"version": "2.0.0", "downloads": 200}]}]}),
+            "/flat/widget/2.0.0/widget.2.0.0.nupkg": (200, {"Content-Type": "application/octet-stream"}, nupkg()),
+        })
+        self.leaves = [
+            leaf("1.0.0", "2016-05-30T01:43:28+00:00",
+                 deprecation={"reasons": ["Legacy", "CriticalBugs"], "message": "1.x is old; use 2.x",
+                              "alternatePackage": {"id": "Widget", "range": "[2.0.0, )"}},
+                 vulnerabilities=[{"advisoryUrl": "https://example.com/advisory/1", "severity": "2"}]),
+            leaf("1.0.1", "1900-01-01T00:00:00+00:00", listed=False,
+                 deprecation={"reasons": ["Legacy", "CriticalBugs"], "message": "1.x is old; use 2.x",
+                              "alternatePackage": {"id": "Widget", "range": "[2.0.0, )"}}),
+            leaf("2.0.0-beta.1", "2026-09-01T09:00:00+00:00"),
+            leaf("2.0.0", "2026-09-02T09:00:00+00:00", package=self.host.base + "/flat/widget/2.0.0/widget.2.0.0.nupkg",
+                 dependencyGroups=[{"targetFramework": "net8.0"},
+                                   {"targetFramework": ".NETStandard2.0",
+                                    "dependencies": [{"id": "System.Memory", "range": "[4.5.5, )"}]}]),
+        ]
+
+    def tearDown(self):
+        for k, v in self.saved.items():
+            setattr(wikiwright, k, v)
+        self.host.close()
+
+    def test_nuget_gzip_registration_downloads_and_nupkg(self):
+        self.host.routes["/reg/widget/index.json"] = (200, GZ, gz({"count": 1, "items": [
+            {"@id": "page/1", "count": 4, "items": self.leaves}]}))
+        code, out = run(["registry", "Widget"])
+        self.assertEqual(code, 0, out)
+        lines = out.splitlines()
+        self.assertEqual(lines[0], "nuget.org Widget")
+        self.assertIn("authors: A. Maintainer; owners: someone; license: MIT", out)
+        self.assertIn("tags: widget", out)
+        self.assertIn("versions: 4 (1 unlisted), latest 2.0.0; total downloads 1234", out)
+        self.assertIn("  1.0.0         2016-05-30  listed  1000 downloads  deprecated Legacy/CriticalBugs: 1.x is old; "
+                      "use 2.x; use Widget [2.0.0, )  vulnerable high https://example.com/advisory/1", lines)
+        self.assertIn("  1.0.1         ----------  UNLISTED  ? downloads  deprecated (as 1.0.0)", lines)
+        nup = [l for l in lines if l.startswith("2.0.0 nupkg: ")]
+        self.assertEqual(nup, ["2.0.0 nupkg: %d bytes; readme docs/README.md (in package); icon icon.png (in package)"
+                               % len(nupkg())])
+        self.assertIn("2.0.0 license in nuspec: expression MIT", lines)
+        self.assertIn("2.0.0 repository: type=git url=https://example.com/o/widget commit=abc123", lines)
+        self.assertIn("2.0.0 lib/net8.0: Widget.dll, Widget.xml", lines)
+        self.assertIn("2.0.0 lib/netstandard2.0: Widget.dll", lines)
+        self.assertIn("2.0.0 ref/net8.0: Widget.dll", lines)
+        self.assertIn("2.0.0 other files: build/ (1), LICENSE.txt", lines)
+        self.assertIn("2.0.0 dependencies net8.0: none", lines)
+        self.assertIn("2.0.0 dependencies .NETStandard2.0: System.Memory [4.5.5, )", lines)
+        self.assertRegex(lines[-1], r"^read .* UTC: 3 requests, [0-9]+ bytes on the wire \([0-9]+ decoded\)$")
+        self.assertLess(len(lines), 60)
+
+    def test_nuget_paged_registration_fetches_each_page(self):
+        pages = [{"@id": self.host.base + "/reg/widget/page/1.0.0/1.0.1.json", "count": 2, "lower": "1.0.0",
+                  "upper": "1.0.1"},
+                 {"@id": self.host.base + "/reg/widget/page/2.0.0-beta.1/2.0.0.json", "count": 2,
+                  "lower": "2.0.0-beta.1", "upper": "2.0.0"}]
+        leaves = [dict(x) for x in self.leaves]
+        leaves[3].pop("packageContent")  # the flat container URL is built from the id and version
+        self.host.routes.update({
+            "/reg/widget/index.json": (200, GZ, gz({"count": 2, "items": pages})),
+            "/reg/widget/page/1.0.0/1.0.1.json": (200, GZ, gz({"items": leaves[:2]})),
+            "/reg/widget/page/2.0.0-beta.1/2.0.0.json": (200, GZ, gz({"items": leaves[2:]})),
+        })
+        code, out = run(["registry", "Widget", "--nuget"])
+        self.assertEqual(code, 0, out)
+        self.assertIn("GET /reg/widget/page/1.0.0/1.0.1.json", self.host.seen)
+        self.assertIn("GET /reg/widget/page/2.0.0-beta.1/2.0.0.json", self.host.seen)
+        self.assertIn("GET /flat/widget/2.0.0/widget.2.0.0.nupkg", self.host.seen)
+        self.assertIn("versions: 4 (1 unlisted), latest 2.0.0", out)
+        self.assertIn("2.0.0 lib/net8.0: Widget.dll, Widget.xml", out)
+        self.assertIn("read ", out.splitlines()[-1])
+        self.assertIn(": 5 requests,", out)
+
+    def test_nuget_version_limit_and_json(self):
+        self.host.routes["/reg/widget/index.json"] = (200, GZ, gz({"items": [{"@id": "p", "items": self.leaves}]}))
+        code, out = run(["registry", "Widget", "--version", "1.0.0", "--limit", "1", "--no-nupkg"])
+        self.assertEqual(code, 0, out)
+        self.assertIn("  ... 2 older version(s) not shown (--limit 0 shows all); the first, 1.0.0, on 2016-05-30", out)
+        self.assertIn("  1.0.0 ", out)  # the asked-for version is shown although it is older than the limit
+        self.assertIn("1.0.0 dependencies: no groups declared", out)
+        self.assertNotIn("nupkg", out)
+        code, out = run(["registry", "Widget", "--json"])
+        data = json.loads(out)
+        self.assertEqual(data["latest"], "2.0.0")
+        self.assertEqual(data["nupkg"]["lib"]["net8.0"], ["Widget.dll", "Widget.xml"])
+        self.assertEqual(data["read"]["requests"], 3)
+        code, out = run(["registry", "Widget", "--version", "9.9.9"])
+        self.assertEqual(code, 2)
+        self.assertIn("no version 9.9.9", out)
+
+    NPM_DOC = {
+        "name": "widget-js", "description": "Does one thing.", "license": "MIT",
+        "repository": {"type": "git", "url": "git+https://example.com/o/widget-js.git"},
+        "maintainers": [{"name": "someone"}], "dist-tags": {"latest": "2.0.0", "next": "3.0.0-beta.1"},
+        "time": {"created": "2018-12-24T00:00:00Z", "1.0.0": "2018-12-24T01:00:00Z", "1.0.1": "2018-12-24T02:00:00Z",
+                 "2.0.0": "2026-09-27T00:00:00Z", "3.0.0-beta.1": "2026-09-28T00:00:00Z"},
+        "versions": {
+            "1.0.0": {"deprecated": "1.x is old; use 2.x"},
+            "1.0.1": {"deprecated": "1.x is old; use 2.x"},
+            "2.0.0": {"name": "widget-js", "type": "module", "main": "./dist/index.cjs", "types": "./dist/index.d.cts",
+                      "exports": {".": {}, "./package.json": "./package.json"}, "bin": {"widget": "cli.js"},
+                      "engines": {"node": ">=20"}, "dependencies": {"b": "^2.0.0", "a": "^1.0.0"},
+                      "peerDependencies": {"typescript": ">=5"}, "gitHead": "abc123",
+                      "dist": {"unpackedSize": 94558, "fileCount": 11, "integrity": "sha512-x",
+                               "attestations": {"provenance": {"predicateType": "https://slsa.dev/provenance/v1"}}}},
+            "3.0.0-beta.1": {"name": "widget-js"},
+        },
+    }
+
+    def test_npm_packument_and_weekly_downloads(self):
+        self.host.routes.update({
+            "/npm/widget-js": (200, GZ, gz(self.NPM_DOC)),
+            "/api/downloads/point/last-week/widget-js": (200, {}, {"downloads": 475, "start": "2026-09-22",
+                                                                   "end": "2026-09-28", "package": "widget-js"}),
+        })
+        code, out = run(["registry", "widget-js", "--npm"])
+        self.assertEqual(code, 0, out)
+        lines = out.splitlines()
+        self.assertEqual(lines[0], "npmjs.org widget-js")
+        self.assertIn("dist-tags: latest 2.0.0, next 3.0.0-beta.1", lines)
+        self.assertIn("versions: 4 (2 deprecated), latest 2.0.0", lines)
+        self.assertIn("  2018-12-24  1.0.0, 1.0.1  deprecated: 1.x is old; use 2.x", lines)
+        self.assertIn("  2026-09-28  3.0.0-beta.1", lines)
+        self.assertIn("2.0.0 engines: node >=20", lines)
+        self.assertIn("2.0.0 type module; main ./dist/index.cjs; types ./dist/index.d.cts; exports ., ./package.json; "
+                      "bin widget", lines)
+        self.assertIn("2.0.0 dependencies: a ^1.0.0, b ^2.0.0", lines)
+        self.assertIn("2.0.0 peerDependencies: typescript >=5", lines)
+        self.assertIn("2.0.0 unpacked 94558 bytes, 11 files; provenance yes", lines)
+        self.assertIn("2.0.0 gitHead: abc123", lines)
+        self.assertIn("downloads last week: 475 (2026-09-22 to 2026-09-28)", lines)
+        self.assertIn(": 2 requests,", lines[-1])
+
+    def test_kind_by_name_and_fallback_to_nuget(self):
+        self.assertEqual(wikiwright.registry_kind("Widget"), "nuget")
+        self.assertEqual(wikiwright.registry_kind("@o/widget"), "npm")
+        self.assertIsNone(wikiwright.registry_kind("widget"))
+        self.host.routes["/reg/widget/index.json"] = (200, GZ, gz({"items": [{"@id": "p", "items": self.leaves}]}))
+        code, out = run(["registry", "widget", "--no-nupkg"])  # npm answers 404 (no route), then nuget.org
+        self.assertEqual(code, 0, out)
+        self.assertIn("GET /npm/widget", self.host.seen)
+        self.assertEqual(out.splitlines()[0], "nuget.org Widget (not on npm; read from nuget.org)")
+        code, out = run(["registry", "nothing-here"])
+        self.assertEqual(code, 2)
+        self.assertIn("neither registry.npmjs.org nor nuget.org has a package named nothing-here", out)
 
 
 if __name__ == "__main__":

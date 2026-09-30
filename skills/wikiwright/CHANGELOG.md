@@ -4,6 +4,20 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-14 · 2026-09-29 · `wikiwright.py registry`: the Step 2 registry survey as one fact per line (`registry-survey`)
+- because: user request (the 0.7.0 kickoff: token savings); every run fetched raw registry JSON in Step 2 and parsed it by hand
+- files: scripts/wikiwright.py (`registry`, `Reader`, `nuget_survey`, `npm_survey`, `nupkg_listing`); tests/test_wikiwright.py (`RegistryTests`, FakeHost serves bytes; 66 tests); references/nuget.md and references/npm.md ("Registry facts for the survey"); SKILL.md (Step 2, one clause); AGENTS.md; README.md
+- What changed and why:
+  - `registry NAME [--nuget|--npm]` reads the registry and prints what a wiki needs. NuGet: every version with its date, listing, downloads, deprecation (reasons, message, alternate) and vulnerabilities, then the latest (or `--version`) package: `.nupkg` size, README and icon, nuspec license and repository commit, `lib/` and `ref/` folders with their files, dependency groups. npm: versions by date (same-day releases share a line), dist-tags, deprecations, then `engines`, entry points, dependencies, unpacked size, file count, provenance, `gitHead`, and last week's downloads. The last line says when it was read and how many bytes came in. `--json` prints the full structure.
+  - The registration index is decoded from gzip (Accept-Encoding: gzip is sent, and a gzip body is decoded whatever the header says), and a paged index has each page fetched. A name with capitals goes to NuGet and a scoped name to npm. A lower-case name tries npm first, then NuGet.
+  - The references lead with the command and keep shortened curl and npm lines as the fallback.
+- Measured on 2026-09-29 (bytes an agent reads today, the decoded JSON plus an `unzip -l` listing, against the command's output):
+  - IsImageUrlDotNet: 13,656 bytes (registration 11,257, search 1,507, listing 892), now 1,490 bytes in 20 lines (9.2 times less).
+  - JsonPrettyPrinter: 20,404 bytes (17,711, 1,904, 789), now 1,471 bytes in 22 lines (13.9 times less).
+  - get-title-at-url: 76,633 bytes (packument 76,547, downloads 86), now 1,163 bytes in 28 lines (65.9 times less).
+  - format-json-files: 35,895 bytes (35,808, 87), now 1,035 bytes in 15 lines (34.7 times less).
+  - Wall time is about the same, 0.25 to 0.5 seconds against 0.12 to 0.48 seconds for the raw fetches in one process. The command replaces three or four tool calls with one.
+
 ### C-20260929-13 · 2026-09-29 · The evals speak NuGet; two grader faults; `outputs` fails when it read nothing; tools a page names (`evals-speak-nuget`)
 - because: user request (the 0.7.0 kickoff: the evals looked for `npm install` only); T-20260929-4; L-131; L-136
 - files: evals/grade-action.py (`installs()`, `.cs`/`.fsx` programs in `live_requests()`, the whole-file judgement, `load_trace()` guard, the digest's `nuget` flag); evals/run-action.sh (IsImageUrlDotNet by default, `FORBID_HOST=example.com`); evals/action-1/prompt.md; evals/evals.json (action-1, action-2); scripts/wikiwright.py (`outputs`); tests/test_wikiwright.py (61 tests); SKILL.md (Step 6, Update mode step 3); LEARNINGS.md (L-016, L-106, L-131, L-136)
