@@ -4,6 +4,20 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260930-10 · 2026-09-30 · Release 0.8.0: the eighth run, `scaffold`, both golden formats, a TypeScript matrix, the fsi gate (`release-0.8.0`)
+- because: user request (the 0.8.0 kickoff); C-20260930-6 to C-20260930-9; T-20260930-3; L-140 to L-142, L-131
+- files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history)
+- 0.8.0 gathers the entries below. `wikiwright.py releasecheck 0.8.0` checks the four version fields, this entry and T-20260930-3.
+- The eighth real run (replace-string-at-position 2.0.0, headless, installed code with `scaffold`): 9 pages, wiki 21af852, check 0 errors, outputs 48 of 48 on Node 24 and 20, snippets 34 of 34 (the first npm wiki the gate covers), golden 71 of 71 on 1.0.4 today and 26 identical against 2.0.0, live 9 pages and 18 anchor links clean, repository tests 177 of 177. It listed twelve places where the skill was wrong or missing; items 1 to 5 and 8 became C-20260930-8, items 6, 7 and 9 to 12 C-20260930-9. Its mutation test: `snippets` caught 4 of 4 changed code blocks that `outputs` missed.
+- The suite found a template bug before the run could: under TypeScript 7.0.2 `snippet()`'s `require.resolve('typescript/bin/tsc')` threw, so 0.7.1 and 0.7.2 could not compile a TypeScript snippet with the current TypeScript (L-141; a test now fails on the 0.7.2 template).
+- Token savings, measured:
+  - `scaffold`: a run reads a 12,722-byte script (about 3,200 tokens) for a library without requests or files, where it read the 25,524-byte template (about 6,400); 18,552 with `--golden`. It skips the copy, two placeholder edits and five section deletions, whose `old_string` alone was about 9 KB.
+  - The eighth run: $7.37, 18 minutes, 128 turns (the seventh $10.13, 34 minutes, 145 turns; the sixth $15.59, 49 minutes, 229 turns). Its 1,821,639-byte trace was read as an 8,396-byte digest.
+  - `registry` prints last week's downloads per version in one more line (+107 bytes on replace-string-at-position), where the run fetched api.npmjs.org by hand.
+  - The suite: nine action runs $20.89, triggers and decoys $2.30, ten lines into the session. Four subagents built the changes in worktrees, about 725,000 tokens of their own kept out of the main context.
+  - What grew: references/npm.md 20,220 to 27,726 bytes (TypeScript 7, synchronous captures, the scaffold flags); page-sets.md 21,258 to 23,718; nuget.md 8,338 to 10,150; SKILL.md 3,448 to 3,561 words; the npm template 20,170 to 25,524 (which `scaffold` now trims). The run measured that about 60% of the two references it read did not apply to its package: splitting them by package kind is the next saving.
+- Tests: the unit tests and the three node suites on the three systems.
+
 ### C-20260930-9 · 2026-09-30 · Registry downloads per version, a grader that writes UTF-8, and the eighth run's docs (`eighth-run-docs`)
 - because: the eighth run's report (replace-string-at-position 2.0.0) items 6, 7, 9, 10, 11 and 12, and its `--digest` crash; L-011, L-142
 - files: scripts/wikiwright.py (`registry`: `npm_survey`, `by_version_line()`, `render_npm`, the usage text; `Reader` closes HTTPError responses); evals/grade-action.py (`utf8_streams()`); tests/test_wikiwright.py (`RegistryTests`, `test_grader_digest_writes_utf8_to_a_pipe`); templates/wiki-note.template.md (How it was published; Updating the wiki later, step 3); SKILL.md (Step 4, the golden bullet; Step 8); references/page-sets.md (intro list, the kinds table, Library, Golden captures, Not yet covered); references/npm.md (Registry facts for the survey; the scaffold measurement in The scratch project; Synchronous golden captures, new; Other runtimes and package managers); LEARNINGS.md (L-011 updated, L-142)

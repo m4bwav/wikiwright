@@ -80,18 +80,24 @@
       "m": null,
       "interval_after": 14,
       "note": "0.7.2: a page never repeats the title the host prints (L-139); five wikis fixed; no new research"
+    },
+    {
+      "date": "2026-09-30",
+      "m": null,
+      "interval_after": 14,
+      "note": "0.8.0: eighth run (replace-string-at-position, the first npm wiki gated by snippets); scaffold, both golden formats, a TypeScript matrix and old versions in snippet(), tsc by path (TypeScript 7), the fsi gate run for real, registry downloads per version, a UTF-8 grader; no new research"
     }
   ],
   "counts": {
-    "learnings": 33,
-    "changes": 28,
+    "learnings": 36,
+    "changes": 33,
     "research": 4,
-    "tests": 11
+    "tests": 12
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-30T02:40",
-    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py (NuGet installs, .NET requests judged on the whole file)",
+    "last_run": "2026-09-30T13:40",
+    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py; unit and kit suites",
     "env": "DESKTOP-7KS2S6E",
     "cases": 9,
     "passed": 9,
@@ -103,5 +109,5 @@
     },
     "research_after_days": null
   },
-  "version": "0.7.2"
+  "version": "0.8.0"
 }
