@@ -25,6 +25,20 @@ const files = {
 	'node_modules/tiny/index.mjs': "export const greet = name => 'hello ' + name;\n",
 	'node_modules/tiny/index.cjs': "exports.greet = name => 'hello ' + name;\n",
 	'preload.mjs': 'globalThis.preloaded = true;\n',
+	// A stand-in for TypeScript 7: its exports map hides ./bin/tsc, as 7.0.2's does (L-141), and its tsc copies the
+	// .mts it is given into --outDir as .mjs.
+	'node_modules/typescript/package.json': JSON.stringify({name: 'typescript', version: '7.0.0-stand-in', exports: {'.': './lib.cjs', './package.json': './package.json'}}),
+	'node_modules/typescript/lib.cjs': '',
+	'node_modules/typescript/bin/tsc': [
+		"const {copyFileSync, mkdirSync} = require('node:fs');",
+		"const path = require('node:path');",
+		'const args = process.argv.slice(2);',
+		"const out = args[args.indexOf('--outDir') + 1];",
+		'const file = args.at(-1);',
+		'mkdirSync(out, {recursive: true});',
+		"copyFileSync(file, path.join(out, path.basename(file, '.mts') + '.mjs'));",
+		'',
+	].join('\n'),
 	'tree/.keep': '',
 	'helper.mjs': [
 		"import {spawn} from 'node:child_process';",
@@ -91,6 +105,15 @@ console.log(greet('https://example.com/'), process.env.WW_SNIPPET, globalThis.pr
 		args: ['--import', pathToFileURL(path.join(dir, 'preload.mjs')).href],
 	});
 	assert.equal(out, 'hello http://127.0.0.1:1/ env true tree\nafter');
+});
+
+test('a TypeScript snippet is compiled by the tsc the exports map hides, then run', async () => {
+	const out = await runSnippet('ts: greet', `
+import {greet} from 'tiny';
+
+console.log(greet('types'));
+`, {type: 'typescript'});
+	assert.equal(out, 'tsc: exit 0\nhello types');
 });
 
 test('stderr and a non-zero exit are printed after stdout', async () => {
