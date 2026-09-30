@@ -15,13 +15,17 @@
 // 127.0.0.1:<port>, and check the pages with `wikiwright.py outputs <wiki dir> <that file>`. Each code block on
 // a page is here as the page shows it, in a snippet(): check with `wikiwright.py snippets <wiki dir> <this file>`.
 // Keep time zones, absolute paths and timings out of the output (L-022).
+// ===== section: requests =====
 // Network: the package talks only to the local fixture server below, never the internet. A package whose
 // requests go to the hosts its input names, with output computed from the host, uses the "by host name"
 // section instead of fixture addresses (references/npm.md, L-116).
+// ===== end: requests =====
 // OLDEST_NODE=<major> reruns everything under the oldest Node in engines (the last section, L-106); compare
 // the two outputs, and a new release's output with the saved one, with `wikiwright.py diffout OLD NEW`.
 
+// ===== section: requests =====
 import http from 'node:http';
+// ===== end: requests =====
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import path from 'node:path';
@@ -87,6 +91,7 @@ function shell(script, options = {}) {
 	return run(process.env.BASH || 'bash', ['-c', `echo "shell node: $(node --version)"; ${script}`], options);
 }
 
+// ===== section: bin =====
 // A terminal transcript as a page shows it: `$ command`, what it printed with stdout and stderr merged in the order
 // they were written (2>&1 into one pipe; cli() keeps them apart), then `$ echo $?` and the exit code. Put
 // node_modules/.bin first on PATH (env) to run the bin by name, as a user or an npm script would.
@@ -95,6 +100,7 @@ async function term(command, options = {}) {
 	const result = await shell(`printf '%s\\n' ${quote(`$ ${command}`)}\n{ ${command}\n} 2>&1\nprintf '$ echo $?\\n%s\\n' "$?"`, options);
 	return result.stdout.replace(/\n$/, '') + (result.stderr ? `\n(shell stderr) ${result.stderr}` : '');
 }
+// ===== end: bin =====
 
 async function capture(label, fn) {
 	try {
@@ -181,6 +187,7 @@ const cjs = require(PACKAGE);
 show('esm exports', Object.keys(esm).sort());
 show('cjs exports', Object.keys(cjs).sort());
 
+// ===== section: bin =====
 const binEntry = typeof pkg.bin === 'string' ? pkg.bin : pkg.bin && Object.values(pkg.bin)[0];
 // The published bin, run with this Node; stdout, stderr and the exit code are all recorded.
 // Asynchronous on purpose: spawnSync blocks this process's event loop, and with it the
@@ -206,7 +213,14 @@ function cli(...args) {
 		});
 	});
 }
+// ===== end: bin =====
 
+// A package with a bin needs cli(), which `wikiwright.py scaffold` keeps only with --bin.
+if (pkg.bin && typeof cli === 'undefined') {
+	throw new Error('the package has a bin: run wikiwright.py scaffold again with --bin');
+}
+
+// ===== section: requests =====
 // ----- local fixture server (delete when the package makes no requests) -----
 // One route per behaviour the wiki shows. Add routes; never call a real site.
 const routes = {
@@ -233,6 +247,11 @@ const base = `http://127.0.0.1:${server.address().port}`;
 // Pages show the fixture as https://example.com (outputs maps it back); the files snippet() writes use the fixture.
 SNIPPET.replace = {'https://example.com': base};
 
+// Servers the end of the script closes, or the process (and the OLDEST_NODE rerun) never exits.
+const closers = [];
+// ===== end: requests =====
+
+// ===== section: by-host =====
 // ----- by host name (delete unless the package requests the hosts its input names, L-116) -----
 // Copy ../host-fixture.mjs beside this script (and into the repository's ai-docs/notes/ with it). It serves
 // `handle` under the real host names through a proxy with a throwaway CA, guards every child against sockets
@@ -241,19 +260,21 @@ SNIPPET.replace = {'https://example.com': base};
 // cannot pass for behaviour. A package that calls the global fetch at call time, run in Node only, can use a
 // fetch wrapper instead (L-115); read the repository's test helpers first, they often have one.
 let fx;
-// Servers the end of the script closes, or the process (and the OLDEST_NODE rerun) never exits.
-const closers = [];
 if (false) {
 	const {startHostFixture} = await import('./host-fixture.mjs');
 	fx = await startHostFixture({hosts: ['example.com'], handle: (url, request, response) => server.emit('request', request, response)});
 	show('guard', fx.guardCheck);
 	show('lookups reach the fixture through', fx.route);
 	closers.push(fx);
+// ===== section: bin =====
 	CLI_ENV = fx.env;
+// ===== end: bin =====
 	SNIPPET.env = fx.env;
 	SNIPPET.replace = {};
 }
+// ===== end: by-host =====
 
+// ===== section: files =====
 // ----- files on disk (delete unless the package writes, moves or deletes files, L-130) -----
 // Copy ../file-tree.mjs beside this script (and into the repository's ai-docs/notes/ with it). Every case gets a
 // fresh scratch copy of its tree under ./trees, so no case sees another's rewrite and nothing touches the
@@ -266,16 +287,20 @@ async function inTree(label, spec, fn, options) {
 	const {treeCase} = await import('./file-tree.mjs');
 	show(label, await treeCase(spec, fn, options));
 }
+// ===== section: bin =====
 // await inTree('commands: a folder', {'data/a.json': '{"a":1}'}, ({root}) => cli('data', {cwd: root}));
+// ===== end: bin =====
 // await inTree('api: report', {'a.json': '{"a":1}'}, () => esm.default('a.json'), {chdir: true});
 // await inTree('recipes: a folder', {'a.json': '{"a":1}'}, ({root}) => runSnippet('recipes: a folder', `
 // <the page's code>
 // `, {cwd: root}));
+// ===== end: files =====
 
 // ----- the cases: one per example on the wiki, labelled by page -----
 // Every code block a page shows is a snippet() holding it as the page shows it; capture() and show() are for checks
 // no page shows (errors, membership, the golden replay).
 // Getting started
+// ===== section: example =====
 await snippet('getting-started esm', `
 import pkg from '{{PACKAGE}}';
 
@@ -288,15 +313,19 @@ pkg('https://example.com/').then(result => {
   console.log(result);
 });
 `, {type: 'commonjs'});
+// ===== end: example =====
+// ===== section: bin =====
 if (binEntry) {
 	show('commands help', await cli('--help'));
 }
+// ===== end: bin =====
 
 // Old majors (Versions and upgrading): install each in its own scratch folder and pass
 // V2=<folder> (etc.); load it with createRequire(path.join(folder, 'index.js')) or a file:// import.
 
 // API reference, behaviour, recipes, FAQ: a snippet() per code block here.
 
+// ===== section: golden =====
 // ----- golden captures, replayed today (L-020, L-113) -----
 // When the repository keeps test/golden/capture-<old>.cjs and <old>.json: set GOLDEN=<the clone's test/golden>
 // and OLD=<a folder with PACKAGE@<old> and whatever the capture requires installed>. The capture runs as a
@@ -347,6 +376,7 @@ if (GOLDEN && OLD) {
 		show(label, lines.join('\n'));
 	}
 }
+// ===== end: golden =====
 
 // ----- the oldest Node line in engines (L-106) -----
 // OLDEST_NODE=<major> reruns this whole script under that Node (downloaded by npx) and saves that run as
@@ -374,9 +404,11 @@ if (OLDEST_NODE && !WIKI_VERIFY_CHILD) {
 	show(`oldest node: node@${OLDEST_NODE}`, `${(await run(oldNode, ['--version'])).stdout.trim()}, exit ${rerun.code}, output saved as ${outName}`);
 }
 
+// ===== section: requests =====
 for (const each of [server, ...closers]) {
 	each.closeAllConnections?.();
 	each.close();
 }
 
 show('requests the fixture server saw', seen);
+// ===== end: requests =====

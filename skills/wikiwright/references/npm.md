@@ -26,18 +26,29 @@ Write each number down with the date it was read. The tarball can hold files the
 Outside the repository (the session scratchpad or a temp folder), so the working tree cannot leak in:
 
 ```sh
-npm init -y
-npm install PACKAGE@VERSION
+python <skill>/scripts/wikiwright.py scaffold npm PACKAGE VERSION -o <scratch>/wiki-verify.mjs
+npm install --prefix <scratch> PACKAGE@VERSION typescript
 ```
 
-`npm init -y --prefix <dir>` still writes `package.json` into the current folder, not `<dir>`: run `npm init` in the scratch folder itself (a script that changes to its own folder), or write the file with the editor. A stray `package.json` made Yarn 4 refuse to install in the sixth run, and one landed in the skill's own source folder the same day (L-017).
+Write `<scratch>/package.json` with the editor first (`{"private": true}` is enough). `npm init -y --prefix <dir>` still writes `package.json` into the current folder, not `<dir>`: a stray `package.json` made Yarn 4 refuse to install in the sixth run, and one landed in the skill's own source folder the same day (L-017). `npm install --prefix` does install into `<dir>`.
 
-Copy [../templates/npm/wiki-verify.template.mjs](../templates/npm/wiki-verify.template.mjs) in, fill in the cases, run `node wiki-verify.mjs`. The template:
+`scaffold` writes [../templates/npm/wiki-verify.template.mjs](../templates/npm/wiki-verify.template.mjs) with the package and version filled in and only the sections the package needs, then prints the bytes, the sections kept and what to fill next. Add the cases and run `node wiki-verify.mjs`. The core, always kept:
 
 - checks that the installed version is the one the wiki describes
 - imports the package both ways (`import` and `createRequire`) and lists the exports of each, which is the API reference's export list
-- runs the published bin with the current Node and records the exit code, stdout and stderr separately
-- starts a local fixture server with one route per behaviour, for packages that make requests
+- `snippet()` and `runSnippet()`, the cases section and the `OLDEST_NODE` rerun
+
+Each flag keeps one section, cut from the template at its `// ===== section: NAME =====` and `// ===== end: NAME =====` lines (they nest, and the template runs unchanged with all of them):
+
+| Flag | Section | For a package that |
+|---|---|---|
+| `--bin` | `cli()`, `term()` and the `--help` case: runs the published bin with the current Node and records the exit code, stdout and stderr separately | has a bin (the `bin` field of `wikiwright.py registry`). Without the flag, the script stops at start when the installed package has one. |
+| `--requests` | the local fixture server, one route per behaviour | makes requests |
+| `--by-host` | the host-name kit, switched on (implies `--requests`); copies `host-fixture.mjs` beside the script | requests the hosts its input names |
+| `--files` | `inTree()`; copies `file-tree.mjs` beside the script | writes, moves or deletes files |
+| `--golden OLD_VERSION` | the golden replay of `capture-OLD_VERSION.cjs` | has golden captures in its repository |
+
+It refuses to overwrite the script or a kit without `--force`. For replace-string-at-position 2.0.0 (no bin, no requests, no files) the script came to 11,197 bytes where the template is 21,140, and the run skipped the copy, two placeholder edits and five section deletions (2026-09-30, C-20260930-7).
 
 Every code block on a page is one `snippet()` in the script, labelled by page. It holds the block as the page shows it, in a template literal, writes it to `snippets/<label>.mjs` (`.cjs`, or `.mts` compiled by the scratch project's `tsc`), runs that file with the script's Node and prints what it printed. So `wikiwright.py snippets` finds every block, and an `OLDEST_NODE` rerun runs the snippets on the old Node too. In the literal, write a backslash as `\\`, a backtick as `` \` `` and `${` as `\${`; `String.raw` would keep the backslash before the last two. The written file swaps the pages' `https://example.com` for the fixture address, and takes `env`, `args` (such as `--import` for a fetch router), `cwd` (a file-tree root) and code to run before or after the page's. A `//=>` line prints the statement above it. For get-title-at-url 3.0.0, five blocks from Getting started and Recipes went into snippets: `snippets` found 5 of 5 and `outputs` 5 of 5, where the earlier script, which ran its cases as its own code, matched none of the five. Checks no page shows (error fields, membership, the golden replay) stay `capture()` or `show()`.
 
