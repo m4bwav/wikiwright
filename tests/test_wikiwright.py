@@ -893,7 +893,8 @@ class TemplateTests(unittest.TestCase):
         for piece in ("async function runSnippet(label, code, {type = 'module', before = '', after = '', "
                       "runtime = process.execPath,", "async function snippet(label, code, options)",
                       "function prints(code)", "console.log('%O', ", "SNIPPET.replace = {'https://example.com': base};",
-                      "SNIPPET.env = fx.env;", "path.resolve('node_modules', 'typescript', 'bin', 'tsc')",
+                      "SNIPPET.env = fx.env;", "path.resolve('node_modules', typescript)",
+                      "path.join(compiler, 'bin', 'tsc')", "dir = 'snippets', ext = '.mts', typescript = 'typescript',",
                       "// ----- end of page examples -----", "Not String.raw"):
             self.assertIn(piece, text)
         note = " ".join(line.lstrip("/ ") for line in text.splitlines() if line.startswith("//"))
@@ -1108,7 +1109,8 @@ SECTION_SIGNS = {
                  "show('requests the fixture server saw', seen);", "const closers = [];"),
     "by-host": ("import('./host-fixture.mjs')", "closers.push(fx);"),
     "files": ("async function inTree(label, spec, fn, options) {",),
-    "golden": ("const {GOLDEN, OLD} = process.env;",),
+    "golden": ("const {GOLDEN, OLD} = process.env;", "function compareResults(got) {", "function compareViews(got) {",
+               ".matchAll(/require"),
     "example": ("await snippet('getting-started esm', `",),
 }
 CORE_SIGNS = ("const require = createRequire(import.meta.url);", "async function snippet(label, code, options) {",
@@ -1233,6 +1235,118 @@ class ScaffoldTests(unittest.TestCase):
         self.assertEqual(wikiwright.trim_sections(
             "a\n\n// ===== section: s =====\nb\n// ===== section: t =====\nc\n// ===== end: t =====\n"
             "// ===== end: s =====\n\nd", {"s"}), "a\n\nb\n\nd")
+
+    def test_package_json_is_written_once_and_the_header_never_says_npm_init(self):
+        # Item 1 of the eighth run (L-017): the header said `npm init -y`; scaffold now writes package.json itself.
+        self.assertNotIn("//   npm init", self.template)
+        self.assertIn("never `npm init -y` (L-017)", self.template)
+        manifest = os.path.join(self.d, "package.json")
+        code, printed, _ = self.scaffold()
+        self.assertEqual(code, 0, printed)
+        with open(manifest, "rb") as fh:
+            self.assertEqual(fh.read(), b'{"private": true}\n')
+        self.assertIn('package.json: wrote {"private": true}', printed)
+        self.assertNotIn("npm init", printed)
+        with open(manifest, "wb") as fh:
+            fh.write(b'{"private": true, "type": "module"}\n')
+        os.remove(os.path.join(self.d, "wiki-verify.mjs"))
+        code, printed, _ = self.scaffold()  # an existing package.json needs no --force and is kept
+        self.assertEqual(code, 0, printed)
+        self.assertIn("package.json: already there", printed)
+        with open(manifest, "rb") as fh:
+            self.assertEqual(fh.read(), b'{"private": true, "type": "module"}\n')
+
+    def write_tree(self, root, files):
+        for name, text in files.items():
+            path = os.path.join(root, *name.split("/"))
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "wb") as fh:
+                fh.write(text.encode("utf-8"))
+
+    def widget(self, version, body):
+        return {"node_modules/@scope/widget/package.json": json.dumps({"name": "@scope/widget", "version": version}),
+                "node_modules/@scope/widget/index.js": body}
+
+    def replay(self, golden):
+        env = dict(os.environ, GOLDEN=golden, OLD=os.path.join(self.d, "old"))
+        env.pop("OLDEST_NODE", None)
+        done = subprocess.run(["node", os.path.join(self.d, "wiki-verify.mjs")], capture_output=True, env=env)
+        self.assertEqual(done.returncode, 0, done.stderr.decode("utf-8", "replace"))
+        text = done.stdout.decode("utf-8").replace("\r\n", "\n")
+        return {part.split("\n", 1)[0]: part.split("\n", 1)[1].strip() for part in text.split("## ")[1:]}
+
+    @unittest.skipUnless(shutil.which("node"), "needs Node")
+    def test_golden_replay_reads_both_capture_formats(self):
+        # Items 2 and 3 of the eighth run: the comparator follows the golden file's shape, the helpers come from the
+        # capture's own require lines, and values are compared parsed (the golden file holds raw UTF-8, the replay
+        # writes ASCII escapes), with the header's date and Node left out and the quirks compared apart.
+        self.assertEqual(self.scaffold("--golden", "1.0.0")[0], 0)
+        self.write_tree(self.d, self.widget("2.1.0", "exports.up = (s, locale) => String(s).toUpperCase();\n"))
+        self.write_tree(os.path.join(self.d, "old"), self.widget("1.0.0", "exports.up = s => s.toUpperCase();\n"))
+        e_acute, e_upper = chr(233), chr(201)
+        codec = ("exports.encode = value => value;\n"
+                 "exports.capture = fn => {\n\ttry {\n\t\treturn fn();\n\t} catch (error) {\n"
+                 "\t\treturn {$throws: error.message, $error: error.name};\n\t}\n};\n")
+        sync_capture = "\n".join([
+            "'use strict';",
+            "const {encode, capture} = require('./codec.cjs');",
+            "if (process.env.NEVER_SET) {",
+            "\trequire('./capture-proxy.cjs');",
+            "}",
+            "const widget = require('@scope/widget');",
+            "const {version} = require('@scope/widget/package.json');",
+            "const cases = [['up', [String.fromCharCode(233)]], ['up', ['a']], ['up', [1]]].map(([method, args]) => "
+            "({method, args: encode(args), calls: 1, results: [capture(() => widget[method](...args))]}));",
+            "const header = {package: `@scope/widget@${version}`, dependencies: {}, node: process.version, "
+            "captured: new Date().toISOString().slice(0, 10), quirks: {arity: widget.up.length, kind: typeof widget.up}};",
+            "let out = '';",
+            "for (const ch of JSON.stringify({...header, cases})) {",
+            "\tconst code = ch.charCodeAt(0);",
+            "\tout += code < 127 ? ch : String.fromCharCode(92) + 'u' + code.toString(16).padStart(4, '0');",
+            "}",
+            "process.stdout.write(out);",
+            ""])
+        sync_want = {"package": "@scope/widget@1.0.0", "dependencies": {}, "node": "v0.0.0", "captured": "2000-01-01",
+                     "note": "raw UTF-8, as older captures were written", "quirks": {"arity": 1, "kind": "function"},
+                     "cases": [{"method": "up", "args": [e_acute], "calls": 1, "results": [e_upper]},
+                               {"method": "up", "args": ["a"], "calls": 1, "results": ["A"]},
+                               {"method": "up", "args": [1], "calls": 1, "results": [
+                                   {"$throws": "s.toUpperCase is not a function", "$error": "TypeError"}]}]}
+        sync = os.path.join(self.d, "golden-sync")
+        self.write_tree(sync, {"capture-1.0.0.cjs": sync_capture, "codec.cjs": codec,
+                               "1.0.0.json": json.dumps(sync_want, ensure_ascii=False, indent="\t")})
+        with open(os.path.join(sync, "1.0.0.json"), "rb") as fh:
+            self.assertIn(e_acute.encode("utf-8"), fh.read())
+        shown = self.replay(sync)
+        self.assertIn('"codec.cjs"', shown["golden: the capture and the files it requires"])
+        self.assertNotIn("capture-proxy", shown["golden: the capture and the files it requires"])
+        self.assertEqual(shown["golden: 1.0.0 today"].split("\n"), [
+            "@scope/widget@1.0.0: 3 cases in the golden file, 3 replayed", "results: 3 identical, 0 differ",
+            "header dependencies: same", "quirk arity: same", "quirk kind: same"])
+        self.assertEqual(shown["golden: 2.1.0"].split("\n"), [
+            "@scope/widget@2.1.0: 3 cases in the golden file, 3 replayed", "results: 2 identical, 1 differ",
+            "  now returns another value: 1",
+            '#2 (1): {"$throws":"s.toUpperCase is not a function","$error":"TypeError"} -> "1"',
+            "header dependencies: same", "quirk arity: 1 -> 2", "quirk kind: same"])
+
+        # The network format: named cases, answers, timing and requests as three views.
+        net_capture = "\n".join([
+            "const widget = require('@scope/widget');",
+            "const calls = [{args: [1], sync: false}];",
+            "process.stdout.write(JSON.stringify({cases: [",
+            "\t{name: 'one', returned: widget.up('a'), calls, requests: ['GET /']},",
+            "\t{name: 'two', returned: widget.up.length, calls, requests: ['GET /']},",
+            "]}));",
+            ""])
+        net_want = {"cases": [{"name": "one", "returned": "A", "calls": [{"args": [1], "sync": False}], "requests": ["GET /"]},
+                              {"name": "two", "returned": 1, "calls": [{"args": [1], "sync": False}], "requests": ["GET /"]}]}
+        net = os.path.join(self.d, "golden-net")
+        self.write_tree(net, {"capture-1.0.0.cjs": net_capture, "1.0.0.json": json.dumps(net_want)})
+        shown = self.replay(net)
+        self.assertEqual(shown["golden: 1.0.0 today"].split("\n"), [
+            "2 cases", "answers: 2 identical", "timing: 2 identical", "requests: 2 identical"])
+        self.assertEqual(shown["golden: 2.1.0"].split("\n"), [
+            "2 cases", "answers: 1 identical; differ: two", "timing: 2 identical", "requests: 2 identical"])
 
 
 def rmtree(d):
