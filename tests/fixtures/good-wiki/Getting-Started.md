@@ -1,5 +1,3 @@
-# Getting started
-
 ## Install
 
 ```sh
