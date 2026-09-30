@@ -777,6 +777,33 @@ class TemplateTests(unittest.TestCase):
             self.assertIn(name, kit)
         self.assertNotIn("\uFEFF", kit)
 
+    def test_nuget_template_request_route(self):
+        # L-137, L-138: the .NET request route; a package that makes no requests deletes both blocks.
+        text = self.read(os.path.join("..", "nuget", "wiki-verify.template.cs"))
+        start, end = "// ===== requests (1 of 2)", "// ===== end of requests (2 of 2) ====="
+        block = text[text.index(start):text.index(end)]
+        for piece in ('"http://gate.invalid/", "https://gate.invalid/"', "GATE FAILED", "Environment.Exit(1)",
+                      "REFUSED BY THE STAND-IN", "403 Forbidden", "WebRequest.DefaultWebProxy",
+                      "#if NETFRAMEWORK", "TargetFramework=%TFM%", "ProxyEnv(null)", "AuthenticateAsServerAsync"):
+            self.assertIn(piece, block)
+        # The gate wants each call to throw and be logged once; the stand-in never connects out.
+        self.assertIn('l.StartsWith("stand-in: ") && l.Contains("gate.invalid")) != 4', block)
+        stand_in = block[block.index("sealed class StandIn"):]
+        for outbound in ("new TcpClient(", "ConnectAsync(", ".Connect(", "new HttpClient("):
+            self.assertNotIn(outbound, stand_in)
+        # Run() takes an environment and a folder and reads stderr while stdout drains.
+        self.assertIn("static string Run(string file, string[] args, Dictionary<string, string?>? env = null, "
+                      "string? cwd = null)", text)
+        self.assertIn("p.StandardError.ReadToEndAsync()", text)
+        self.assertIn("static string Mask(string text)", text)
+        self.assertIn("TMPDIR", text)
+        # With both blocks cut, no code line names the route.
+        rest = text[:text.index(start)] + text[text.index("// ===== end of requests (1 of 2)"):]
+        rest = rest[:rest.index("// ===== requests (2 of 2)")] + rest[rest.index(end):]
+        code = [line for line in rest.splitlines() if not line.lstrip().startswith("//")]
+        for name in ("StandIn", "ProxyEnv", "RunSnippet", "BuildChild", "Seen(", "Answer"):
+            self.assertFalse([line for line in code if name in line], name)
+
     def test_grader_sees_a_recorder_that_names_no_host(self):
         # L-122: a fetch wrapper that passes requests through, then run, is a request to the real service.
         spec = importlib.util.spec_from_file_location(

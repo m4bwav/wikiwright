@@ -23,9 +23,10 @@ curl -sO https://api.nuget.org/v3-flatcontainer/ID/VERSION/ID.VERSION.nupkg     
 A .NET 10 file-based app from [../templates/nuget/wiki-verify.template.cs](../templates/nuget/wiki-verify.template.cs), in a folder outside any project cone:
 
 ```sh
-dotnet run wiki-verify.cs
+dotnet build wiki-verify.cs && dotnet run --no-build wiki-verify.cs > out.txt
 ```
 
+- Build first: a plain first `dotnet run` prints its build warnings into the output.
 - `#:package ID@VERSION` pins the published package, so the working tree cannot leak in.
 - `#:property PublishAot=false` is required whenever reflection runs: .NET 10 file-based apps enable native AOT by default, and reflection-based System.Text.Json then throws `InvalidOperationException: Reflection-based serialization has been disabled` even under `dotnet run` (learn.microsoft.com/dotnet/core/sdk/file-based-apps).
 - Two runs of the same file at once contend for its build output. Use separate folders, or `dotnet build` once and then `dotnet run --no-build`.
@@ -33,12 +34,26 @@ dotnet run wiki-verify.cs
 - `Console.WriteLine` writes CRLF on Windows. Save the output with LF (`tr -d '\r'`), so a run on Linux diffs clean (L-105 `csharp-verify-program`).
 - Save the program as `ai-docs/notes/<date>-wiki-verify.cs` and its output beside it, as for npm. Two runs must be identical; a random value is printed only after a membership check (L-111 `membership-for-random`).
 
-Where the wiki shows other languages or hosts, run them too, from the program, so their output is in the saved file (the template's `Run()` starts a process and returns its output with LF endings):
+Where the wiki shows other languages or hosts, run them too, from the program, so their output is in the saved file. The template's `Run()` starts a process with optional environment and working folder, reads both streams at once and returns the output with LF endings; `Mask()` hides local paths and ports.
 
-- F#: `dotnet fsi --quiet script.fsx` with `#r "nuget: ID, VERSION"`; the program writes the page's snippet to a temp `.fsx` first.
+- F#: `dotnet fsi --quiet script.fsx` with `#r "nuget: ID, VERSION"`; the program writes the page's snippet to a temp `.fsx` first. fsi restores the package when the script runs, so a script that requests needs its cache warmed first, without the proxy variables.
 - PowerShell 7: `Add-Type -Path <the DLL from the nupkg's lib/netX folder>`; note the PowerShell and .NET versions on the page. `pwsh -NoProfile -NonInteractive -Command <the snippet>` runs it as written; after `dotnet run` restored the package, the DLL is in the NuGet cache path the page shows.
-- .NET Framework: a net48 project when the package targets netstandard2.0 and the page makes a claim about Framework behaviour (thread safety, `Random` seeding).
+- .NET Framework and older builds: a file-based app with `#:property TargetFramework=net48` runs on .NET Framework 4.8 (Windows only) and loads the package's net46x to net48 build. With `net8.0` it loads a netstandard2.0 build. The program writes such children and runs them, so one file covers every build the package ships. Framework's exception messages and HTTP handler differ from .NET 10's; label each output with its runtime.
+- Linux in WSL: a user-level `dotnet-install.sh --install-dir <scratch>` needs `bash`, not `sh`. .NET stops at start without libicu: `apt-get download libicu<N>` and `dpkg -x` into scratch, with its `usr/lib/<arch>` folder on `LD_LIBRARY_PATH`, avoid a system package. Invariant globalization mode also starts, but it changes culture-dependent answers. Set a distinctive `TMPDIR`, or masking `/tmp` rewrites content such as `file:///tmp/a.png`.
 - Unity, Xamarin and other hosts that were not run: say "not tested" on the page.
+
+## Packages that make requests
+
+The template's two `requests` blocks verify a package that makes HTTP requests without asking any real host; a package that makes none deletes them. First proved on IsImageUrlDotNet 2.0.0 on .NET 10 and .NET Framework 4.8 (2026-09-29).
+
+- `StandIn` is a proxy on 127.0.0.1 that answers the `.test` host names in `routes` from fixed answers. It takes http as absolute-form requests, and https as CONNECT and then TLS with a throwaway certificate that only the test client `StandInClient()` trusts. It never opens a socket of its own and logs each request line with its host.
+- It refuses every other host by answering: a reply that is not HTTP, or 403 to CONNECT. A stand-in that closes the connection makes HttpClient retry, 4 GETs or 16 CONNECTs per call on .NET 10 and 2 on .NET Framework (L-138 `refuse-by-answering`).
+- The pages' request snippets run in child apps, one per build. .NET Core and .NET 5+ read `HTTP_PROXY` and `HTTPS_PROXY`. .NET Framework ignores them, so the Framework child sets `WebRequest.DefaultWebProxy` before any snippet, and since Framework never proxies a loopback address the routes use `.test` names, never 127.0.0.1 (L-137 `dotnet-request-route`).
+- Restores run without the proxy variables: the children's builds, and `dotnet fsi` warmed with a script holding only the `#r` line.
+- The gate comes before any case, on every route (each child, fsi): the package's default client and a caller's `new HttpClient()` ask `http://gate.invalid/` and `https://gate.invalid/`. Each call must throw and appear in the stand-in's log exactly once, or the program exits 1. A call missing from the log went around the stand-in; a repeated one was retried.
+- Pages show the `.test` names or say the stand-in answered, and the real hosts are never asked (L-116 `by-host-name-proxy`, L-122 `sample-content-not-live`). An https row that needed `StandInClient()` says so.
+- Requests sent at once arrive in any order: sort their log lines, or print one call per snippet.
+- Check the pages with `wikiwright.py outputs --address ''`. The default treats `https://example.com` on a page as the fixture's `127.0.0.1` address, the npm kit's convention, which a `.test` route does not use.
 
 ## How the pages show output
 

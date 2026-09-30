@@ -182,3 +182,19 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: the eval run's `outputs` lines before and after the tag; scripts/wikiwright.py (`cmd_outputs`) and OutputsTests; references/page-sets.md ("How `wikiwright.py outputs` reads a page")
 - Scope: skill
 - Status: promoted: C-20260929-13 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-137 · 2026-09-29 · A .NET package's requests reach a stand-in by a different route on each runtime (`dotnet-request-route`)
+- Trigger: the seventh run (IsImageUrlDotNet 2.0.0) found no .NET request route in the skill; the npm host-fixture kit is Node-only, so the run built its own proxy and gate in C#.
+- Hypothesis: one proxy setting covers every .NET runtime, as `HTTP_PROXY` does for Node children.
+- Rule: .NET Core and .NET 5+ read `HTTP_PROXY`/`HTTPS_PROXY`; .NET Framework ignores them, so its child sets `WebRequest.DefaultWebProxy`, and since Framework never proxies a loopback address the routes use `.test` names. Restores (child builds, fsi's `#r "nuget:"`) run without the proxy variables, first. The `.invalid` gate runs on every route before any case.
+- Evidence: the run's report ("Request route", ".NET Framework and Linux"); the template filled for IsImageUrlDotNet 2.0.0, where net48 without the `DefaultWebProxy` line failed the gate with "stand-in: no request"
+- Scope: skill (NuGet)
+- Status: promoted: C-20260929-15 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-138 · 2026-09-29 · A stand-in that refuses by closing the connection makes HttpClient retry (`refuse-by-answering`)
+- Trigger: the seventh run's first stand-in closed connections to unknown hosts; HttpClient sent 4 GETs and 16 CONNECTs per call on .NET 10, 2 and 4 on .NET Framework.
+- Hypothesis: a closed connection fails a request at once.
+- Rule: refuse by answering: a reply that is not HTTP to a GET, 403 to a CONNECT. The gate expects each call logged exactly once, so a retry fails it.
+- Evidence: the run's report ("One surprise"); the template's negative variant that closed instead logged 4 GETs per http call on .NET 10 and failed the gate
+- Scope: skill (NuGet; any stand-in proxy)
+- Status: promoted: C-20260929-15 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
