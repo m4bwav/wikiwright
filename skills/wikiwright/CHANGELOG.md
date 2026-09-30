@@ -4,6 +4,16 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260930-5 · 2026-09-30 · Release 0.7.2: the page title is printed once (`release-0.7.2`)
+- because: C-20260930-4; T-20260930-2
+- files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, history)
+- `wikiwright.py releasecheck 0.7.2` checks the four version fields, this entry and T-20260930-2.
+
+### C-20260930-4 · 2026-09-30 · A page never repeats the title the host prints (`title-printed-once`)
+- because: user request (Mark, on get-title-at-url's wiki: "Getting Started" printed by GitHub, then the page's own "Getting started"; "saying the same thing twice exactly is a mistake most humans wouldn't make"); L-139
+- files: scripts/wikiwright.py (`check`: a first heading with the file-name title's words, and a heading straight under one with the same words, are errors; `same_words_key()`); tests/test_wikiwright.py (`test_title_printed_once`; the fixtures no longer open with their title); references/page-sets.md (Conventions: the rule, which used to allow a `#` heading repeating the title); SKILL.md (Step 5); LEARNINGS.md (L-139; L-136 to L-138 shortened to their rule, full text in LEARNINGS-ARCHIVE.md); everwrite's checker gained the same tell (`repeated-heading`, `--wiki`; its C-20260930-1)
+- page-sets.md had said a page may start "with a `#` heading that repeats the title", so five of the nine wikis did: 44 pages across get-title-at-url, is-an-image-url, markdown-plain-link-replacer, JsonPrettyPrinter and RandomNameGeneratorLibrary. Each wiki was fixed the same day (the first heading and its blank line removed, the footer date moved) and passed `check` and `live`.
+
 ### C-20260930-3 · 2026-09-30 · Release 0.7.1: npm snippets as text (`release-0.7.1`)
 - because: user request ("keep going" after 0.7.0); C-20260930-1, C-20260930-2; T-20260930-1
 - files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history)

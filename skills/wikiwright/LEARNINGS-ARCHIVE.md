@@ -558,3 +558,31 @@ Verbatim as they stood at commit 1798378, in file order; merged entries end with
 - Merged: 2026-09-29 into L-125 `host-page-rules`.
 
 Related: builds on [Learnings: wikiwright](LEARNINGS.md); see also [Changelog: wikiwright](CHANGELOG.md)
+
+## Full text of shortened entries (2026-09-30)
+
+L-136 to L-138 were promoted in 0.7.0 and shortened to their rule when L-139 was added.
+
+### L-136 · 2026-09-29 · `outputs` exited 0 when it checked nothing (`zero-checked-passes`)
+- Trigger: an eval draft of IsImageUrlDotNet's Home (T-20260929-4) put its output in an untagged fence after the lead line "Output, from IsImageUrlDotNet 2.0.0 installed from nuget.org:". The intro word sits more than six words before the colon and the block follows prose, so `outputs` read no output, printed "1 pages, 0 outputs checked, 0 missing" and exited 0. Tagging the fence `text` gave 1 checked.
+- Hypothesis: `outputs` reports what is missing; a page it never read has nothing missing.
+- Rule: tag every output fence `text`, and read the "N outputs checked" count, not only the exit code. `outputs` now exits 1 when the pages hold code blocks and it recognised no output (a page with none says so with `<!-- outputs: skip (reason) -->`).
+- Evidence: the eval run's `outputs` lines before and after the tag; scripts/wikiwright.py (`cmd_outputs`) and OutputsTests; references/page-sets.md ("How `wikiwright.py outputs` reads a page")
+- Scope: skill
+- Status: promoted: C-20260929-13 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-137 · 2026-09-29 · A .NET package's requests reach a stand-in by a different route on each runtime (`dotnet-request-route`)
+- Trigger: the seventh run (IsImageUrlDotNet 2.0.0) found no .NET request route in the skill; the npm host-fixture kit is Node-only, so the run built its own proxy and gate in C#.
+- Hypothesis: one proxy setting covers every .NET runtime, as `HTTP_PROXY` does for Node children.
+- Rule: .NET Core and .NET 5+ read `HTTP_PROXY`/`HTTPS_PROXY`; .NET Framework ignores them, so its child sets `WebRequest.DefaultWebProxy`, and since Framework never proxies a loopback address the routes use `.test` names. Restores (child builds, fsi's `#r "nuget:"`) run without the proxy variables, first. The `.invalid` gate runs on every route before any case.
+- Evidence: the run's report ("Request route", ".NET Framework and Linux"); the template filled for IsImageUrlDotNet 2.0.0, where net48 without the `DefaultWebProxy` line failed the gate with "stand-in: no request"
+- Scope: skill (NuGet)
+- Status: promoted: C-20260929-15 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-138 · 2026-09-29 · A stand-in that refuses by closing the connection makes HttpClient retry (`refuse-by-answering`)
+- Trigger: the seventh run's first stand-in closed connections to unknown hosts; HttpClient sent 4 GETs and 16 CONNECTs per call on .NET 10, 2 and 4 on .NET Framework.
+- Hypothesis: a closed connection fails a request at once.
+- Rule: refuse by answering: a reply that is not HTTP to a GET, 403 to a CONNECT. The gate expects each call logged exactly once, so a retry fails it.
+- Evidence: the run's report ("One surprise"); the template's negative variant that closed instead logged 4 GETs per http call on .NET 10 and failed the gate
+- Scope: skill (NuGet; any stand-in proxy)
+- Status: promoted: C-20260929-15 · helpful 1 · harmful 0 · last_confirmed 2026-09-29

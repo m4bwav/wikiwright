@@ -74,13 +74,19 @@
       "m": null,
       "interval_after": 14,
       "note": "0.7.1: the npm template holds page snippets as text (snippets gates npm wikis); print tool versions in update mode; no new research"
+    },
+    {
+      "date": "2026-09-30",
+      "m": null,
+      "interval_after": 14,
+      "note": "0.7.2: a page never repeats the title the host prints (L-139); five wikis fixed; no new research"
     }
   ],
   "counts": {
-    "learnings": 32,
-    "changes": 26,
+    "learnings": 33,
+    "changes": 28,
     "research": 4,
-    "tests": 10
+    "tests": 11
   },
   "consolidate_every": 25,
   "tests": {
@@ -97,5 +103,5 @@
     },
     "research_after_days": null
   },
-  "version": "0.7.1"
+  "version": "0.7.2"
 }

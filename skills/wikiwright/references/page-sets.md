@@ -110,7 +110,7 @@ An application, a website, a monorepo with several packages and a command-line t
 ## Conventions every page follows
 
 - File names: words joined by hyphens, a capital on each word (`Getting-Started.md`), because GitHub shows the file name with spaces as the page title. Page URLs are case-insensitive, but links should match the file name exactly. A title cannot contain these characters: backslash, `/ : * ? " < > |` (GitHub Docs, "Adding or editing wiki pages").
-- Headings in sentence case. The page title comes from the file name, so a page starts with its first paragraph or a `#` heading that repeats the title in sentence case; pick one pattern per wiki.
+- Headings in sentence case. The host prints the file name as the page title, so a page starts with its first paragraph, never a `#` heading that repeats the title: `Getting-Started.md` opening with `# Getting started` shows the title twice, one line under the other. Never put a heading straight under one with the same words either. `check` fails both (L-139 `title-printed-once`). Home is titled "Home", so a `#` heading naming the package there is not a repeat.
 - Links between pages are plain markdown with the page name: `[Recipes](Recipes)`, `[the errors](API-Reference#errors)`. No wikilinks (`[[Page]]`), no `.md` suffix, no site-absolute paths.
 - Examples show their real output, produced by the verification script against the published package. Input and output go in paired code blocks ("`pretty` is:" and then the block): a markdown table cannot hold multi-line output.
 - Anything not run says so: "not tested" beside the platform or runtime, never an implied yes (JsonPrettyPrinter's Unity row).

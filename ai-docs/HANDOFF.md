@@ -4,7 +4,7 @@ Updated 2026-09-30 (0.7.0 and 0.7.1 session). Read this first, then [log.md](log
 
 ## Current state
 
-- **wikiwright 0.7.1** (tags v0.7.0 and v0.7.1, GitHub Releases; 0.7.1 adds the npm template's `snippet()`, which holds each page block as text and runs it, so `snippets` gates npm wikis too; CI on Ubuntu, macOS and Windows; installed wikiwright@mark-local, `wikiwright.py cachecheck` all equal).
+- **wikiwright 0.7.2** (tags v0.7.0 to v0.7.2, GitHub Releases; 0.7.2 makes `check` fail a first heading that repeats the page title the host prints, L-139, and the five wikis that did it are fixed; 0.7.1 adds the npm template's `snippet()`, which holds each page block as text and runs it, so `snippets` gates npm wikis too; CI on Ubuntu, macOS and Windows; installed wikiwright@mark-local, `wikiwright.py cachecheck` all equal).
   - NuGet end to end: the NuGet template's `requests` blocks (a stand-in proxy answering `.test` names over http and https, refusal by answering, the `.invalid` gate in every per-framework child, `WebRequest.DefaultWebProxy` for .NET Framework), `Run()` with env and cwd, `Mask()`; references/nuget.md "Packages that make requests", the F# warm-up, net48 as a file-based app, Linux in WSL.
   - New commands: `registry` (the Step 2 registry survey, 9x to 66x smaller than the raw JSON), `snippets` (every C# and F# block on the pages is in the program; a review list for npm scripts). `live` checks every anchor link against the ids the host rendered (GitHub, Gitea, Forgejo). `outputs` fails when the pages hold code and it recognised no output (L-136).
   - LEARNINGS.md consolidated: 503 to 200 lines, the full text in LEARNINGS-ARCHIVE.md.

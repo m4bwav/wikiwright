@@ -8,6 +8,11 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20260930-2 · 2026-09-30 · `wikiwright.py check` over every published wiki + unit tests · Windows 11 native · 9/9 wikis clean after the fix
+- The new rule (C-20260930-4) against the nine published wikis' working copies: 44 errors on five wikis before (get-title-at-url 8, is-an-image-url 9, markdown-plain-link-replacer 9, JsonPrettyPrinter 10, RandomNameGeneratorLibrary 8), none on the four written after page-sets.md stopped showing a title heading in practice (seeded-random-utilities, stack-exchange-markdown-retriever, format-json-files, IsImageUrlDotNet). After the fix: `check` 0 errors on all nine, `live` 0 failures on the five pushed (wikis eb50da8, 5be45ea, 4ed8032, b808c10, 074a27f); no link pointed at a removed heading.
+- Unit tests 75 pass (`test_title_printed_once` new). Triggers and decoys not rerun: SKILL.md changed one bullet in Step 5, not the description.
+- led to: C-20260930-4
+
 ### T-20260930-1 · 2026-09-30 · claude plugin eval 2.1.281 (trigger, decoy) + unit and kit suites + a scratch proof of the npm snippet helper · Windows 11 native · 5/5 trigger and decoy cases; suites green
 - Scope: a patch release (0.7.1: the npm template holds page snippets as text, SKILL.md Steps 4 and 6 and Update mode step 3). The action cases were not rerun: action-1 and action-2 need a target with no wiki and no note, and the next one (replace-string-at-position) is kept fresh for the 0.8.0 session's suite (L-013). action-3's update route was exercised for real instead by the fourth get-title-at-url update the same day (wiki a020db1, its PR #25), done by a subagent from SKILL.md's Update mode.
 - trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without ($1.72). decoy-1, decoy-2: 0/6 invocations in both arms ($0.57).

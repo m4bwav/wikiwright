@@ -22,8 +22,8 @@ BACKSLASH = chr(92)
 
 GOOD = {
     "Home.md": "Widget 1.2.0 does one thing.\n\nSee [Getting started](Getting-Started) and [the API](API-Reference#options).\n",
-    "Getting-Started.md": "# Getting started\n\n## Install\n\n```sh\nnpm install widget\n```\n",
-    "API-Reference.md": "# API reference\n\n## Options\n\nText with `[[not a wikilink]]` in code.\n\n```\n[[also fine]]\n```\n",
+    "Getting-Started.md": "Install it first.\n\n## Install\n\n```sh\nnpm install widget\n```\n",
+    "API-Reference.md": "One function.\n\n## Options\n\nText with `[[not a wikilink]]` in code.\n\n```\n[[also fine]]\n```\n",
     "_Sidebar.md": "[Home](Home)\n\n- [Getting started](Getting-Started)\n- [API reference](API-Reference)\n",
     "_Footer.md": "This wiki describes widget 1.2.0 and was last updated on 2026-09-28.\n",
 }
@@ -102,8 +102,18 @@ class CheckTests(unittest.TestCase):
         self.assertIn("never closed", out)
         self.assertIn("Title Case", out)
 
+    def test_title_printed_once(self):
+        # L-139: GitHub prints the file name as the page title; `# Getting started` under it repeats it.
+        write(self.d, {"Getting-Started.md": "# Getting Started\n\nInstall it first.\n\n## Install\n\n### Install\n\nRun it.\n"})
+        code, out = run(["check", self.d])
+        self.assertEqual(code, 1, out)
+        self.assertIn("Getting-Started.md:1: error: the first heading repeats the page title", out)
+        self.assertIn("the same heading twice in a row: Install", out)
+        write(self.d, {"Getting-Started.md": "Intro.\n\n# Getting started\n\n## Install\n\nRun it.\n\n## Usage\n\n## Install again\n"})
+        self.assertEqual(run(["check", self.d])[0], 0)
+
     def test_duplicate_heading_anchor(self):
-        write(self.d, {"FAQ.md": "# FAQ\n\n## Why\n\n## Why\n",
+        write(self.d, {"FAQ.md": "Questions.\n\n## Why\n\nOne.\n\n## Why\n\nTwo.\n",
                        "Home.md": "[a](FAQ#why-1)\n",
                        "_Sidebar.md": GOOD["_Sidebar.md"] + "- [FAQ](FAQ)\n"})
         code, out = run(["check", self.d])

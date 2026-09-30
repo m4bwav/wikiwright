@@ -2,7 +2,7 @@
 name: wikiwright
 description: "Write or update a repository's GitHub wiki from the repository and its registry: survey the README, changelog, source, tests, issues and registry data, verify every example against the published package (npm or NuGet), write the page set for the repository's kind (Home, Getting started, API reference, behaviour, errors, Recipes, Commands, Versions and upgrading, FAQ, Development) with a sidebar and footer, push the .wiki.git repository and check every page is live. Use whenever the user asks to write, fill out, generate, create or update a wiki for a repo or package ('write a wiki for this repo', 'fill out the GitHub wiki', 'update the wiki for 2.4.0', 'wiki pages for my library', 'the wiki is empty'), or a package-modernize run reaches its wiki step. Also for 'refresh wikiwright' and 'is wikiwright stale'. Not for the README alone, a docs site (GitHub Pages, Docusaurus), an Obsidian vault (obsidian-notes) or ai-docs (everlast)."
 metadata:
-  version: "0.7.1"
+  version: "0.7.2"
 ---
 
 # wikiwright
@@ -62,7 +62,7 @@ Before an example goes on a page, run it against the **published** version, inst
 Conventions (full list in [references/page-sets.md](references/page-sets.md)):
 
 - File names hyphenated with a capital per word (`Getting-Started.md`).
-- Sentence-case headings.
+- Sentence-case headings, and no first heading that repeats the page title: the host already prints the file name above the page (L-139 `title-printed-once`).
 - Links as `[Recipes](Recipes)`: no wikilinks, no `.md`.
 - Input and output in paired code blocks, with real output only. A value shown in a code comment is quoted (`// "Marguerita"`) or written `// => value`; a command right after a code block gets its fence tag (```sh), or `outputs` reads it as that block's output.
 - The version that introduced each member in the API reference.

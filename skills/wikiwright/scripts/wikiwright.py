@@ -84,7 +84,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-VERSION = "0.7.1"
+VERSION = "0.7.2"
 BS = "<BS>"
 BACKSLASH = chr(92)
 SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md", "_sidebar.md")
@@ -528,6 +528,11 @@ def is_title_case(h):
     return len(rest) >= 2 and all(w[0].isupper() and not w.isupper() for w in rest)
 
 
+def same_words_key(text):
+    """A heading's words for comparison: case, markup and punctuation ignored."""
+    return " ".join(re.findall(r"\w+", text.lower()))
+
+
 def cmd_check(a):
     d = a.dir
     if not os.path.isdir(d):
@@ -582,6 +587,21 @@ def cmd_check(a):
                 err(f, n, "<BS> placeholder left (run: wikiwright.py unbs %s)" % f)
             if ATTRIBUTION.search(line):
                 err(f, n, "AI attribution: " + ATTRIBUTION.search(line).group(0))
+        # The host prints the file name as the page title, so a first heading with the same words shows it twice;
+        # so does a heading straight under one with the same words (L-139 `title-printed-once`).
+        title_words, previous, seen_heading = same_words_key(f[:-3].replace("-", " ")), None, False
+        for n, line in enumerate(lines, 1):
+            h = re.match(r"^#{1,6}\s+(.*?)\s*#*\s*$", line)
+            if h:
+                words = same_words_key(h.group(1))
+                if not seen_heading and previous is None and words == title_words and not f.startswith("_"):
+                    err(f, n, "the first heading repeats the page title the host prints from the file name; "
+                              "start with the first paragraph: " + h.group(1).strip())
+                elif previous == ("heading", words) and words:
+                    err(f, n, "the same heading twice in a row: " + h.group(1).strip())
+                seen_heading, previous = True, ("heading", words)
+            elif line.strip():
+                previous = ("text", None)
         for n, line in enumerate(lines, 1):
             if "[[" in line and "]]" in line:
                 if kind in ("gitea", "forgejo", "gitlab"):
