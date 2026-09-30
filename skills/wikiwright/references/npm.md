@@ -39,7 +39,7 @@ Copy [../templates/npm/wiki-verify.template.mjs](../templates/npm/wiki-verify.te
 - runs the published bin with the current Node and records the exit code, stdout and stderr separately
 - starts a local fixture server with one route per behaviour, for packages that make requests
 
-Every example on a page is one `capture()` or `show()` in the script, labelled by page.
+Every code block on a page is one `snippet()` in the script, labelled by page. It holds the block as the page shows it, in a template literal, writes it to `snippets/<label>.mjs` (`.cjs`, or `.mts` compiled by the scratch project's `tsc`), runs that file with the script's Node and prints what it printed. So `wikiwright.py snippets` finds every block, and an `OLDEST_NODE` rerun runs the snippets on the old Node too. In the literal, write a backslash as `\\`, a backtick as `` \` `` and `${` as `\${`; `String.raw` would keep the backslash before the last two. The written file swaps the pages' `https://example.com` for the fixture address, and takes `env`, `args` (such as `--import` for a fetch router), `cwd` (a file-tree root) and code to run before or after the page's. A `//=>` line prints the statement above it. For get-title-at-url 3.0.0, five blocks from Getting started and Recipes went into snippets: `snippets` found 5 of 5 and `outputs` 5 of 5, where the earlier script, which ran its cases as its own code, matched none of the five. Checks no page shows (error fields, membership, the golden replay) stay `capture()` or `show()`.
 
 ## Rules for requests
 
@@ -110,7 +110,7 @@ Mark what was run on this machine and what is shown from the package's own docs 
 - Git Bash on Windows: `npx` and npm scripts need a shell; spawn `npm` through a shell from Node, or run the bin with `process.execPath` as the template does.
 - A package whose `exports` omits `./package.json` cannot be `require`d for its version; the template reads the file from `node_modules` directly.
 - JSON loses `undefined`, `NaN` and error fields; the template's `inspect()` keeps them visible.
-- A page that shows `console.log` output needs the script to print with `console.log` (or `util.inspect`, which is what it calls): the template's `example()` runs the page's code and records exactly what its `console.log` calls print (L-008, L-019).
+- A page that shows `console.log` output needs the script to print with `console.log` (or `util.inspect`, which is what it calls): the template's `snippet()` runs the page's code and records exactly what its `console.log` calls print (L-008, L-019).
 - An error message built from a `Date` contains the local time zone; keep it out of the saved output (L-022). So does an import error's message (absolute paths): print its `code`.
 - `tsc --types ''` is refused (`TS6044`); to compile without `@types/node`, point `--typeRoots` at an empty folder.
 - The script runs in its own folder when it starts with `process.chdir(path.dirname(fileURLToPath(import.meta.url)))`, so no shell has to `cd` first.

@@ -15,7 +15,7 @@ Updated 2026-09-29 (0.7.0 session). Read this first, then [log.md](log.md) for e
 ## Open work, in order
 
 1. **Next owed wikis** (private inventory): replace-string-at-position, then TrailerClipper (and TrailerClipper.Tool, the command-line-tool candidate), CachingServiceWithAOPSupport. Retarget action-1 and action-2 at the next one before its run (L-013): it must have no wiki note. Set `FORBID_HOST` in run-action.sh to the hosts its README names.
-2. **The npm template runs its cases as in-script code**, so `snippets` finds 1 of 22 blocks on get-title-at-url and 7 of 14 on format-json-files. Make the npm template hold each page snippet as text it writes and runs, as the NuGet template does; then `snippets` becomes a gate for npm too.
+2. Done in 0.7.1 (C-20260930-1, branch ww071-npm-snippets): the npm template's `snippet()` holds each page block as text and runs it; `snippets` is a gate for npm too (get-title-at-url scratch proof 5/5, `outputs` 5/5). Saved npm scripts move their cases into `snippet()` at their next wiki update.
 3. **Untested page sets:** application, monorepo, command-line tool. **Hosts:** anchor ids unmeasured on GitLab and Azure DevOps; Gitea and Forgejo checked against a fake server only.
 4. **Inaccuracies waiting for releases:** IsImageUrlDotNet (eight, its note), format-json-files (nine), stack-exchange-markdown-retriever (six), get-title-at-url (its note's inaccuracy 5; its Getting started names TypeScript 6 while 7.0.2 is current, found by T-20260929-4, L-131).
 5. **Not run in 0.7.0:** the NuGet template's `.fsx` gate (a comment example), its Linux path; macOS for any .NET wiki.

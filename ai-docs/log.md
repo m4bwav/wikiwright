@@ -51,3 +51,4 @@ Append-only. One line per operation: `## [YYYY-MM-DD] op | title` where op is on
 ## [2026-09-29] run | seventh run, IsImageUrlDotNet (headless, installed 0.7.0-dev): 9 pages, wiki 737a3d2 pushed, live 9/0 and 25 anchors, outputs 38/38, snippets 18/18, golden 117/117 x3, net10.0 + net48 + net8.0 on Windows, net10.0 in WSL, repo tests 232/232; PR #10 open (merge refused to the agent); $10.13, 34 min; sixteen skill gaps -> C-20260929-15 to -17
 ## [2026-09-29] add | snippets (C-20260929-16), seventh-run docs (C-20260929-17), package-modernize hand-over text (its PR #24, C-20260929-9, L-142)
 ## [2026-09-29] add | release 0.7.0 (C-20260929-18): releasecheck ready, 72 unit tests, kit tests 13 pass
+## [2026-09-30] add | npm template snippet() holds each page block as text and runs it (C-20260930-1): get-title-at-url 3.0.0 scratch proof snippets 5/5 and outputs 5/5 (old script 0/5), Node 20 rerun same; tests/snippet.test.mjs 4 tests; 74 unit tests

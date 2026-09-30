@@ -31,6 +31,8 @@ jobs:
         run: node --test tests/host-fixture.test.mjs
       - name: the file-tree kit (temporary folders only)
         run: node --test tests/file-tree.test.mjs
+      - name: the npm template's snippet() (a local package in a temporary folder)
+        run: node --test tests/snippet.test.mjs
       - name: the helper answers from a clean checkout
         run: |
           python skills/wikiwright/scripts/wikiwright.py --version

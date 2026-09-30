@@ -278,6 +278,17 @@ class SnippetsTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn("1 blocks checked, 0 missing", out)
 
+    def test_template_literal_snippet(self):
+        # The npm template's snippet() holds a page's code in a template literal with \\, \` and \${ escaped.
+        page = "```js\nconst name = 'wiki';\nconsole.log(`${greet(name)}`, /" + BACKSLASH + "d+/.test('42'));\n```\n"
+        write(self.d, {"Home.md": page})
+        with open(self.program, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("await snippet('esm', `\nconst name = 'wiki';\nconsole.log(" + BACKSLASH + "`" + BACKSLASH
+                     + "${greet(name)}" + BACKSLASH + "`, /" + BACKSLASH * 2 + "d+/.test('42'));\n`);\n")
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 0, out)
+        self.assertIn("1 blocks checked, 0 missing", out)
+
     def test_commands_alone_pass_and_unread_code_fails(self):
         write(self.d, {"Home.md": "```sh\nnpm install widget\nnpm test # the suites\n```\n"})
         code, out = run(["snippets", self.d, self.program])
@@ -863,6 +874,24 @@ class TemplateTests(unittest.TestCase):
         for name in ("export async function treeCase", "export function describeBytes", "export function showBytes"):
             self.assertIn(name, kit)
         self.assertNotIn("\uFEFF", kit)
+
+    def test_snippet_helper_holds_page_text(self):
+        # C-20260930-1: page examples are held as the text the page shows and run as their own files, so
+        # `snippets` finds every block; the escaping rule is stated beside the helper (tests/snippet.test.mjs runs it).
+        text = self.read("wiki-verify.template.mjs")
+        for piece in ("async function runSnippet(label, code, {type = 'module', before = '', after = '', "
+                      "runtime = process.execPath,", "async function snippet(label, code, options)",
+                      "function prints(code)", "console.log('%O', ", "SNIPPET.replace = {'https://example.com': base};",
+                      "SNIPPET.env = fx.env;", "require.resolve('typescript/bin/tsc')",
+                      "// ----- end of page examples -----", "Not String.raw"):
+            self.assertIn(piece, text)
+        note = " ".join(line.lstrip("/ ") for line in text.splitlines() if line.startswith("//"))
+        self.assertIn("write each %s as %s, each ` as %s` and each ${ as %s${" % ((BACKSLASH, BACKSLASH * 2) + (BACKSLASH,) * 2),
+                      note)
+        self.assertNotIn("async function example(", text)
+        cases = text[text.index("// ----- the cases"):text.index("// Old majors")]
+        self.assertIn("await snippet('getting-started esm', `\nimport pkg from '{{PACKAGE}}';", cases)
+        self.assertNotIn("await capture(", cases)
 
     def test_nuget_template_request_route(self):
         # L-137, L-138: the .NET request route; a package that makes no requests deletes both blocks.

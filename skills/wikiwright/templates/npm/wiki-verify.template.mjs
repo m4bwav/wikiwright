@@ -12,7 +12,8 @@
 // one converted by hand (a JSON value retyped as console.log shows it): add a case that
 // prints the page's form instead (L-008, L-019). Save the output beside this file as
 // ai-docs/notes/<date>-wiki-verify.out.txt with 127.0.0.1:<digits> replaced by
-// 127.0.0.1:<port>, and check the pages with `wikiwright.py outputs <wiki dir> <that file>`.
+// 127.0.0.1:<port>, and check the pages with `wikiwright.py outputs <wiki dir> <that file>`. Each code block on
+// a page is here as the page shows it, in a snippet(): check with `wikiwright.py snippets <wiki dir> <this file>`.
 // Keep time zones, absolute paths and timings out of the output (L-022).
 // Network: the package talks only to the local fixture server below, never the internet. A package whose
 // requests go to the hosts its input names, with output computed from the host, uses the "by host name"
@@ -24,7 +25,6 @@ import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import path from 'node:path';
-import util from 'node:util';
 import {chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
@@ -58,23 +58,6 @@ function inspect(value) {
 
 		return v;
 	}, 2);
-}
-
-// Runs a page's example as written and prints exactly what its console.log calls print,
-// so a page that shows console.log output matches line for line (layout included).
-async function example(label, fn) {
-	const lines = [];
-	const original = console.log;
-	console.log = (...args) => lines.push(util.format(...args));
-	try {
-		await fn();
-	} catch (error) {
-		lines.push(`${error?.name}: ${error?.message}`);
-	} finally {
-		console.log = original;
-	}
-
-	show(label, lines.join('\n'));
 }
 
 // Any other program (a runtime from npm, a package manager, bash, the golden capture), asynchronously,
@@ -120,6 +103,70 @@ async function capture(label, fn) {
 		show(`${label} (threw)`, `${error?.name}: ${error?.message}`);
 	}
 }
+
+// ----- page examples, held as the text the page shows -----
+// snippet() writes a page's code block to ./snippets/<label>.mjs (.cjs, .mts), runs it as a child with this Node
+// (so OLDEST_NODE covers it) and prints what it printed: stdout, then stderr, then a non-zero exit code. The
+// program holds every block as the page shows it, so `wikiwright.py snippets` finds each one. Start the template
+// literal with a newline and close it on a line of its own. Inside it write each \ as \\, each ` as \` and each
+// ${ as \${ (snippets reads the program with those three undone). Not String.raw: it keeps the \ before ` and ${.
+// A //=> line prints the statement just above it as the REPL does (console.log('%O', ...)); a statement over
+// several lines ends with its closing bracket at its first line's indent.
+// Options: type 'module', 'commonjs' or 'typescript' (compiled by the scratch project's tsc, npm install
+// typescript; `tsc` holds the flags, and its exit code prints first); before and after, code around the page's
+// (the import the page left out, a call to the function it only defines); runtime and args (another program, or
+// Node flags such as ['--import', path.resolve('route.mjs')]); env; cwd (a file-tree root: the file stays in
+// ./snippets so its import resolves); replace, text swapped in the written file only. SNIPPET holds defaults the
+// fixture sections set. runSnippet() returns the text instead of printing it, for inTree().
+const SNIPPET = {replace: {}, env: {}};
+const lead = line => line.match(/^\s*/)[0];
+function prints(code) {
+	const lines = code.split('\n');
+	for (let end = 0; end < lines.length - 1; end++) {
+		if (!/^\s*\/\/ ?=>/.test(lines[end + 1]) || !lines[end].trimEnd().endsWith(';')) {
+			continue;
+		}
+
+		const indent = lead(lines[end]);
+		let start = end;
+		while (/^[)\]}]/.test(lines[end].trim()) && start > 0 && (start === end || !lines[start].trim() || lead(lines[start]) !== indent)) {
+			start--;
+		}
+
+		if (!/^(const|let|var|import|export|return|if|for|while)\b/.test(lines[start].trim())) {
+			lines[start] = `${indent}console.log('%O', ${lines[start].slice(indent.length)}`;
+			lines[end] = lines[end].replace(/;\s*$/, ');');
+		}
+	}
+
+	return lines.join('\n');
+}
+
+async function runSnippet(label, code, {type = 'module', before = '', after = '', runtime = process.execPath, args = [], env = {}, cwd = process.cwd(), replace = SNIPPET.replace, tsc = ['--strict', '--module', 'nodenext', '--moduleResolution', 'nodenext', '--target', 'es2022']} = {}) {
+	const name = label.toLowerCase().replaceAll(/[^a-z\d]+/g, '-');
+	let file = path.resolve('snippets', name + {module: '.mjs', commonjs: '.cjs', typescript: '.mts'}[type]);
+	let text = before + prints(code.replace(/^\n/, '')) + after;
+	for (const [from, to] of Object.entries(replace)) {
+		text = text.replaceAll(from, to);
+	}
+
+	mkdirSync(path.dirname(file), {recursive: true});
+	writeFileSync(file, text);
+	let out = '';
+	if (type === 'typescript' && runtime === process.execPath) {
+		const built = await run(runtime, [require.resolve('typescript/bin/tsc'), ...tsc, '--outDir', 'snippets/tsc', path.relative('.', file)]);
+		out = `tsc: exit ${built.code}\n${built.stdout}`;
+		file = path.resolve('snippets', 'tsc', `${name}.mjs`);
+	}
+
+	const result = await run(runtime, [...args, file], {cwd, env: {...SNIPPET.env, ...env}});
+	return out + result.stdout.replace(/\n$/, '') + (result.stderr ? `\n--- stderr\n${result.stderr.replace(/\n$/, '')}` : '') + (result.code ? `\nexit ${result.code}` : '');
+}
+
+async function snippet(label, code, options) {
+	show(label, await runSnippet(label, code, options));
+}
+// ----- end of page examples -----
 
 // ----- the installed package: version, both module systems, the bin -----
 const pkgDir = path.join(process.cwd(), 'node_modules', ...PACKAGE.split('/'));
@@ -183,6 +230,8 @@ await new Promise(resolve => {
 	server.listen(0, '127.0.0.1', resolve);
 });
 const base = `http://127.0.0.1:${server.address().port}`;
+// Pages show the fixture as https://example.com (outputs maps it back); the files snippet() writes use the fixture.
+SNIPPET.replace = {'https://example.com': base};
 
 // ----- by host name (delete unless the package requests the hosts its input names, L-116) -----
 // Copy ../host-fixture.mjs beside this script (and into the repository's ai-docs/notes/ with it). It serves
@@ -201,6 +250,8 @@ if (false) {
 	show('lookups reach the fixture through', fx.route);
 	closers.push(fx);
 	CLI_ENV = fx.env;
+	SNIPPET.env = fx.env;
+	SNIPPET.replace = {};
 }
 
 // ----- files on disk (delete unless the package writes, moves or deletes files, L-130) -----
@@ -217,11 +268,26 @@ async function inTree(label, spec, fn, options) {
 }
 // await inTree('commands: a folder', {'data/a.json': '{"a":1}'}, ({root}) => cli('data', {cwd: root}));
 // await inTree('api: report', {'a.json': '{"a":1}'}, () => esm.default('a.json'), {chdir: true});
+// await inTree('recipes: a folder', {'a.json': '{"a":1}'}, ({root}) => runSnippet('recipes: a folder', `
+// <the page's code>
+// `, {cwd: root}));
 
 // ----- the cases: one per example on the wiki, labelled by page -----
+// Every code block a page shows is a snippet() holding it as the page shows it; capture() and show() are for checks
+// no page shows (errors, membership, the golden replay).
 // Getting started
-await capture('getting-started esm', async () => esm.default?.(`${base}/`));
-await capture('getting-started cjs', async () => cjs.default?.(`${base}/`));
+await snippet('getting-started esm', `
+import pkg from '{{PACKAGE}}';
+
+console.log(await pkg('https://example.com/'));
+`);
+await snippet('getting-started cjs', `
+const pkg = require('{{PACKAGE}}');
+
+pkg('https://example.com/').then(result => {
+  console.log(result);
+});
+`, {type: 'commonjs'});
 if (binEntry) {
 	show('commands help', await cli('--help'));
 }
@@ -229,7 +295,7 @@ if (binEntry) {
 // Old majors (Versions and upgrading): install each in its own scratch folder and pass
 // V2=<folder> (etc.); load it with createRequire(path.join(folder, 'index.js')) or a file:// import.
 
-// API reference, behaviour, recipes, FAQ: add a capture() per example here.
+// API reference, behaviour, recipes, FAQ: a snippet() per code block here.
 
 // ----- golden captures, replayed today (L-020, L-113) -----
 // When the repository keeps test/golden/capture-<old>.cjs and <old>.json: set GOLDEN=<the clone's test/golden>
