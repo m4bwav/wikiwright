@@ -187,6 +187,26 @@ class OutputsTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("1 missing", out)
 
+    def test_nothing_recognised_is_not_a_pass(self):
+        # L-136: an untagged output fence after a lead line whose intro word is far from the colon is not read, and
+        # "0 checked, 0 missing" used to exit 0.
+        d = tempfile.mkdtemp()
+        try:
+            page = ("```csharp\nConsole.WriteLine(1);\n```\n\n"
+                    "Output, from IsImageUrlDotNet 2.0.0 installed from nuget.org:\n\n```\nTrue\n```\n")
+            write(d, {"Home.md": page})
+            code, out = run(["outputs", d, self.out])
+            self.assertEqual(code, 1, out)
+            self.assertIn("0 outputs checked", out)
+            self.assertIn("no output recognised", out)
+            write(d, {"Home.md": page.replace("```\nTrue", "```text\nTrue")})
+            code, out = run(["outputs", d, self.out])
+            self.assertIn("1 outputs checked", out)
+            write(d, {"Home.md": "Nothing to show.\n"})
+            self.assertEqual(run(["outputs", d, self.out])[0], 0)
+        finally:
+            shutil.rmtree(d)
+
 
 def blocks(page):
     """What `outputs` checks on one page: [(kind, first line of content)]."""

@@ -1087,9 +1087,10 @@ def cmd_outputs(a):
         return views[scope]
 
     pages = sorted(f for f in os.listdir(a.dir) if f.endswith(".md") and f not in SPECIAL)
-    checked = missing = skipped = 0
+    checked = missing = skipped = fenced = 0
     for f in pages:
         text = page_text(os.path.join(a.dir, f))[1].replace("\r\n", "\n")
+        fenced += len(re.findall(r"(?m)^\s*```", text)) // 2
         for line, kind, content, scope in scoped_output_blocks(text):
             if kind == "skip":
                 skipped += 1
@@ -1120,6 +1121,12 @@ def cmd_outputs(a):
             label = {"block": "output block", "arrow": "//=> value", "comment": "comment value"}[kind]
             print("%s:%d: error: %s not in the verify output%s: %s" % (f, line, label, hint, first))
     print("outputs: %d pages, %d outputs checked, %d missing, %d skipped" % (len(pages), checked, missing, skipped))
+    if fenced and not checked and not skipped:
+        # Nothing missing is not a pass when nothing was read (L-136 `zero-checked-passes`): an output fence after a
+        # prose lead line with its intro word too far from the colon is not recognised. Tag output fences `text`.
+        print("error: %d code blocks and no output recognised; tag each output fence ```text, or mark a page "
+              "that shows none with <!-- outputs: skip (reason) -->" % fenced)
+        return 1
     return 1 if missing else 0
 
 

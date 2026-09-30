@@ -4,6 +4,16 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260929-13 · 2026-09-29 · The evals speak NuGet; two grader faults; `outputs` fails when it read nothing; tools a page names (`evals-speak-nuget`)
+- because: user request (the 0.7.0 kickoff: the evals looked for `npm install` only); T-20260929-4; L-131; L-136
+- files: evals/grade-action.py (`installs()`, `.cs`/`.fsx` programs in `live_requests()`, the whole-file judgement, `load_trace()` guard, the digest's `nuget` flag); evals/run-action.sh (IsImageUrlDotNet by default, `FORBID_HOST=example.com`); evals/action-1/prompt.md; evals/evals.json (action-1, action-2); scripts/wikiwright.py (`outputs`); tests/test_wikiwright.py (61 tests); SKILL.md (Step 6, Update mode step 3); LEARNINGS.md (L-016, L-106, L-131, L-136)
+- What changed and why:
+  - The grader counted only npm installs, so a NuGet target could not pass. It now reads the four NuGet forms, each followed by a dotnet run, fsi, build or restore, and matches the id without regard to case. A .NET program that names a forbidden host counts as a request only when it makes a client call (`HttpClient`, `...UrlAsync`), because the offline check of the same URL sends nothing.
+  - Two grader faults found by the suite, each now a test: an Edit was judged on its fragment, so a run that routed through `HTTP_PROXY` to a loopback listener looked unrouted; and a trace event with a plain-string `message` crashed the grader.
+  - `outputs` printed "0 outputs checked, 0 missing" and exited 0 on an eval draft whose output fence it could not recognise (L-136). It now exits 1 when the pages hold code blocks and nothing was recognised.
+  - Update mode also installs every tool a page names at `latest`: get-title-at-url's pages still say TypeScript 6 after 7 shipped (L-131).
+- Measured: the suite printed 12 lines into the session for nine action runs; the digests of the runs reviewed were 1 to 2 KB each.
+
 ### C-20260929-12 · 2026-09-29 · LEARNINGS.md consolidated under its budget: merge, retire, promote, tighten (`learnings-consolidation`)
 - because: user request (the 0.7.0 kickoff); the evergreen-protocol budget (active learnings under 200 lines; MAINTENANCE.md "Learnings" and "Links and budgets"), which LEARNINGS.md passed at 503 lines
 - files: LEARNINGS.md (header, every entry); LEARNINGS-ARCHIVE.md (new); evergreen.json (`counts.learnings`)

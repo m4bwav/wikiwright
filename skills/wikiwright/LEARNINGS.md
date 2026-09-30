@@ -50,9 +50,10 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Trigger: `git clone` of a wiki into the Claude Code scratchpad (a path of about 200 characters) failed with "Filename too long", and with `-c core.longpaths=true --template=` with "'$GIT_DIR' too big" (Windows 11, Git for Windows, 2026-09-28). Clones into scratchpad targets of about 140 to 150 characters worked on four later runs.
 - Hypothesis: git's Windows path limit counts the whole `.git` path, so the target path's length decides, not the scratchpad as such.
 - Rule: on Windows keep the clone target short: the sibling `<clone>.wiki`, a short temp folder, or a short folder name (`sem.wiki`) in the scratchpad. `git -C <copy> status -sb` plus preflight answer "does it exist" without cloning; for a draft-only request, preflight without `--enable`.
-- Evidence: get-title-at-url draft-only Home run (2026-09-28); counter-cases on seeded-random-utilities, is-an-image-url (twice), markdown-plain-link-replacer and stack-exchange-markdown-retriever runs; evals/run-suite.sh
+- Update 2026-09-29 (T-20260929-4, an IsImageUrlDotNet Home draft): clones at about 150 characters worked, but `dotnet test` of a repository clone there failed the net48 golden test with `FileLoadException ... nunit.framework ... The filename or extension is too long` while net10.0 passed. Run a repository's own tests from a short path too, or record the failure as environmental.
+- Evidence: get-title-at-url draft-only Home run (2026-09-28); counter-cases on seeded-random-utilities, is-an-image-url (twice), markdown-plain-link-replacer and stack-exchange-markdown-retriever runs; evals/run-suite.sh; T-20260929-4 (`ww9/suite`)
 - Scope: env:windows
-- Status: active · helpful 3 · harmful 0 · last_confirmed 2026-09-28
+- Status: active · helpful 4 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-014 · 2026-09-28 · Replacing the fixture address can change console.log layout (`substitution-changes-layout`)
 - Trigger: drafting a get-title-at-url Home page, `console.log(result)` printed `{ title, url, status }` on one line for `https://example.com/` but over four lines for the fixture's `http://127.0.0.1:<port>/` (Node 24.18, 2026-09-28). The same break hit a Recipes `//=>` line on 2026-09-29 (L-131).
@@ -107,9 +108,9 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Status: promoted: C-20260928-4 (L-004, L-005: C-20260928-1) · helpful 2 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-106 · 2026-09-28 · Run the npm verification script on the oldest supported Node too (`oldest-node-run`)
-- Rule: run the npm script on the oldest Node line in `engines` too and diff it with the main run; every difference is a claim to scope by version or a case to fix. Use the template's `OLDEST_NODE` (a copied `node.exe` alone in a per-platform folder, first on PATH) and `diffout` (it counts `shell node:` versions and warns on a mix). By hand in Git Bash, put that folder on PATH in POSIX form (`cygpath -u`); `npx` runs its own Node, so run the bin with `process.execPath` too. An unpublished draft is not a fix: compare the live wiki with earlier drafts before starting. Merges L-118 `oldest-node-path-trap` and L-119 `diffout-first-use`.
+- Rule: run the npm script on the oldest Node line in `engines` too and diff it with the main run; every difference is a claim to scope by version or a case to fix. Use the template's `OLDEST_NODE` (a copied `node.exe` alone in a per-platform folder, first on PATH) and `diffout` (it counts `shell node:` versions and warns on a mix). By hand in Git Bash, put that folder on PATH in POSIX form (`cygpath -u`); `npx` runs its own Node, so run the bin with `process.execPath` too. An unpublished draft is not a fix: compare the live wiki with earlier drafts before starting, and when sibling drafts differ only in scope, merge them. Merges L-118 `oldest-node-path-trap` and L-119 `diffout-first-use`.
 - Evidence: rule in SKILL.md Step 4 and Update mode step 3, references/npm.md (the oldest Node), the npm template (`OLDEST_NODE`, `OLDEST_NODE_BIN`), scripts/wikiwright.py (diffout); get-title-at-url's TextDecoder finding (wiki fdca908, 1e449b2)
-- Status: promoted: C-20260928-4, C-20260929-1, C-20260929-2 (L-118, L-119), C-20260929-8 · helpful 5 · harmful 0 · last_confirmed 2026-09-29
+- Status: promoted: C-20260928-4, C-20260929-1, C-20260929-2 (L-118, L-119), C-20260929-8 · helpful 7 · harmful 0 · last_confirmed 2026-09-29 (T-20260929-4: `C:/` on PATH in Git Bash ran Node 24 as "Node 20" a third time, caught by the `installed` line; two sibling update drafts merged)
 
 ### L-107 · 2026-09-28 · Draft-only update: pages to the named folder, everything else beside it, clones untouched (`draft-only-update`)
 - Rule: a draft-only request: read the wiki's head with `ls-remote` (preflight without `--enable`), copy only the changed pages into the named folder, check them laid over a scratch copy of the whole wiki, put the script, its outputs, a handoff README and the repository-file drafts (`repo-draft/` with the repository's own paths) beside it, test on a fresh `git clone` of the local clone, and end with `git status` of both clones clean.
@@ -165,11 +166,19 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Status: promoted: C-20260929-7, C-20260929-8 (L-133) · helpful 1 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-131 · 2026-09-29 · A recipe's third-party package breaks the page while the documented package stands still (`recipe-deps-drift`)
-- Rule: a clean diff proves only the cases already in the script. In update mode install every third-party package a recipe imports at its current `latest`, run the recipe on each Node line the pages name, print the versions, and scope a block by the case that printed it (`<!-- outputs: node>=22 -->`); a stand-in proxy must handle both `CONNECT` and absolute-form requests.
-- Evidence: rule in SKILL.md Update mode step 3 and references/npm.md; get-title-at-url's Recipes page (undici 8, wiki 1e449b2)
-- Status: promoted: C-20260929-8 · helpful 2 · harmful 0 · last_confirmed 2026-09-29
+- Rule: a clean diff proves only the cases already in the script. In update mode install every third-party package a recipe imports, and every tool a page names (`npm view <tool> version`; a new major beside the old under an alias, `typescript7@npm:typescript@7`), at its current `latest`, run the recipe on each Node line the pages name, print the versions, and scope a block by the case that printed it (`<!-- outputs: node>=22 -->`); a stand-in proxy must handle both `CONNECT` and absolute-form requests.
+- Evidence: rule in SKILL.md Update mode step 3 and references/npm.md; get-title-at-url's Recipes page (undici 8, wiki 1e449b2); T-20260929-4 action-3-r2: Getting started says it compiles under TypeScript 6 while `npm install typescript` has given 7.0.2 since 2026-07-08, and three update runs diffed clean without noticing (the example compiles under 7.0.2)
+- Status: promoted: C-20260929-8, C-20260929-13 (tools) · helpful 3 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-132 · 2026-09-29 · A package that prints file paths needs a Linux run for the pages (`linux-run-for-paths`)
 - Rule: when output contains file paths, run the script on Linux too and show that run on the pages, stating the Windows difference once. A Linux Node comes from the registry (`npm pack node-linux-x64@<v>` and npm with shims, then `OLDEST_NODE_BIN`) or from nodejs.org checked against SHASUMS256; call `wsl.exe` from PowerShell, or set `MSYS_NO_PATHCONV=1` in Git Bash.
 - Evidence: rule in SKILL.md Step 4 and references/npm.md ("Packages that write files"); three format-json-files eval drafts and the sixth run
 - Status: promoted: C-20260929-8 · helpful 3 · harmful 0 · last_confirmed 2026-09-29
+
+### L-136 · 2026-09-29 · `outputs` exited 0 when it checked nothing (`zero-checked-passes`)
+- Trigger: an eval draft of IsImageUrlDotNet's Home (T-20260929-4) put its output in an untagged fence after the lead line "Output, from IsImageUrlDotNet 2.0.0 installed from nuget.org:". The intro word sits more than six words before the colon and the block follows prose, so `outputs` read no output, printed "1 pages, 0 outputs checked, 0 missing" and exited 0. Tagging the fence `text` gave 1 checked.
+- Hypothesis: `outputs` reports what is missing; a page it never read has nothing missing.
+- Rule: tag every output fence `text`, and read the "N outputs checked" count, not only the exit code. `outputs` now exits 1 when the pages hold code blocks and it recognised no output (a page with none says so with `<!-- outputs: skip (reason) -->`).
+- Evidence: the eval run's `outputs` lines before and after the tag; scripts/wikiwright.py (`cmd_outputs`) and OutputsTests; references/page-sets.md ("How `wikiwright.py outputs` reads a page")
+- Scope: skill
+- Status: promoted: C-20260929-13 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
