@@ -1,6 +1,6 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from eight published wikis, written on 2026-09-28 and 29:
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from nine published wikis, written on 2026-09-28 and 29:
 
 - RandomNameGeneratorLibrary: a .NET library with seeded data.
 - JsonPrettyPrinter: a .NET formatter.
@@ -10,11 +10,12 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 - markdown-plain-link-replacer (2026-09-29): an npm library with a CLI whose requests go through its dependencies to the hosts its input names, with a golden capture of 1.1.16 that records through its own proxy with TLS.
 - stack-exchange-markdown-retriever (2026-09-29): an npm library with a CLI that calls one fixed HTTPS host, served by name through the host-fixture kit, with a golden capture of 1.1.7 recorded through a proxy with TLS; its post texts are sample content, labelled on every page.
 - format-json-files (2026-09-29): an npm library with a CLI whose output is files on disk (it rewrites JSON files in place and makes no requests), every case on a fresh scratch tree through the file-tree kit, run on Windows and Linux, with a golden capture of 1.0.6 that builds its own trees.
+- IsImageUrlDotNet (2026-09-29): an F# NuGet library called from C# and F#, whose online check makes requests (through a stand-in proxy answering `.test` names, labelled on the pages), run on net10.0, .NET Framework 4.8 and net8.0 on Windows and net10.0 on Linux, with golden recordings of 1.0.2 per runtime and OS from a capture project.
 
 | Kind | Tested on |
 |---|---|
 | Library (npm, without a CLI) | seeded-random-utilities |
-| Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter |
+| Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter (written by hand, then retrofitted); IsImageUrlDotNet (2026-09-29, the first written by the skill from Step 1, and the first .NET package that makes requests: the same set, the behaviour page `How-Urls-Are-Checked`) |
 | Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever, format-json-files (fifth run, 2026-09-29: the set held again; the behaviour pages were `How-Links-Are-Replaced`, `How-Markdown-Is-Retrieved` and `How-Files-Are-Formatted`) |
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
 | Output is files on disk | format-json-files (the CLI set, with the rules under "Library with a command line") |
@@ -79,6 +80,8 @@ A package that makes requests records its old version against a fixture server o
 - Run it as a child process, one version after the other: it starts its own server and has timing cases. It is a separate server from the wiki script's fixture; the wiki script only reads the JSON it prints.
 - Compare three things apart: the answer (return, throw, callback arguments), the timing (callback before or after return) and the request lines. A changed default (asynchronous callbacks) otherwise hides the answer changes among timing changes.
 
+A NuGet capture is a project (`tests/Golden/Capture`) that pins the old version in its `PackageReference` and writes one recording per runtime and OS (`1.0.2.net10.0-windows.json`, `1.0.2.net48-windows.json`). Copy the project to a scratch folder, change only the pinned version for the new one, build once, then run `dotnet run --no-build -f <tfm>` per framework as child processes, and compare each output with the recording for the same runtime and OS, answers and requests apart. The npm patches and the timing dimension above do not apply. Watch the Windows drive letter in file-path cases (the repository's golden test swaps it too), the ambient culture, and the obsolete-member warnings (CS0618, FS0044) the new version prints. On IsImageUrlDotNet, 1.0.2 today and 2.0.0's kept API each matched 117 of 117 answers and 117 of 117 requests on net10.0 (Windows and Linux) and on net48. package-modernize's NuGet capture template records only the method, arguments and result: in that view 1.0.2 on net48 differs from net10.0 in 10 cases, against 50 in the full recordings (L-139 `nuget-golden-project`).
+
 On is-an-image-url: 1.0.4 today matched its recording in 82 of 82 calls and 11 of 11 CLI runs; 2.0.0 gave the same answer in 68, and each of the 14 differences and 5 request changes was a CHANGELOG line.
 
 A capture that records through its own proxy with TLS (markdown-plain-link-replacer's `capture-1.1.16.cjs`, where request 2.88 honoured `HTTP_PROXY` and `HTTPS_PROXY`) replays unchanged against the old version (1.1.16 today: 154 of 154 calls, 18 of 18 CLI runs). Against a `fetch`-based new major it needs a proxy agent installed after the capture sets the variables and a fixture copy that serves tunnelled `http:` in plain HTTP; [npm.md](npm.md) ("Golden captures that record through a proxy with TLS") has the four changes. When a dependency's new major reads titles or names differently, mask that value and count the cases that differ only there apart: 55 of markdown-plain-link-replacer's 154 did, and the other 41 real differences were each a CHANGELOG line.
@@ -131,7 +134,7 @@ It finds every block a page presents as output and every `//=>` value, and repor
 
 ## Sidebar and footer
 
-`_Sidebar.md` groups the pages under short plain-text labels (for example "Using it", "The releases", "Contributing", "Elsewhere") and links every page plus the README, CHANGELOG and registry page. `_Footer.md` is one line:
+`_Sidebar.md` groups the pages under short plain-text labels (for example "Using it", "The releases", "Contributing", "Elsewhere") and links every page plus the README, CHANGELOG and registry page. A library with a command line adds `- [Commands](Commands)` after the behaviour page; `check` fails a page the sidebar leaves out. `_Footer.md` is one line:
 
 ```
 This wiki describes PACKAGE VERSION and was last updated on YYYY-MM-DD. The library is LICENCE licensed. Report problems in the [issues](https://github.com/OWNER/REPO/issues).
