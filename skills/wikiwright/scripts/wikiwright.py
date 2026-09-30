@@ -17,10 +17,14 @@ Subcommands
       Every block a page presents as output, and every //=> value, must
       appear in the verification script's saved output (the fixture's
       http://127.0.0.1:<port> read as https://example.com).
-  live OWNER/REPO|URL DIR [--kind KIND]
+  live OWNER/REPO|URL DIR [--kind KIND] [--no-anchors]
       After the push: every page answers 200 (on GitHub Home answers 301 to
       /wiki), and the sidebar and footer text render on the wiki root; on
-      Gitea, Forgejo and GitLab the page API must list every page too.
+      Gitea, Forgejo and GitLab the page API must list every page too. Every
+      Page#anchor and #anchor link must find its heading's id
+      (id="user-content-ANCHOR") on the rendered target page, fetched once;
+      GitLab and Azure DevOps render ids in an unmeasured form, so their
+      anchors are reported as not checked.
   unbs FILE...
       Replace every <BS> placeholder with a backslash (for pages written
       with a tool that decodes backslash escapes).
@@ -59,6 +63,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 
 VERSION = "0.6.0"
@@ -663,6 +668,78 @@ def html_text(body):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", body)).split())
 
 
+# A heading's anchor as the page renders it. GitHub (measured 2026-09-29 on the published format-json-files and
+# get-title-at-url wikis, 166 of 166 headings): `<a id="user-content-SLUG" class="anchor" href="#SLUG">` after
+# the heading, SLUG as slug() makes it, non-ASCII kept (`...-u00e9-become-é`), leading hyphens kept
+# (`user-content---check`). Gitea and Forgejo render `user-content-` ids too (references/hosts.md, R-20260929-2).
+ANCHOR_ID = re.compile(r"""\bid=["']user-content-([^"']+)["']""")
+ANCHOR_KINDS = ("github", "gitea", "forgejo")
+
+
+def anchor_links(d):
+    """(file, target page or None for the same page, anchor, link as written) for every link to a wiki page
+    that carries a #fragment, in every page of the working copy, the sidebar and footer included."""
+    found = []
+    for f in sorted(os.listdir(d)):
+        if not f.endswith(".md"):
+            continue
+        lines, _ = strip_code(page_text(os.path.join(d, f))[1])
+        for line in lines:
+            for _, target in LINK.findall(line):
+                if re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I) or target.startswith("/"):
+                    continue
+                page, sep, anchor = target.partition("#")
+                if not sep or not anchor:
+                    continue
+                page = page[2:] if page.startswith("./") else page
+                page = page[:-3] if page.lower().endswith(".md") else page
+                found.append((f, page or None, anchor, target))
+    return found
+
+
+def check_anchors(a, kind, bodies, page_url):
+    """(failures, lines): every anchor link's id on its rendered target page. bodies maps a page to the HTML
+    live already fetched (None when it did not answer 200); a page not in it is fetched once through
+    page_url(page) and kept there."""
+    if getattr(a, "no_anchors", False):
+        return 0, ["anchors not checked (--no-anchors)"]
+    links = anchor_links(a.dir)
+    if not links:
+        return 0, ["ok   anchors: no links with anchors"]
+    if kind not in ANCHOR_KINDS:
+        return 0, ["anchors not checked on %s: id form unmeasured (%d links with anchors)" % (kind, len(links))]
+    names = {f[:-3].lower(): f[:-3] for f in os.listdir(a.dir) if f.endswith(".md")}
+    ids, broken, lines, fetched, skipped = {}, [], [], 0, 0
+    for f, page, anchor, target in links:
+        if page is None:
+            if f in SPECIAL:
+                skipped += 1  # the sidebar and footer render on every page: a bare #anchor has no one target
+                continue
+            page = f[:-3]
+        page = names.get(page.lower(), page)
+        if page not in ids:
+            if page not in bodies:
+                status, _, body = fetch(page_url(page))
+                bodies[page] = body if status == 200 else None
+                fetched += 1
+            body = bodies[page]
+            ids[page] = None if body is None else {html.unescape(x).lower() for x in ANCHOR_ID.findall(body)}
+        want = urllib.parse.unquote(anchor)
+        if ids[page] is None:
+            line = "FAIL anchor %s: %s (%s did not answer 200)" % (f[:-3], target, page)
+        elif want.lower() not in ids[page]:
+            line = 'FAIL anchor %s: %s (no id="user-content-%s" on %s)' % (f[:-3], target, want, page)
+        else:
+            continue
+        if line not in broken:
+            broken.append(line)
+    lines.extend(broken)
+    lines.append("%s anchors: %d links to %d pages, %d broken, %d extra fetches%s" % (
+        "FAIL" if broken else "ok  ", len(links) - skipped, len(ids), len(broken), fetched,
+        ("; %d bare #anchor links in the sidebar or footer not checked" % skipped) if skipped else ""))
+    return len(broken), lines
+
+
 def live_gitea(a, scheme, host, repo, kind):
     """Gitea and Forgejo (measured 2026-09-29): a page answers 200, a missing one 303 to ?action=_pages,
     and every wiki URL answers 200 before a first page exists, so the page API is checked first."""
@@ -671,9 +748,14 @@ def live_gitea(a, scheme, host, repo, kind):
     titles = {str(p.get("sub_url") or p.get("title")) for p in listed} if isinstance(listed, list) else set()
     print("%s %s page API (%d pages listed)" % ("ok  " if status == 200 else "FAIL", status, len(titles)))
     bad = 0 if status == 200 else 1
-    pages = wiki_pages(a.dir)
+    pages, bodies = wiki_pages(a.dir), {}
+
+    def page_url(p):
+        return "%s/%s/wiki/%s" % (base, repo, urllib.request.quote(p))
+
     for p in pages:
-        s, loc, _ = fetch("%s/%s/wiki/%s" % (base, repo, urllib.request.quote(p)))
+        s, loc, body = fetch(page_url(p))
+        bodies[p] = body if s == 200 else None
         good = s == 200 and (not titles or p in titles)
         print("%s %s %s%s" % ("ok  " if good else "FAIL", s, p, (" -> " + loc) if loc else ""))
         bad += 0 if good else 1
@@ -681,10 +763,11 @@ def live_gitea(a, scheme, host, repo, kind):
     print("%s %s wiki root" % ("ok  " if s == 200 else "FAIL", s))
     bad += 0 if s == 200 else 1
     more, lines = render_probes(a, html_text(body))
-    for line in lines:
+    broken, anchor_lines = check_anchors(a, kind, bodies, page_url)
+    for line in lines + anchor_lines:
         print(line)
-    print("live: %d pages, %d failures" % (len(pages), bad + more))
-    return 1 if bad + more else 0
+    print("live: %d pages, %d failures" % (len(pages), bad + more + broken))
+    return 1 if bad + more + broken else 0
 
 
 def live_gitlab(a, scheme, host, repo):
@@ -706,6 +789,8 @@ def live_gitlab(a, scheme, host, repo):
         good = "_sidebar" in slugs
         print("%s sidebar (_sidebar in the API list)" % ("ok  " if good else "FAIL"))
         bad += 0 if good else 1
+    for line in check_anchors(a, "gitlab", {}, None)[1]:
+        print(line)
     print("live: %d pages, %d failures" % (len(pages), bad))
     return 1 if bad else 0
 
@@ -723,6 +808,8 @@ def live_azure(a, host, repo):
         s, _, _ = api_get(url)
         print("%s %s %s" % ("ok  " if s == 200 else "FAIL", s, p))
         bad += 0 if s == 200 else 1
+    for line in check_anchors(a, "azure", {}, None)[1]:
+        print(line)
     print("live: %d pages, %d failures" % (len(pages), bad))
     return 1 if bad else 0
 
@@ -742,38 +829,30 @@ def cmd_live(a):
     if kind != "github":
         print("error: %s is not a host live knows (pass --kind)" % host)
         return 2
-    a.repo = repo
-    base = "https://github.com/%s/wiki" % a.repo
-    pages = sorted(f[:-3] for f in os.listdir(a.dir) if f.endswith(".md") and f not in SPECIAL)
-    bad = 0
+    # github.com in use; the scheme and host come from the argument so a local stand-in can answer for it.
+    base = "%s://%s/%s/wiki" % (scheme, host, repo)
+    pages, bodies, bad = wiki_pages(a.dir), {}, 0
+
+    def page_url(p):
+        return "%s/%s" % (base, urllib.request.quote(p))
+
     for p in pages:
-        status, loc, _ = fetch("%s/%s" % (base, urllib.request.quote(p)))
+        status, loc, body = fetch(page_url(p))
+        bodies[p] = body if status == 200 else None
         good = (status == 200) or (p == "Home" and status == 301 and (loc or "").rstrip("/").endswith("/wiki"))
         print("%s %s %s%s" % ("ok  " if good else "FAIL", status, p, (" -> " + loc) if loc else ""))
         bad += 0 if good else 1
     status, _, body = fetch(base)
-    root = html.unescape(re.sub(r"<[^>]+>", " ", body))
-    root = " ".join(root.split())
     print("%s %s wiki root" % ("ok  " if status == 200 else "FAIL", status))
     bad += 0 if status == 200 else 1
-    for special, label in (("_Footer.md", "footer"), ("_Sidebar.md", "sidebar")):
-        path = os.path.join(a.dir, special)
-        if not os.path.exists(path):
-            continue
-        md = page_text(path)[1]
-        if special == "_Footer.md":
-            probes = [plain(md.strip().split("\n")[0])[:60]]
-        else:
-            probes = [t for t, _ in LINK.findall(md)][:40]
-        # Whitespace ignored: tag boundaries put spaces where the markdown has none ("see Home .").
-        flat = "".join(root.split())
-        missing = [t for t in probes if t and "".join(t.split()) not in flat]
-        print("%s %s renders (%d of %d probes found)%s" % (
-            "ok  " if not missing else "FAIL", label, len(probes) - len(missing), len(probes),
-            ("; missing: " + ", ".join(missing[:5])) if missing else ""))
-        bad += 1 if missing else 0
-    print("live: %d pages, %d failures" % (len(pages), bad))
-    return 1 if bad else 0
+    if status == 200 and not bodies.get("Home"):
+        bodies["Home"] = body  # Home answers 301 to /wiki: the root is its rendered page
+    more, lines = render_probes(a, html_text(body))
+    broken, anchor_lines = check_anchors(a, "github", bodies, page_url)
+    for line in lines + anchor_lines:
+        print(line)
+    print("live: %d pages, %d failures" % (len(pages), bad + more + broken))
+    return 1 if bad + more + broken else 0
 
 
 # ---------------------------------------------------------------- outputs
@@ -1344,6 +1423,8 @@ def main(argv=None):
     lv.add_argument("repo", help="OWNER/REPO (GitHub) or the repository's URL on another host")
     lv.add_argument("dir", help="the working copy (for the page list, sidebar and footer)")
     lv.add_argument("--kind", choices=KINDS, help="the host's kind, when neither its name nor its API tells")
+    lv.add_argument("--no-anchors", action="store_true",
+                    help="skip the anchor check (every Page#anchor link's heading id on the rendered page)")
     lv.set_defaults(fn=cmd_live)
     o = sub.add_parser("outputs", help="every output a page shows appears in the verify output")
     o.add_argument("dir", help="the wiki working copy (or a folder of draft pages)")

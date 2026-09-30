@@ -39,6 +39,9 @@ Clone the wiki as a sibling of the repository's clone, named `<clone>.wiki`, so 
 2. The everwrite checker, when installed, reports 0 strong: `python <everwrite>/scripts/tells.py <wiki dir>/*.md`.
 3. Commit in the wiki working copy with a message naming the version and the pages, no AI attribution, then `git push`.
 4. `python scripts/wikiwright.py live OWNER/REPO <wiki dir>`: every page answers 200 (Home answers 301 to `/wiki`; a missing page answers 302), and the sidebar and footer text appear on the wiki root. GitHub can take a few seconds after a push; rerun once before calling a failure.
+5. The same `live` run checks anchors. Every link with a `#fragment` to a wiki page (`Page#anchor`, a same-page `#anchor`, and those in the sidebar and footer) must find `id="user-content-<anchor>"` on the rendered target page. `check` computes slugs; `live` reads what the host rendered, so it catches a slug rule that is wrong for the host (L-135 `forgejo-slug-punctuation`). A failure prints one line per broken link: the page, the link and the id it expected. It reuses the page fetches `live` already makes (Home's ids come from the wiki root it redirects to) and fetches a linked page outside the working copy once. On format-json-files (20 anchor links to 6 pages) and get-title-at-url (20 links to 7 pages) it added no request and no measurable time (2026-09-29). Case is ignored, as in `check`. A bare `#anchor` in the sidebar or footer has no single target page and is counted, not checked. `--no-anchors` skips the check.
+
+   Measured on those two wikis on 2026-09-29: GitHub puts the id on the permalink after each heading (`<a id="user-content-install" class="anchor" href="#install">`), including a page's `#` title. It keeps non-ASCII letters (`...-u00e9-become-é`) and leading hyphens (`--check` gives `user-content---check`), and `slug()` matched all 166 ids.
 
 ## Publishing from CI instead
 

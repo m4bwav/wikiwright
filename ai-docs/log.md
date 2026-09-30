@@ -44,3 +44,4 @@ Append-only. One line per operation: `## [YYYY-MM-DD] op | title` where op is on
 ## [2026-09-29] verify | first real wiki on another host: the same pages on a local Forgejo 16.0.5 (subagent, 12 min, removed after); check and live passed but one anchor was broken there; slug() fixed, 99/99 ids (R-20260929-2, L-135, C-20260929-9)
 ## [2026-09-29] add | release 0.6.0 (C-20260929-10): releasecheck ready, CI green on three systems after a macOS /var fix in the kit, tag v0.6.0 with a GitHub Release, reinstalled, cachecheck 23/23
 ## [2026-09-29] index | rebuilt (1 entries)
+## [2026-09-29] add | live checks anchors (C-20260929-11, L-135): GitHub ids measured on two published wikis (166/166 match slug()), user-content- ids required on GitHub, Gitea, Forgejo; GitLab and Azure say not checked; 0 extra requests on format-json-files (11) and get-title-at-url (10), no broken anchors; tests 60
