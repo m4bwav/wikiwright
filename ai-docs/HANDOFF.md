@@ -10,7 +10,7 @@ Updated 2026-09-29 (0.7.0 session). Read this first, then [log.md](log.md) for e
   - LEARNINGS.md consolidated: 503 to 200 lines, the full text in LEARNINGS-ARCHIVE.md.
   - The evals speak NuGet (`dotnet add package`, `#:package`, `#r "nuget:"`, PackageReference), and judge a .NET program's requests on the whole file.
 - **Eval suite T-20260929-4: 9/9 after two grader fixes (no skill change).** Triggers 9/9 (0/9 without), decoys 0/6. action-1's baseline now fails too (it requested example.com), so both new-wiki cases discriminate; action-3's baseline passes (L-013).
-- **Real runs: nine wikis.** The seventh skill run was IsImageUrlDotNet, headless: 9 pages, wiki 737a3d2, outputs 38/38, snippets 18/18, golden 117/117 on three recordings, live 9 pages and 25 anchors clean. Its PR #10 waits for the maintainer's merge (the auto-mode classifier refused an agent merge).
+- **Real runs: nine wikis.** The seventh skill run was IsImageUrlDotNet, headless: 9 pages, wiki 737a3d2, outputs 38/38, snippets 18/18, golden 117/117 on three recordings, live 9 pages and 25 anchors clean. Its PR #10 was merged (d3c1080) by the maintainer; the auto-mode classifier had refused the agent's merge.
 
 ## Open work, in order
 
