@@ -370,5 +370,14 @@ def main(argv=None):
     return 0 if not failed else 1
 
 
+def utf8_streams():
+    """Write UTF-8 whatever the console code page: a redirected stdout on Windows is cp1252 unless
+    PYTHONIOENCODING is set, and a trace holding U+2714 killed --digest with UnicodeEncodeError."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 if __name__ == "__main__":
+    utf8_streams()
     sys.exit(main())

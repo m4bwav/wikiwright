@@ -59,8 +59,9 @@ Subcommands
       --version) package's lib/ and ref/ folders, README, icon, size and
       dependency groups. npm: versions with dates, dist-tags, deprecations,
       engines, entry points, dependencies, unpacked size, file count and
-      last week's downloads. Without a flag, a name with capitals is NuGet,
-      a scoped one npm, and a lower-case one npm first, then NuGet.
+      last week's downloads, in total and per version (most first).
+      Without a flag, a name with capitals is NuGet, a scoped one npm,
+      and a lower-case one npm first, then NuGet.
   scaffold npm PACKAGE VERSION [--bin] [--requests] [--by-host] [--files]
            [--golden OLD_VERSION] [-o FILE] [--force]
       Write the npm verification script with PACKAGE and VERSION filled in
@@ -1489,6 +1490,7 @@ class Reader:
                 status, body, enc = r.status, r.read(), r.headers.get("Content-Encoding") or ""
         except urllib.error.HTTPError as e:
             status, body, enc = e.code, e.read(), (e.headers.get("Content-Encoding") or "") if e.headers else ""
+            e.close()
         except (urllib.error.URLError, OSError) as e:
             return 0, str(e).encode()
         self.wire += len(body)
@@ -1651,6 +1653,10 @@ def npm_survey(rd, name, want=None):
     bin_ = m.get("bin")
     exports = m.get("exports")
     st, dl = rd.json("%s/downloads/point/last-week/%s" % (NPM_API, name))
+    # {"package": ..., "downloads": {"2.0.0": 301, ...}}; versions with no downloads are left out, and a
+    # scoped name must be encoded whole (%40scope%2Fname; @scope/name answers 404), checked 2026-09-30.
+    vst, per = rd.json("%s/versions/%s/last-week" % (NPM_API, urllib.parse.quote(name, safe="")))
+    per = per.get("downloads") if isinstance(per, dict) else None
     return {
         "registry": "npmjs.org", "id": doc.get("name") or name, "description": doc.get("description") or None,
         "license": m.get("license") or doc.get("license"), "homepage": m.get("homepage") or doc.get("homepage"),
@@ -1669,7 +1675,25 @@ def npm_survey(rd, name, want=None):
         "dist": {"unpackedSize": dist.get("unpackedSize"), "fileCount": dist.get("fileCount"),
                  "integrity": dist.get("integrity"), "provenance": bool((dist.get("attestations") or {}).get("provenance"))},
         "weekly_downloads": dl if isinstance(dl, dict) and "downloads" in dl else {"error": "HTTP %s" % st},
+        "version_downloads": per if isinstance(per, dict) else {"error": "HTTP %s" % vst},
     }, None
+
+
+def by_version_line(per, records, top=8):
+    """One line: last week's downloads per version, most first (newer first on a tie), the rest summed."""
+    if isinstance(per.get("error"), str):
+        return "downloads last week by version: %s" % per["error"]
+    order = {r["version"]: i for i, r in enumerate(records)}
+    counts = sorted(((v, n) for v, n in per.items() if isinstance(n, int) and n > 0),
+                    key=lambda vn: (-vn[1], -order.get(vn[0], -1)))
+    line = ", ".join("%s %d" % vn for vn in counts[:top]) or "none"
+    rest = counts[top:]
+    if rest:
+        line += ", and %d more version(s) with %d" % (len(rest), sum(n for _, n in rest))
+    idle = sum(1 for r in records if not per.get(r["version"]))
+    if idle and counts:
+        line += "; %d version(s) none" % idle
+    return "downloads last week by version: " + line
 
 
 def short(text, limit=200):
@@ -1811,6 +1835,7 @@ def render_npm(s, limit):
     w = s["weekly_downloads"]
     out.append("downloads last week: %s" % (("%s (%s to %s)" % (w["downloads"], w.get("start"), w.get("end")))
                                             if "downloads" in w else w["error"]))
+    out.append(by_version_line(s["version_downloads"], recs))
     return out
 
 

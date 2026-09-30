@@ -1007,6 +1007,27 @@ class TemplateTests(unittest.TestCase):
         finally:
             rmtree(run)
 
+    def test_grader_digest_writes_utf8_to_a_pipe(self):
+        # The eighth run's --digest died on a check mark with stdout redirected and PYTHONIOENCODING unset
+        # (Windows cp1252). cp1252 set explicitly reproduces it on every system.
+        mark = chr(0x2714)
+        run = tempfile.mkdtemp()
+        try:
+            event = {"message": {"content": [{"type": "tool_use", "id": "1", "name": "Bash",
+                                              "input": {"command": "echo %s done; node wiki-verify.mjs" % mark}}]}}
+            with open(os.path.join(run, "trace.jsonl"), "w", encoding="utf-8") as fh:
+                fh.write(json.dumps(event) + "\n")
+            grader = os.path.join(HERE, "..", "evals", "grade-action.py")
+            for enc in (None, "cp1252"):
+                env = {k: v for k, v in os.environ.items() if k not in ("PYTHONIOENCODING", "PYTHONUTF8")}
+                if enc:
+                    env["PYTHONIOENCODING"] = enc
+                p = subprocess.run([sys.executable, grader, run, "--digest"], capture_output=True, env=env)
+                self.assertEqual(p.returncode, 0, p.stderr.decode("utf-8", "replace"))
+                self.assertIn(("echo %s done" % mark).encode("utf-8"), p.stdout)
+        finally:
+            rmtree(run)
+
     def test_grader_reads_nuget_installs_and_dotnet_requests(self):
         # The 0.7.0 evals target a NuGet package: dotnet add, a file-based app's #:package, an F# script's
         # #r "nuget:", or a scratch project's PackageReference, each then run or restored.
@@ -1482,6 +1503,9 @@ class RegistryTests(unittest.TestCase):
             "/npm/widget-js": (200, GZ, gz(self.NPM_DOC)),
             "/api/downloads/point/last-week/widget-js": (200, {}, {"downloads": 475, "start": "2026-09-22",
                                                                    "end": "2026-09-28", "package": "widget-js"}),
+            # api.npmjs.org leaves out versions with no downloads (2026-09-30)
+            "/api/versions/widget-js/last-week": (200, {}, {"package": "widget-js", "downloads": {
+                "1.0.1": 5, "3.0.0-beta.1": 120, "2.0.0": 350}}),
         })
         code, out = run(["registry", "widget-js", "--npm"])
         self.assertEqual(code, 0, out)
@@ -1499,7 +1523,33 @@ class RegistryTests(unittest.TestCase):
         self.assertIn("2.0.0 unpacked 94558 bytes, 11 files; provenance yes", lines)
         self.assertIn("2.0.0 gitHead: abc123", lines)
         self.assertIn("downloads last week: 475 (2026-09-22 to 2026-09-28)", lines)
-        self.assertIn(": 2 requests,", lines[-1])
+        self.assertIn("downloads last week by version: 2.0.0 350, 3.0.0-beta.1 120, 1.0.1 5; 1 version(s) none", lines)
+        self.assertIn(": 3 requests,", lines[-1])
+
+    def test_npm_downloads_by_version_scoped_many_and_failure(self):
+        doc = json.loads(json.dumps(self.NPM_DOC))
+        doc["name"] = "@o/widget"
+        for i in range(10):  # ten more patch versions, ties included
+            v = "2.0.%d" % (i + 1)
+            doc["versions"][v] = {"name": "@o/widget"}
+            doc["time"][v] = "2026-09-29T00:%02d:00Z" % i
+        per = {"2.0.%d" % (i + 1): (3 if i < 4 else 1) for i in range(10)}
+        per.update({"2.0.0": 350, "1.0.0": 2})
+        self.host.routes.update({
+            "/npm/@o%2Fwidget": (200, GZ, gz(doc)),
+            "/api/versions/%40o%2Fwidget/last-week": (200, {}, {"package": "@o/widget", "downloads": per}),
+        })
+        code, out = run(["registry", "@o/widget"])
+        self.assertEqual(code, 0, out)
+        self.assertIn("GET /api/versions/%40o%2Fwidget/last-week", self.host.seen)
+        line = [l for l in out.splitlines() if l.startswith("downloads last week by version:")]
+        self.assertEqual(line, ["downloads last week by version: 2.0.0 350, 2.0.4 3, 2.0.3 3, 2.0.2 3, 2.0.1 3, "
+                                "1.0.0 2, 2.0.10 1, 2.0.9 1, and 4 more version(s) with 4; 2 version(s) none"])
+        self.assertEqual(json.loads(run(["registry", "@o/widget", "--json"])[1])["version_downloads"]["2.0.0"], 350)
+        del self.host.routes["/api/versions/%40o%2Fwidget/last-week"]  # the fake host answers 404
+        code, out = run(["registry", "@o/widget"])
+        self.assertEqual(code, 0, out)
+        self.assertIn("downloads last week by version: HTTP 404", out.splitlines())
 
     def test_kind_by_name_and_fallback_to_nuget(self):
         self.assertEqual(wikiwright.registry_kind("Widget"), "nuget")
