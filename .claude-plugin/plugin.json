@@ -1,6 +1,6 @@
 {
   "name": "wikiwright",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Write and update a repository's GitHub wiki from the repository and its registry, with every example verified against the published package (npm and NuGet): survey, page set per repository kind, sidebar and footer, publish through the .wiki.git repository, live check, and a note on how to update it at the next release. Evergreen.",
   "author": {
     "name": "Mark Rogers"

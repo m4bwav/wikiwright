@@ -1,10 +1,10 @@
 # Handoff
 
-Updated 2026-09-29 (0.7.0 session). Read this first, then [log.md](log.md) for evidence.
+Updated 2026-09-30 (0.7.0 and 0.7.1 session). Read this first, then [log.md](log.md) for evidence.
 
 ## Current state
 
-- **wikiwright 0.7.0** (tag v0.7.0, GitHub Release; CI on Ubuntu, macOS and Windows; installed wikiwright@mark-local, `wikiwright.py cachecheck` all equal).
+- **wikiwright 0.7.1** (tags v0.7.0 and v0.7.1, GitHub Releases; 0.7.1 adds the npm template's `snippet()`, which holds each page block as text and runs it, so `snippets` gates npm wikis too; CI on Ubuntu, macOS and Windows; installed wikiwright@mark-local, `wikiwright.py cachecheck` all equal).
   - NuGet end to end: the NuGet template's `requests` blocks (a stand-in proxy answering `.test` names over http and https, refusal by answering, the `.invalid` gate in every per-framework child, `WebRequest.DefaultWebProxy` for .NET Framework), `Run()` with env and cwd, `Mask()`; references/nuget.md "Packages that make requests", the F# warm-up, net48 as a file-based app, Linux in WSL.
   - New commands: `registry` (the Step 2 registry survey, 9x to 66x smaller than the raw JSON), `snippets` (every C# and F# block on the pages is in the program; a review list for npm scripts). `live` checks every anchor link against the ids the host rendered (GitHub, Gitea, Forgejo). `outputs` fails when the pages hold code and it recognised no output (L-136).
   - LEARNINGS.md consolidated: 503 to 200 lines, the full text in LEARNINGS-ARCHIVE.md.
@@ -15,9 +15,9 @@ Updated 2026-09-29 (0.7.0 session). Read this first, then [log.md](log.md) for e
 ## Open work, in order
 
 1. **Next owed wikis** (private inventory): replace-string-at-position, then TrailerClipper (and TrailerClipper.Tool, the command-line-tool candidate), CachingServiceWithAOPSupport. Retarget action-1 and action-2 at the next one before its run (L-013): it must have no wiki note. Set `FORBID_HOST` in run-action.sh to the hosts its README names.
-2. Done in 0.7.1 (C-20260930-1, branch ww071-npm-snippets): the npm template's `snippet()` holds each page block as text and runs it; `snippets` is a gate for npm too (get-title-at-url scratch proof 5/5, `outputs` 5/5). Saved npm scripts move their cases into `snippet()` at their next wiki update.
+2. **Saved npm scripts from before 0.7.1** (get-title-at-url, seeded-random-utilities, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever, format-json-files) run their cases as code, so `snippets` fails their wikis: move the cases into `snippet()` at each one's next update (0.7.1, C-20260930-1, did the template).
 3. **Untested page sets:** application, monorepo, command-line tool. **Hosts:** anchor ids unmeasured on GitLab and Azure DevOps; Gitea and Forgejo checked against a fake server only.
-4. **Inaccuracies waiting for releases:** IsImageUrlDotNet (eight, its note), format-json-files (nine), stack-exchange-markdown-retriever (six), get-title-at-url (its note's inaccuracy 5; its Getting started names TypeScript 6 while 7.0.2 is current, found by T-20260929-4, L-131).
+4. **Inaccuracies waiting for releases:** IsImageUrlDotNet (eight, its note), format-json-files (nine), stack-exchange-markdown-retriever (six), get-title-at-url (its note's inaccuracy 5)). get-title-at-url's TypeScript 7 wording is fixed on the wiki (a020db1); its PR #25 (the saved script and note) waits for the maintainer's merge.
 5. **Not run in 0.7.0:** the NuGet template's `.fsx` gate (a comment example), its Linux path; macOS for any .NET wiki.
 6. **evergreen refresh:** wikiwright is due 2026-10-12.
 

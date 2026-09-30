@@ -4,6 +4,17 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260930-3 · 2026-09-30 · Release 0.7.1: npm snippets as text (`release-0.7.1`)
+- because: user request ("keep going" after 0.7.0); C-20260930-1, C-20260930-2; T-20260930-1
+- files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history)
+- 0.7.1 gathers the two entries below. `wikiwright.py releasecheck 0.7.1` checks the four version fields, this entry and T-20260930-1.
+- Measured: `snippets` on get-title-at-url's pages went from 0 of 5 blocks with the saved 0.7.0-era script to 5 of 5 with the helper; the npm template grew from 16,225 to 20,170 bytes, its header from 1,512 to 1,647. The fourth get-title-at-url update was one subagent (about 115,000 tokens) and a 4-line page diff.
+
+### C-20260930-2 · 2026-09-30 · Print the version of every tool a page names (`print-tool-versions`)
+- because: the fourth get-title-at-url update (wiki a020db1, its PR #25); L-131; L-106
+- files: SKILL.md (Update mode step 3); LEARNINGS.md (L-131, L-106)
+- The saved script diffed 121 of 121 sections the same while the pages named TypeScript 6 and `npm install typescript` gave 7.0.2: the script never printed the version, so diffout had nothing to compare. Update mode now asks for each tool's version in the output. The same update hit the Git Bash `C:/` PATH trap again (L-106).
+
 ### C-20260930-1 · 2026-09-30 · The npm template holds each page example as text and runs it, so `snippets` is a gate for npm (`snippets-as-text`)
 - because: user request (0.7.1, HANDOFF open work item 2); C-20260929-16 (`snippets` found 1 of 22 blocks on get-title-at-url and 7 of 14 on format-json-files, because the npm scripts ran their cases as their own code)
 - files: templates/npm/wiki-verify.template.mjs (header, the page examples section, the fixture and host-name sections, the cases; `example()` removed); tests/snippet.test.mjs (new); tests/test_wikiwright.py (a template-literal snippet, the helper and its escaping note); .github/workflows/tests.yml; AGENTS.md (the tests); SKILL.md (Step 4, Step 6); references/npm.md (The scratch project, Traps); references/page-sets.md (How `wikiwright.py snippets` reads a page); ai-docs/HANDOFF.md

@@ -8,6 +8,13 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20260930-1 · 2026-09-30 · claude plugin eval 2.1.281 (trigger, decoy) + unit and kit suites + a scratch proof of the npm snippet helper · Windows 11 native · 5/5 trigger and decoy cases; suites green
+- Scope: a patch release (0.7.1: the npm template holds page snippets as text, SKILL.md Steps 4 and 6 and Update mode step 3). The action cases were not rerun: action-1 and action-2 need a target with no wiki and no note, and the next one (replace-string-at-position) is kept fresh for the 0.8.0 session's suite (L-013). action-3's update route was exercised for real instead by the fourth get-title-at-url update the same day (wiki a020db1, its PR #25), done by a subagent from SKILL.md's Update mode.
+- trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without ($1.72). decoy-1, decoy-2: 0/6 invocations in both arms ($0.57).
+- Unit tests 74 pass; kit and snippet suites 17 pass, 1 skipped (folder modes on Windows).
+- The npm `snippet()` helper, filled for get-title-at-url 3.0.0 in scratch with five page blocks copied byte for byte: `snippets` 5 of 5 (the 2026-09-28 script: 0 of 5), `outputs` 5 of 5, the same five outputs on Node 20.20.2 through `OLDEST_NODE_BIN`.
+- led to: C-20260930-1, C-20260930-2
+
 ### T-20260929-4 · 2026-09-29 · claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py · Windows 11 native · 7/9 as graded, 9/9 after two grader fixes (no skill change)
 - Setup: the evals learned NuGet first (1798378: the grader reads `dotnet add package`, a `#:package` file-based app, an F# `#r "nuget:"` script and a scratch project's PackageReference, each then run or restored, and judges a .NET program as a request only when it makes a client call). action-1 and action-2 were retargeted at m4bwav/IsImageUrlDotNet, whose wiki held only the page the maintainer saved and which had no wiki note: the first NuGet target, F# called from C# and F#, whose online check makes requests. `example.com`, which its README's examples name, is forbidden (`FORBID_HOST`). action-3 stayed on get-title-at-url. Plugin reinstalled, `cachecheck` 23 of 23 equal. Suite in `%TEMP%/ww9/suite`; the 0.7.0 `live` anchors and the LEARNINGS consolidation were built meanwhile in worktrees and merged after it (L-017).
 - trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without ($1.66). decoy-1, decoy-2: 0/6 in both arms ($0.57).

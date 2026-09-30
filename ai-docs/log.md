@@ -52,3 +52,5 @@ Append-only. One line per operation: `## [YYYY-MM-DD] op | title` where op is on
 ## [2026-09-29] add | snippets (C-20260929-16), seventh-run docs (C-20260929-17), package-modernize hand-over text (its PR #24, C-20260929-9, L-142)
 ## [2026-09-29] add | release 0.7.0 (C-20260929-18): releasecheck ready, 72 unit tests, kit tests 13 pass
 ## [2026-09-30] add | npm template snippet() holds each page block as text and runs it (C-20260930-1): get-title-at-url 3.0.0 scratch proof snippets 5/5 and outputs 5/5 (old script 0/5), Node 20 rerun same; tests/snippet.test.mjs 4 tests; 74 unit tests
+## [2026-09-30] run | get-title-at-url fourth wiki update (subagent, update mode): TypeScript 7.0.2 and 6.0.3 compile the page's example on Node 20, 22, 24; wiki a020db1 pushed, live 9/0 and 20 anchors; PR #25 open (merge refused to the agent)
+## [2026-09-30] add | release 0.7.1 (C-20260930-3): npm snippets as text (C-20260930-1), print tool versions (C-20260930-2); T-20260930-1 triggers 9/9 vs 0/9, decoys 0/6, unit 74, kits 17+1 skipped
