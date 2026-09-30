@@ -8,6 +8,7 @@ import contextlib
 import importlib.util
 import io
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -1077,6 +1078,140 @@ class TemplateTests(unittest.TestCase):
     def test_kit_guard_reads_the_normalised_array(self):
         # L-117: net.connect() passes [options, callback] as one argument.
         self.assertIn("Array.isArray(args[0]) ? args[0][0] : args[0]", self.read("host-fixture.mjs"))
+
+
+# A line only each optional section of the npm template holds (C-20260930-7).
+SECTION_SIGNS = {
+    "bin": ("function cli(...args) {", "async function term(", "show('commands help', await cli('--help'));"),
+    "requests": ("import http from 'node:http';", "const server = http.createServer(", "// Network: the package",
+                 "show('requests the fixture server saw', seen);", "const closers = [];"),
+    "by-host": ("import('./host-fixture.mjs')", "closers.push(fx);"),
+    "files": ("async function inTree(label, spec, fn, options) {",),
+    "golden": ("const {GOLDEN, OLD} = process.env;",),
+    "example": ("await snippet('getting-started esm', `",),
+}
+CORE_SIGNS = ("const require = createRequire(import.meta.url);", "async function snippet(label, code, options) {",
+              "function prints(code) {", "show('cjs exports', Object.keys(cjs).sort());",
+              "if (pkg.bin && typeof cli === 'undefined') {", "// ----- the cases",
+              "const {OLDEST_NODE, OLDEST_NODE_BIN, WIKI_VERIFY_CHILD} = process.env;")
+
+
+class ScaffoldTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        with open(os.path.join(TEMPLATES, "wiki-verify.template.mjs"), "rb") as fh:
+            self.template = fh.read().decode("utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def scaffold(self, *flags, name="wiki-verify.mjs"):
+        out = os.path.join(self.d, name)
+        code, printed = run(["scaffold", "npm", "@scope/widget", "2.1.0", "-o", out] + list(flags))
+        text = ""
+        if os.path.exists(out):
+            with open(out, "rb") as fh:
+                text = fh.read().decode("utf-8")
+        return code, printed, text
+
+    def test_template_markers_balance_and_name_the_known_sections(self):
+        names = re.findall(r"^// ===== section: ([a-z-]+) =====$", self.template, re.M)
+        self.assertEqual(set(names), set(SECTION_SIGNS))
+        self.assertEqual(len(names), len(re.findall(r"^// ===== end: ", self.template, re.M)))
+        for sign in [s for signs in SECTION_SIGNS.values() for s in signs] + list(CORE_SIGNS):
+            self.assertIn(sign, self.template)
+        full = wikiwright.trim_sections(self.template, set(SECTION_SIGNS))
+        self.assertNotIn("// =====", full)
+
+    def test_each_flag_keeps_its_sections_and_drops_the_rest(self):
+        cases = {
+            (): set(),
+            ("--bin",): {"bin"},
+            ("--requests",): {"requests"},
+            ("--by-host",): {"requests", "by-host"},
+            ("--files",): {"files"},
+            ("--golden", "1.0.0"): {"golden"},
+            ("--bin", "--requests", "--by-host", "--files", "--golden", "1.0.0"): {"bin", "requests", "by-host",
+                                                                                   "files", "golden"},
+        }
+        for flags, kept in cases.items():
+            with self.subTest(flags=flags):
+                code, printed, text = self.scaffold(*flags, "--force")
+                self.assertEqual(code, 0, printed)
+                for sign in CORE_SIGNS:
+                    self.assertIn(sign, text)
+                for section, signs in SECTION_SIGNS.items():
+                    for sign in signs:
+                        (self.assertIn if section in kept else self.assertNotIn)(sign, text)
+                self.assertNotIn("// =====", text)
+                self.assertNotIn("{{", text)
+                self.assertNotIn("\n\n\n", text)
+                self.assertIn("const PACKAGE = '@scope/widget';", text)
+                self.assertIn("const VERSION = '2.1.0';", text)
+                self.assertIn("kept: core", printed)
+                self.assertIn("%s bytes" % format(len(text.encode("utf-8")), ","), printed)
+
+    def test_nested_sections_and_switches(self):
+        # CLI_ENV lives in the bin section, so by-host without --bin must not assign it; the kit's block is on.
+        _, _, text = self.scaffold("--by-host")
+        self.assertNotIn("CLI_ENV", text)
+        self.assertNotIn("if (false) {", text)
+        self.assertIn("\n{\n\tconst {startHostFixture} = await import('./host-fixture.mjs');", text)
+        self.assertTrue(os.path.exists(os.path.join(self.d, "host-fixture.mjs")))
+        _, _, text = self.scaffold("--by-host", "--bin", "--force")
+        self.assertIn("\tCLI_ENV = fx.env;", text)
+        _, _, text = self.scaffold("--files", "--force")
+        self.assertNotIn("cli('data'", text)
+        self.assertTrue(os.path.exists(os.path.join(self.d, "file-tree.mjs")))
+        _, _, text = self.scaffold("--golden", "1.0.0", "--force")
+        self.assertIn("const CAPTURE = 'capture-1.0.0.cjs';", text)
+        self.assertIn("['golden: 1.0.0 today', ", text)
+
+    def test_no_flag_output_is_small_and_names_nothing_removed(self):
+        code, printed, text = self.scaffold()
+        self.assertEqual(code, 0, printed)
+        self.assertLess(len(text), 0.6 * len(self.template))
+        code_lines = "\n".join(line for line in text.split("\n") if not line.lstrip().startswith("//"))
+        for name in ("server", "base", "seen", "closers", "fx", "CLI_ENV", "binEntry", "routes", "inTree", "GOLDEN"):
+            self.assertNotRegex(code_lines, r"\b%s\b" % name)
+        self.assertEqual(len(re.findall(r"\bcli\b", code_lines)), 1)  # the guard's typeof only
+        if shutil.which("node"):
+            checked = subprocess.run(["node", "--check", os.path.join(self.d, "wiki-verify.mjs")],
+                                     capture_output=True, text=True)
+            self.assertEqual(checked.returncode, 0, checked.stderr)
+
+    def test_refuses_to_overwrite_without_force(self):
+        self.assertEqual(self.scaffold()[0], 0)
+        path = os.path.join(self.d, "wiki-verify.mjs")
+        with open(path, "wb") as fh:
+            fh.write(b"// mine\n")
+        code, printed, text = self.scaffold()
+        self.assertEqual(code, 2)
+        self.assertIn("exists (pass --force", printed)
+        self.assertEqual(text, "// mine\n")
+        # A kit already beside it counts too, and nothing is written.
+        with open(os.path.join(self.d, "file-tree.mjs"), "wb") as fh:
+            fh.write(b"// old kit\n")
+        code, printed, _ = self.scaffold("--files", name="other.mjs")
+        self.assertEqual(code, 2)
+        self.assertFalse(os.path.exists(os.path.join(self.d, "other.mjs")))
+        code, printed, text = self.scaffold("--force")
+        self.assertEqual(code, 0, printed)
+        self.assertIn("async function snippet(", text)
+
+    def test_bad_names_versions_and_markers(self):
+        self.assertEqual(run(["scaffold", "npm", "Bad Name", "1.0.0", "-o", os.path.join(self.d, "a.mjs")])[0], 2)
+        self.assertEqual(run(["scaffold", "npm", "ok", "1.0", "-o", os.path.join(self.d, "a.mjs")])[0], 2)
+        self.assertEqual(run(["scaffold", "npm", "ok", "1.0.0", "--golden", "x';", "-o",
+                              os.path.join(self.d, "a.mjs")])[0], 2)
+        self.assertFalse(os.path.exists(os.path.join(self.d, "a.mjs")))
+        with self.assertRaises(ValueError):
+            wikiwright.trim_sections("// ===== section: a =====\nx\n", set())
+        with self.assertRaises(ValueError):
+            wikiwright.trim_sections("// ===== section: a =====\n// ===== end: b =====\n", set())
+        self.assertEqual(wikiwright.trim_sections(
+            "a\n\n// ===== section: s =====\nb\n// ===== section: t =====\nc\n// ===== end: t =====\n"
+            "// ===== end: s =====\n\nd", {"s"}), "a\n\nb\n\nd")
 
 
 def rmtree(d):

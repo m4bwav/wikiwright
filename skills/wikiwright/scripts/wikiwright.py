@@ -61,6 +61,13 @@ Subcommands
       engines, entry points, dependencies, unpacked size, file count and
       last week's downloads. Without a flag, a name with capitals is NuGet,
       a scoped one npm, and a lower-case one npm first, then NuGet.
+  scaffold npm PACKAGE VERSION [--bin] [--requests] [--by-host] [--files]
+           [--golden OLD_VERSION] [-o FILE] [--force]
+      Write the npm verification script with PACKAGE and VERSION filled in
+      and only the template sections the package needs (the bin's cli(),
+      the fixture server, by host name, files on disk, the golden replay),
+      and copy the kit each section imports beside it. Refuses to
+      overwrite without --force.
 
 Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 2 on usage or environment errors.
@@ -75,6 +82,7 @@ import io
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -1980,6 +1988,116 @@ def cmd_releasecheck(a):
     return 1 if bad else 0
 
 
+TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "templates")
+SECTION_MARK = re.compile(r"^// ===== (section|end): ([a-z-]+) =====$")
+PLACEHOLDER = re.compile(r"\{\{[A-Z_]+\}\}")
+NPM_NAME = re.compile(r"^(@[a-z0-9~-][a-z0-9._~-]*/)?[a-z0-9~-][a-z0-9._~-]*$")
+NPM_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.+-]+)?$")
+# The npm template's optional sections, in the order the summary names them, with the kit each one imports.
+NPM_SECTIONS = (("bin", None), ("requests", None), ("by-host", "host-fixture.mjs"), ("files", "file-tree.mjs"),
+                ("golden", None), ("example", None))
+
+
+def trim_sections(text, keep):
+    """The template's lines outside every section, plus those whose enclosing sections are all in keep.
+
+    Markers are `// ===== section: NAME =====` and `// ===== end: NAME =====` on lines of their own, and nest.
+    Every marker is dropped, and a blank line left next to another by a dropped section goes with it.
+    """
+    out, stack, dropped = [], [], False
+    for number, line in enumerate(text.split("\n"), 1):
+        m = SECTION_MARK.match(line)
+        if m:
+            kind, name = m.groups()
+            if kind == "section":
+                stack.append(name)
+            elif not stack or stack.pop() != name:
+                raise ValueError("line %d: 'end: %s' closes no open section of that name" % (number, name))
+            continue
+        if not all(name in keep for name in stack):
+            dropped = True
+            continue
+        if dropped and not line.strip() and out and not out[-1].strip():
+            continue
+        dropped = False
+        out.append(line)
+    if stack:
+        raise ValueError("section '%s' is never ended" % stack[-1])
+    return "\n".join(out)
+
+
+def cmd_scaffold(a):
+    if not NPM_NAME.match(a.package):
+        print("error: %r is not an npm package name" % a.package)
+        return 2
+    for flag, value in (("", a.version), ("--golden ", a.golden)):
+        if value is not None and not NPM_VERSION.match(value):
+            print("error: %s%r is not a version (X.Y.Z)" % (flag, value))
+            return 2
+    wanted = {"bin": a.bin, "requests": a.requests or a.by_host, "by-host": a.by_host, "files": a.files,
+              "golden": a.golden is not None, "example": False}
+    keep = {name for name, on in wanted.items() if on}
+    source = os.path.join(TEMPLATES_DIR, a.kind)
+    out = os.path.abspath(a.output)
+    folder = os.path.dirname(out)
+    kits = [kit for name, kit in NPM_SECTIONS if kit and name in keep]
+    existing = [path for path in [out] + [os.path.join(folder, kit) for kit in kits] if os.path.exists(path)]
+    if existing and not a.force:
+        for path in existing:
+            print("error: %s exists (pass --force to overwrite it)" % path)
+        return 2
+    with open(os.path.join(source, "wiki-verify.template.mjs"), "rb") as fh:
+        template = fh.read().decode("utf-8")
+    try:
+        text = trim_sections(template, keep)
+    except ValueError as e:
+        print("error: the template's section markers: %s" % e)
+        return 2
+    if "by-host" in keep:
+        # The template keeps the by-host block under `if (false)`, so it runs unchanged; the scaffold switches it on.
+        if "\nif (false) {\n" not in text:
+            print("error: the template's by-host block has no 'if (false) {' line to switch on")
+            return 2
+        text = text.replace("\nif (false) {\n", "\n{\n", 1)
+    for name, value in (("PACKAGE", a.package), ("VERSION", a.version), ("OLD_VERSION", a.golden or "")):
+        text = text.replace("{{%s}}" % name, value)
+    left = sorted(set(PLACEHOLDER.findall(text)))
+    if left:
+        print("error: placeholders left unfilled: %s" % ", ".join(left))
+        return 2
+    os.makedirs(folder, exist_ok=True)
+    data = text.encode("utf-8")
+    with open(out, "wb") as fh:
+        fh.write(data)
+    for kit in kits:
+        shutil.copyfile(os.path.join(source, kit), os.path.join(folder, kit))
+    names = [name for name, _ in NPM_SECTIONS]
+    print("wrote %s: %s bytes (the template is %s)" % (out, format(len(data), ","),
+                                                      format(len(template.encode("utf-8")), ",")))
+    print("kept: core%s; dropped: %s" % ("".join(", " + n for n in names if n in keep),
+                                         ", ".join(n for n in names if n not in keep) or "none"))
+    if kits:
+        print("copied beside it: %s" % ", ".join(kits))
+    print("next:")
+    print("  - in %s: package.json written with the editor, not npm init (L-017); npm install %s@%s, "
+          "and typescript for .mts snippets" % (folder, a.package, a.version))
+    print("  - under '// ----- the cases': one snippet() per code block on the pages, labelled by page")
+    if "requests" in keep:
+        print("  - requests: one route per behaviour the pages show, in `routes`")
+    if "by-host" in keep:
+        print("  - by-host: the real host names in startHostFixture({hosts: [...]})")
+    if "files" in keep:
+        print("  - files: an inTree() case per example that writes files")
+    if "golden" in keep:
+        print("  - golden: HELPERS and the patch for the new layout; run with GOLDEN=<clone>/test/golden "
+              "OLD=<a folder with %s@%s>" % (a.package, a.golden))
+    if not a.bin:
+        print("  - no --bin: the script stops if the package has a bin (the registry survey's 'bin' field)")
+    print("  - run: node %s > wiki-verify.out.txt, then again with OLDEST_NODE=<the oldest major in engines>"
+          % os.path.basename(out))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="wikiwright.py", description=__doc__.split("\n")[0])
     ap.add_argument("--version", action="version", version=VERSION)
@@ -2061,6 +2179,19 @@ def main(argv=None):
     rg.add_argument("--no-nupkg", action="store_true", help="NuGet: skip downloading the .nupkg")
     rg.add_argument("--json", action="store_true", help="print the full structured survey as JSON")
     rg.set_defaults(fn=cmd_registry)
+    sc = sub.add_parser("scaffold", help="write the verification script, filled in and cut to the sections needed")
+    sc.add_argument("kind", choices=("npm",), help="the template (npm)")
+    sc.add_argument("package", help="the package name")
+    sc.add_argument("version", help="the published version the wiki describes")
+    sc.add_argument("--bin", action="store_true", help="the package has a bin: keep cli(), term() and the help case")
+    sc.add_argument("--requests", action="store_true", help="keep the local fixture server")
+    sc.add_argument("--by-host", action="store_true",
+                    help="keep the by-host-name section, switched on (implies --requests); copies host-fixture.mjs")
+    sc.add_argument("--files", action="store_true", help="keep the files-on-disk section; copies file-tree.mjs")
+    sc.add_argument("--golden", metavar="OLD_VERSION", help="keep the golden replay of capture-OLD_VERSION.cjs")
+    sc.add_argument("-o", "--output", default="wiki-verify.mjs", help="the script to write (default ./wiki-verify.mjs)")
+    sc.add_argument("--force", action="store_true", help="overwrite the script and the kits when they exist")
+    sc.set_defaults(fn=cmd_scaffold)
     reconfigure = getattr(sys.stdout, "reconfigure", None)
     if reconfigure:
         # A cp1252 console cannot print every character an output holds (L-119).
