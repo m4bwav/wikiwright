@@ -2,8 +2,8 @@
 // PUBLISHED package, never the working tree. Keep the filled-in copy in the repository
 // as ai-docs/notes/<date>-wiki-verify.mjs so the next release can run it again.
 //
-// Run it from a scratch folder outside the repository:
-//   npm init -y
+// Run it from a scratch folder outside the repository. `wikiwright.py scaffold` writes package.json there
+// ({"private": true}) when it has none; by hand, write that with the editor, never `npm init -y` (L-017):
 //   npm install {{PACKAGE}}@{{VERSION}}
 //   node wiki-verify.mjs > wiki-verify.out.txt
 //
@@ -29,7 +29,7 @@ import http from 'node:http';
 import {spawn} from 'node:child_process';
 import {createRequire} from 'node:module';
 import path from 'node:path';
-import {chmodSync, copyFileSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 
 // Everything runs in this file's folder, so no shell needs to change directory first.
@@ -65,7 +65,8 @@ function inspect(value) {
 }
 
 // Any other program (a runtime from npm, a package manager, bash, the golden capture), asynchronously,
-// with LF line endings. On Windows spawn .cmd shims with shell: true. Standard input is closed (or gets
+// with LF line endings. On Windows run a .cmd shim (npx, npm) as one command string with shell: true and no args:
+// an args array beside shell: true prints DEP0190 on Node 24. Standard input is closed (or gets
 // `input`): a CLI that reads stdin when it has no argument would otherwise wait for ever (L-007).
 function run(file, args, {cwd = process.cwd(), env = {}, shell = false, input = ''} = {}) {
 	return new Promise(resolve => {
@@ -111,19 +112,23 @@ async function capture(label, fn) {
 }
 
 // ----- page examples, held as the text the page shows -----
-// snippet() writes a page's code block to ./snippets/<label>.mjs (.cjs, .mts), runs it as a child with this Node
+// snippet() writes a page's code block to ./snippets/<label>.mjs (.cjs, .mts, .cts, .ts), runs it as a child with this Node
 // (so OLDEST_NODE covers it) and prints what it printed: stdout, then stderr, then a non-zero exit code. The
 // program holds every block as the page shows it, so `wikiwright.py snippets` finds each one. Start the template
 // literal with a newline and close it on a line of its own. Inside it write each \ as \\, each ` as \` and each
 // ${ as \${ (snippets reads the program with those three undone). Not String.raw: it keeps the \ before ` and ${.
 // A //=> line prints the statement just above it as the REPL does (console.log('%O', ...)); a statement over
 // several lines ends with its closing bracket at its first line's indent.
-// Options: type 'module', 'commonjs' or 'typescript' (compiled by the scratch project's tsc, npm install
-// typescript; `tsc` holds the flags, and its exit code prints first); before and after, code around the page's
-// (the import the page left out, a call to the function it only defines); runtime and args (another program, or
-// Node flags such as ['--import', path.resolve('route.mjs')]); env; cwd (a file-tree root: the file stays in
-// ./snippets so its import resolves); replace, text swapped in the written file only. SNIPPET holds defaults the
-// fixture sections set. runSnippet() returns the text instead of printing it, for inTree().
+// Options: type 'module', 'commonjs' or 'typescript'. TypeScript is compiled by the scratch project's tsc, then run:
+// ext '.mts' (default), '.cts' or '.ts'; typescript, the folder in node_modules to compile with (typescript6 after
+// `npm install typescript6@npm:typescript@6`, for a matrix: one snippet() per compiler and setup, the page text in a
+// const they share); tsc, the flags (a --noEmit among them only type-checks); `tsc <version>: exit <code>` prints
+// first. dir: the folder the file is written to and run from, 'snippets'; path.join(OLD, 'snippets') makes the
+// page's import load the old version installed in OLD, so one page text runs against both. before and after, code
+// around the page's (the import the page left out, a call to the function it only defines); runtime and args
+// (another program, or Node flags such as ['--import', path.resolve('route.mjs')]); env; cwd (a file-tree root: the
+// file stays in dir so its import resolves); replace, text swapped in the written file only. SNIPPET holds defaults
+// the fixture sections set. runSnippet() returns the text instead of printing it, for inTree().
 const SNIPPET = {replace: {}, env: {}};
 const lead = line => line.match(/^\s*/)[0];
 function prints(code) {
@@ -148,9 +153,9 @@ function prints(code) {
 	return lines.join('\n');
 }
 
-async function runSnippet(label, code, {type = 'module', before = '', after = '', runtime = process.execPath, args = [], env = {}, cwd = process.cwd(), replace = SNIPPET.replace, tsc = ['--strict', '--module', 'nodenext', '--moduleResolution', 'nodenext', '--target', 'es2022']} = {}) {
+async function runSnippet(label, code, {type = 'module', before = '', after = '', runtime = process.execPath, args = [], env = {}, cwd = process.cwd(), replace = SNIPPET.replace, dir = 'snippets', ext = '.mts', typescript = 'typescript', tsc = ['--strict', '--module', 'nodenext', '--moduleResolution', 'nodenext', '--target', 'es2022']} = {}) {
 	const name = label.toLowerCase().replaceAll(/[^a-z\d]+/g, '-');
-	let file = path.resolve('snippets', name + {module: '.mjs', commonjs: '.cjs', typescript: '.mts'}[type]);
+	let file = path.resolve(dir, name + ({module: '.mjs', commonjs: '.cjs'}[type] ?? ext));
 	let text = before + prints(code.replace(/^\n/, '')) + after;
 	for (const [from, to] of Object.entries(replace)) {
 		text = text.replaceAll(from, to);
@@ -161,9 +166,16 @@ async function runSnippet(label, code, {type = 'module', before = '', after = ''
 	let out = '';
 	if (type === 'typescript' && runtime === process.execPath) {
 		// By path: TypeScript 7's exports map hides ./bin/tsc from require.resolve (L-141).
-		const built = await run(runtime, [path.resolve('node_modules', 'typescript', 'bin', 'tsc'), ...tsc, '--outDir', 'snippets/tsc', path.relative('.', file)]);
-		out = `tsc: exit ${built.code}\n${built.stdout}`;
-		file = path.resolve('snippets', 'tsc', `${name}.mjs`);
+		const compiler = path.resolve('node_modules', typescript);
+		const {version} = JSON.parse(readFileSync(path.join(compiler, 'package.json'), 'utf8'));
+		const outDir = path.join(path.dirname(file), 'tsc');
+		const built = await run(runtime, [path.join(compiler, 'bin', 'tsc'), ...tsc, '--outDir', path.relative('.', outDir), path.relative('.', file)]);
+		out = `tsc ${version}: exit ${built.code}\n${built.stdout}`;
+		if (tsc.includes('--noEmit')) {
+			return out.replace(/\n$/, '');
+		}
+
+		file = path.join(outDir, name + {'.mts': '.mjs', '.cts': '.cjs', '.ts': '.js'}[ext]);
 	}
 
 	const result = await run(runtime, [...args, file], {cwd, env: {...SNIPPET.env, ...env}});
@@ -321,8 +333,9 @@ if (binEntry) {
 }
 // ===== end: bin =====
 
-// Old majors (Versions and upgrading): install each in its own scratch folder and pass
-// V2=<folder> (etc.); load it with createRequire(path.join(folder, 'index.js')) or a file:// import.
+// Old majors (Versions and upgrading): install each in its own scratch folder (OLD=<folder>, V2=... for more) and
+// run the page's code there unchanged: snippet(label, PAGE, {dir: path.join(process.env.OLD, 'snippets')}) beside
+// snippet(label, PAGE), with PAGE a const both calls share.
 
 // API reference, behaviour, recipes, FAQ: a snippet() per code block here.
 
@@ -332,7 +345,8 @@ if (binEntry) {
 // and OLD=<a folder with PACKAGE@<old> and whatever the capture requires installed>. The capture runs as a
 // child process, once against the old version (unchanged) and once here against VERSION (patch only the
 // lines the new layout breaks, such as the bin's path, and name them on the page), one after the other.
-// Compare the answers, the timing and the request lines apart. The golden file is only read. A capture that writes
+// A synchronous capture (package-modernize's template) usually replays unpatched. The golden file is only read.
+// The comparator suits the golden file's format, picked at run time (below). A capture that writes
 // files needs TEMP, TMP and TMPDIR pointed into scratch and views for files instead (references/npm.md, "Packages
 // that write files").
 // A capture that records through its own proxy with TLS, replayed against a fetch-based major, also needs
@@ -341,40 +355,89 @@ if (binEntry) {
 const {GOLDEN, OLD} = process.env;
 if (GOLDEN && OLD) {
 	const CAPTURE = 'capture-{{OLD_VERSION}}.cjs';
-	const HELPERS = []; // the files the capture requires, such as 'codec.cjs', 'fixture-server.cjs'
-	for (const file of [CAPTURE, ...HELPERS]) {
+	// The capture and every ./file it requires (codec.cjs, fixture-server.cjs), read from the files themselves. A
+	// require with no file in GOLDEN (capture-proxy.cjs in a capture without fixtures) is one it never reaches.
+	const files = [CAPTURE];
+	for (const file of files) {
+		for (const [, name] of readFileSync(path.join(GOLDEN, file), 'utf8').matchAll(/require\(['"]\.\/([^'"]+)['"]\)/g)) {
+			if (!files.includes(name) && existsSync(path.join(GOLDEN, name))) {
+				files.push(name);
+			}
+		}
+
 		copyFileSync(path.join(GOLDEN, file), path.join(OLD, file));
 		copyFileSync(path.join(GOLDEN, file), file);
 	}
 
+	show('golden: the capture and the files it requires', files);
 	const patched = readFileSync(CAPTURE, 'utf8'); // .replaceAll(<old layout>, <new layout>)
 	writeFileSync(`now-${CAPTURE}`, patched);
 	const want = JSON.parse(readFileSync(path.join(GOLDEN, '{{OLD_VERSION}}.json'), 'utf8'));
-	for (const [label, result] of [
-		['golden: {{OLD_VERSION}} today', await run(process.execPath, [CAPTURE], {cwd: OLD})],
-		[`golden: ${VERSION}`, await run(process.execPath, [`now-${CAPTURE}`])],
-	]) {
-		if (result.code !== 0) {
-			show(label, `capture failed, exit ${result.code}\n${result.stderr.split('\n').slice(0, 5).join('\n')}`);
-			continue;
+	// Parsed values, never bytes: an older capture holds raw UTF-8 where the current capture template writes ASCII escapes.
+	const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+	const change = (a, b) => (same(a, b) ? 'same' : `${JSON.stringify(a)} -> ${JSON.stringify(b)}`);
+
+	// package-modernize's synchronous format: unnamed cases with `results` (the codec's encoding), matched by index and
+	// their encoded arguments. The header's `captured` and `node` are left out; its other fields and each quirk are
+	// compared apart.
+	function compareResults(got) {
+		const differing = [];
+		const kinds = new Map();
+		for (const [index, entry] of want.cases.entries()) {
+			const now = got.cases[index];
+			if (!same([now?.method, now?.args], [entry.method, entry.args])) {
+				differing.push(`#${index}: another case at this index (the arguments differ)`);
+				continue;
+			}
+
+			if (!same(now.results, entry.results)) {
+				const thrown = now.results.find(result => result?.$error);
+				const kind = thrown ? `now throws ${thrown.$error}` : 'now returns another value';
+				kinds.set(kind, (kinds.get(kind) ?? 0) + 1);
+				const shown = results => JSON.stringify(results.length === 1 ? results[0] : results);
+				differing.push(`#${index} (${JSON.stringify(entry.args).slice(1, -1)}): ${shown(entry.results)} -> ${shown(now.results)}`);
+			}
 		}
 
-		// Compare the answers, the callback timing and the requests apart (L-113). Adapt the three views to the
-		// capture's format: here cases with a name, `returned`/`threw`/`calls[].args` answers, `calls[].sync`
-		// timing and `requests`.
+		const header = entry => Object.entries(entry).filter(([key]) => !['package', 'captured', 'node', 'note', 'quirks', 'cases'].includes(key));
+		const keys = (a = {}, b = {}) => [...new Set([...Object.keys(a), ...Object.keys(b)])];
+		const [wantHeader, gotHeader] = [want, got].map(entry => Object.fromEntries(header(entry)));
+		return [
+			`${got.package}: ${want.cases.length} cases in the golden file, ${got.cases.length} replayed`,
+			`results: ${want.cases.length - differing.length} identical, ${differing.length} differ`,
+			...[...kinds].map(([kind, count]) => `  ${kind}: ${count}`),
+			...differing,
+			...keys(wantHeader, gotHeader).map(key => `header ${key}: ${change(wantHeader[key], gotHeader[key])}`),
+			...keys(want.quirks, got.quirks).map(key => `quirk ${key}: ${change(want.quirks?.[key], got.quirks?.[key])}`),
+		];
+	}
+
+	// The network format: named cases with `returned`/`threw`/`calls[].args` answers, `calls[].sync` timing and
+	// `requests`, compared as three views apart (L-113). Adapt the views to the capture.
+	function compareViews(got) {
 		const views = {
 			answers: entry => [entry.returned, entry.threw, entry.calls?.map(call => call.args), entry.uncaught],
 			timing: entry => entry.calls?.map(call => call.sync),
 			requests: entry => entry.requests,
 		};
-		const got = new Map(JSON.parse(result.stdout).cases.map(entry => [entry.name, entry]));
+		const byName = new Map(got.cases.map(entry => [entry.name, entry]));
 		const lines = [`${want.cases.length} cases`];
 		for (const [view, pick] of Object.entries(views)) {
-			const differing = want.cases.filter(entry => JSON.stringify(pick(got.get(entry.name) ?? {})) !== JSON.stringify(pick(entry)));
+			const differing = want.cases.filter(entry => !same(pick(byName.get(entry.name) ?? {}), pick(entry)));
 			lines.push(`${view}: ${want.cases.length - differing.length} identical${differing.length > 0 ? `; differ: ${differing.map(entry => entry.name).join(' | ')}` : ''}`);
 		}
 
-		show(label, lines.join('\n'));
+		return lines;
+	}
+
+	// The golden file's shape picks the comparator: `results` in a case means the synchronous format.
+	const compare = want.cases.some(entry => 'results' in entry) ? compareResults : compareViews;
+	for (const [label, result] of [
+		['golden: {{OLD_VERSION}} today', await run(process.execPath, [CAPTURE], {cwd: OLD})],
+		[`golden: ${VERSION}`, await run(process.execPath, [`now-${CAPTURE}`])],
+	]) {
+		show(label, result.code === 0 ? compare(JSON.parse(result.stdout)).join('\n')
+			: `capture failed, exit ${result.code}\n${result.stderr.split('\n').slice(0, 5).join('\n')}`);
 	}
 }
 // ===== end: golden =====
@@ -393,7 +456,12 @@ if (GOLDEN && OLD) {
 // `node` beside node.exe made Git Bash skip it and run the system Node in every shell case (L-118, a second way in).
 const {OLDEST_NODE, OLDEST_NODE_BIN, WIKI_VERIFY_CHILD} = process.env;
 if (OLDEST_NODE && !WIKI_VERIFY_CHILD) {
-	const found = OLDEST_NODE_BIN || (await run('npx', ['-y', '-p', `node@${OLDEST_NODE}`, 'node', '-p', 'process.execPath'], {shell: process.platform === 'win32', env: {NODE_OPTIONS: ''}})).stdout.trim().split('\n').at(-1);
+	if (!/^\d+(\.\d+){0,2}$/.test(OLDEST_NODE)) {
+		throw new Error(`OLDEST_NODE=${OLDEST_NODE}: a Node version such as 20 or 20.19.0`);
+	}
+
+	// One command string with shell: true, on every system (npx is a .cmd shim on Windows): no DEP0190 warning.
+	const found = OLDEST_NODE_BIN || (await run(`npx -y -p node@${OLDEST_NODE} node -p process.execPath`, [], {shell: true, env: {NODE_OPTIONS: ''}})).stdout.trim().split('\n').at(-1);
 	const alone = path.resolve(`node${OLDEST_NODE}-alone-${process.platform}`);
 	mkdirSync(alone, {recursive: true});
 	const oldNode = path.join(alone, path.basename(found));

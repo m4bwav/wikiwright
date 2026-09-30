@@ -66,8 +66,9 @@ Subcommands
       Write the npm verification script with PACKAGE and VERSION filled in
       and only the template sections the package needs (the bin's cli(),
       the fixture server, by host name, files on disk, the golden replay),
-      and copy the kit each section imports beside it. Refuses to
-      overwrite without --force.
+      and copy the kit each section imports beside it, with a package.json
+      ({"private": true}) when the folder has none. Refuses to overwrite
+      the script or a kit without --force.
 
 Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 2 on usage or environment errors.
@@ -2071,6 +2072,13 @@ def cmd_scaffold(a):
         fh.write(data)
     for kit in kits:
         shutil.copyfile(os.path.join(source, kit), os.path.join(folder, kit))
+    # The scratch project's package.json, never overwritten. `npm init -y --prefix` writes into the current folder
+    # (L-017), and npm installs a folder without one into the nearest parent holding package.json or node_modules.
+    manifest = os.path.join(folder, "package.json")
+    made_manifest = not os.path.exists(manifest)
+    if made_manifest:
+        with open(manifest, "wb") as fh:
+            fh.write(b'{"private": true}\n')
     names = [name for name, _ in NPM_SECTIONS]
     print("wrote %s: %s bytes (the template is %s)" % (out, format(len(data), ","),
                                                       format(len(template.encode("utf-8")), ",")))
@@ -2078,9 +2086,10 @@ def cmd_scaffold(a):
                                          ", ".join(n for n in names if n not in keep) or "none"))
     if kits:
         print("copied beside it: %s" % ", ".join(kits))
+    print("package.json: %s" % ('wrote {"private": true}' if made_manifest else "already there, left as it was"))
     print("next:")
-    print("  - in %s: package.json written with the editor, not npm init (L-017); npm install %s@%s, "
-          "and typescript for .mts snippets" % (folder, a.package, a.version))
+    print("  - npm install --prefix %s %s@%s, and typescript for TypeScript snippets (typescript6@npm:typescript@6 "
+          "for a second compiler)" % (folder, a.package, a.version))
     print("  - under '// ----- the cases': one snippet() per code block on the pages, labelled by page")
     if "requests" in keep:
         print("  - requests: one route per behaviour the pages show, in `routes`")
@@ -2089,8 +2098,8 @@ def cmd_scaffold(a):
     if "files" in keep:
         print("  - files: an inTree() case per example that writes files")
     if "golden" in keep:
-        print("  - golden: HELPERS and the patch for the new layout; run with GOLDEN=<clone>/test/golden "
-              "OLD=<a folder with %s@%s>" % (a.package, a.golden))
+        print("  - golden: the patch for the new layout, if any; run with GOLDEN=<clone>/test/golden "
+              "OLD=<a folder with %s@%s and its own package.json>" % (a.package, a.golden))
     if not a.bin:
         print("  - no --bin: the script stops if the package has a bin (the registry survey's 'bin' field)")
     print("  - run: node %s > wiki-verify.out.txt, then again with OLDEST_NODE=<the oldest major in engines>"
