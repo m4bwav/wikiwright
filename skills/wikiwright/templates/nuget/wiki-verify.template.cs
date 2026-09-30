@@ -20,7 +20,7 @@
 // printed; a page never shows output this program did not produce. A value shown in a code
 // comment on a page is quoted (// "Marguerita") or written // => value, so
 // `wikiwright.py outputs` can check it (L-110). The page's PowerShell and F# snippets run from
-// here too, through Run(), so their output is in the saved file.
+// here too, through Run() and Fsi(), so their output is in the saved file.
 //
 // A package that makes requests (HTTP, a web API): read the comment at the top of the first
 // "requests" block. A package that makes none: delete both "requests" blocks.
@@ -99,17 +99,48 @@ var snippets = new Dictionary<string, string>
     //     """,
 };
 var targets = new[] { "net10.0" };   // one per build: "net48" (Windows) for net4x, "net8.0" for netstandard2.0
+var gateCalls = 4;   // 2 when the package's request takes no HttpClient: delete the `mine` lines in both gates
 var children = targets.ToDictionary(t => t, t => BuildChild(scratch, t, snippets));
 foreach (var (tfm, child) in children)
 {
-    var gate = RunSnippet(child, "gate").Split('\n');
-    Show($"gate ({tfm})", string.Join("\n", gate));
-    if (gate.Count(l => l.Contains(": threw ")) != 4 || gate.Count(l => l.StartsWith("stand-in: ") && l.Contains("gate.invalid")) != 4)
-    {
-        Console.WriteLine($"GATE FAILED on {tfm}: a call returned, went round the stand-in or was retried. No case ran.");
-        Environment.Exit(1);
-    }
+    Gate(tfm, RunSnippet(child, "gate"), gateCalls);
 }
+
+// ----- F# (dotnet fsi): delete down to "end of F#" when no F# snippet on the pages requests -----
+// fsi resolves a script's #r and #i lines as one set, keeps the answer in ~/.packagemanagement/nuget/Cache
+// and never restores that set again. The warm-up (the #r line and a printfn) runs WITHOUT the proxy
+// variables: on a fresh machine it downloads the package and FSharp.Core; skipped, the gate's own restore
+// meets the stand-in (CONNECT api.nuget.org) and fails the gate. fsi reads HTTP_PROXY and HTTPS_PROXY.
+var reference = "#r \"nuget: {{PACKAGE_ID}}, {{VERSION}}\"\n";
+Show("fsi restore (no proxy)", Fsi(scratch, "warm", reference + "printfn \"restored\"\n", ProxyEnv(null)));
+Gate("dotnet fsi", RunFsx("gate", reference + """
+    open System.Net.Http
+    open {{NAMESPACE}}
+
+    let outcome (call: unit -> System.Threading.Tasks.Task<'T>) =
+        try sprintf "returned %A" (call().GetAwaiter().GetResult()) with e -> "threw " + e.GetType().Name
+
+    for url in [ "http://gate.invalid/"; "https://gate.invalid/" ] do
+        printfn "%s default client: %s" url (outcome (fun () -> {{FS_DEFAULT_CLIENT_CALL}}))
+        use mine = new HttpClient()
+        printfn "%s new HttpClient(): %s" url (outcome (fun () -> {{FS_CALLER_CLIENT_CALL}}))
+    """), gateCalls);
+// The pages' F# that requests, exactly as shown. #r lines other than `reference` need their own warm-up,
+// or their restore fails at the stand-in. An https route from F# (a harness row)
+// passes its own client: new HttpClient(new HttpClientHandler(ServerCertificateCustomValidationCallback =
+//     fun _ c _ _ -> c.GetCertHashString() = System.Environment.GetEnvironmentVariable "WIKI_VERIFY_THUMBPRINT"))
+var fsSnippets = new Dictionary<string, string>
+{
+    // ["getting started: F#"] = """
+    //     #r "nuget: {{PACKAGE_ID}}, {{VERSION}}"
+    //     ...
+    //     """,
+};
+foreach (var (name, code) in fsSnippets)
+{
+    Show($"{name} (fsi)", RunFsx(name, code));
+}
+// ----- end of F# -----
 
 foreach (var (tfm, child) in children)
 {
@@ -119,9 +150,6 @@ foreach (var (tfm, child) in children)
     }
 }
 
-// An F# snippet that requests: warm fsi's cache without the proxy, then run it under the proxy.
-// Run("dotnet", ["fsi", "--quiet", warmFsx], ProxyEnv(null));   // warmFsx holds only the #r line
-// Show("getting started: F#", Run("dotnet", ["fsi", "--quiet", fsx], ProxyEnv(standIn)) + "\n" + Seen(standIn.Take()));
 Show("stand-in: hosts asked", string.Join("\n", standIn.Hosts));
 // ===== end of requests (1 of 2) =====
 
@@ -134,13 +162,11 @@ Show("stand-in: hosts asked", string.Join("\n", standIn.Hosts));
 // Errors: Catch() prints the exception type and message the page quotes.
 // Show("null input", Catch(() => ...));
 
-// ----- the pages' PowerShell and F# snippets, run as written -----
-// var fsx = Path.Combine(Path.GetTempPath(), "wiki-verify.fsx");
-// File.WriteAllText(fsx, """
+// ----- the pages' PowerShell and F# snippets, run as written (F# that requests goes in fsSnippets) -----
+// Show("getting started: F#", Fsi(scratch, "getting started: F#", """
 //     #r "nuget: {{PACKAGE_ID}}, {{VERSION}}"
 //     ...
-//     """);
-// Show("getting started: F#", Run("dotnet", ["fsi", "--quiet", fsx]));
+//     """));
 // Show("getting started: PowerShell", Run("pwsh", ["-NoProfile", "-NonInteractive", "-Command", """
 //     Add-Type -Path "$env:USERPROFILE/.nuget/packages/{{PACKAGE_ID_LOWER}}/{{VERSION}}/lib/netstandard2.0/{{ASSEMBLY}}.dll"
 //     ...
@@ -203,8 +229,19 @@ static string Run(string file, string[] args, Dictionary<string, string?>? env =
     var stderr = p.StandardError.ReadToEndAsync();
     var stdout = p.StandardOutput.ReadToEnd();
     p.WaitForExit();
-    var text = stdout + (stderr.Result.Length > 0 ? "--- stderr\n" + stderr.Result : "") + (p.ExitCode != 0 ? "--- exit " + p.ExitCode : "");
-    return text.Replace("\r\n", "\n").TrimEnd();
+    var err = stderr.Result.Trim();   // fsi pads its warnings and errors with blank lines
+    var text = stdout.TrimEnd() + (err.Length > 0 ? "\n--- stderr\n" + err : "") + (p.ExitCode != 0 ? "\n--- exit " + p.ExitCode : "");
+    return text.Replace("\r\n", "\n").TrimStart('\n');
+}
+
+// Runs an F# script with dotnet fsi from <scratch>/fsx, written with LF endings under a file name made from
+// `name`. fsi restores the script's #r "nuget:" lines when it runs.
+static string Fsi(string scratch, string name, string code, Dictionary<string, string?>? env = null)
+{
+    var dir = Directory.CreateDirectory(Path.Combine(scratch, "fsx")).FullName;
+    var file = string.Concat(name.Select(c => char.IsAsciiLetterOrDigit(c) ? c : '-')) + ".fsx";
+    File.WriteAllText(Path.Combine(dir, file), code.Replace("\r\n", "\n") + "\n");
+    return Run("dotnet", ["fsi", "--quiet", file], env, dir);
 }
 
 static string Catch(Func<object?> action)
@@ -306,6 +343,28 @@ string RunSnippet(string[] child, string name)
     standIn.Take();
     var output = Run(child[0], [.. child[1..], name], ProxyEnv(standIn), scratch);
     return output + "\n" + Seen(standIn.Take());
+}
+
+// The same under dotnet fsi: fsi finds the proxy in HTTP_PROXY and HTTPS_PROXY as a .NET 10 child does.
+string RunFsx(string name, string code)
+{
+    standIn.Take();
+    var output = Fsi(scratch, name, code, ProxyEnv(standIn));
+    return output + "\n" + Seen(standIn.Take());
+}
+
+// Prints a route's gate and stops the run unless each of the `calls` calls threw and the stand-in logged exactly
+// `calls` requests, all to gate.invalid (a restore that reached the stand-in fails it too).
+static void Gate(string route, string output, int calls)
+{
+    Show($"gate ({route})", output);
+    var lines = output.Split('\n');
+    var logged = lines.Where(l => l.StartsWith("stand-in: ") && l.Contains(" -> ")).ToList();
+    if (lines.Count(l => l.Contains(": threw ")) != calls || logged.Count != calls || logged.Any(l => !l.Contains("gate.invalid")))
+    {
+        Console.WriteLine($"GATE FAILED on {route}: a call returned, went round the stand-in or was retried. No case ran.");
+        Environment.Exit(1);
+    }
 }
 
 static string Seen(List<string> requests) => requests.Count == 0 ? "stand-in: no request" : string.Join("\n", requests.Select(r => "stand-in: " + r));

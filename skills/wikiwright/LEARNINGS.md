@@ -183,7 +183,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 ### L-137 · 2026-09-29 · A .NET package's requests reach a stand-in by a different route on each runtime (`dotnet-request-route`)
 - Rule: .NET Core and .NET 5+ read `HTTP_PROXY`/`HTTPS_PROXY`; .NET Framework ignores them, so its child sets `WebRequest.DefaultWebProxy`, and since Framework never proxies a loopback address the routes use `.test` names. Restores (child builds, fsi's `#r "nuget:"`) run without the proxy variables, first. The `.invalid` gate runs on every route before any case.
 - Evidence: the run's report ("Request route", ".NET Framework and Linux"); the template filled for IsImageUrlDotNet 2.0.0, where net48 without the `DefaultWebProxy` line failed the gate with "stand-in: no request"
-- Status: promoted: C-20260929-15 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+- Status: promoted: C-20260929-15, C-20260930-6 (the fsi route as code) · helpful 2 · harmful 0 · last_confirmed 2026-09-30
 
 ### L-138 · 2026-09-29 · A stand-in that refuses by closing the connection makes HttpClient retry (`refuse-by-answering`)
 - Rule: refuse by answering: a reply that is not HTTP to a GET, 403 to a CONNECT. The gate expects each call logged exactly once, so a retry fails it.
@@ -194,3 +194,11 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Rule: a wiki page starts with its first paragraph, never with a heading that repeats the file-name title the host prints, and never puts a heading straight under one with the same words. `check` fails both; the everwrite checker flags them with `--wiki`.
 - Evidence: the maintainer's correction on 2026-09-30 (get-title-at-url's Getting started showed "Getting Started" and then "Getting started"; "saying the same thing twice exactly is a mistake most humans wouldn't make"). page-sets.md had allowed it. Rule in SKILL.md Step 5, references/page-sets.md, scripts/wikiwright.py (check), CheckTests; everwrite C-20260930-1
 - Status: promoted: C-20260930-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-140 · 2026-09-30 · fsi resolves each set of `#r` lines once, so a skipped warm-up usually goes unseen (`fsi-resolution-cache`)
+- Trigger: the first real run of the fsi `.invalid` gate (IsImageUrlDotNet 2.0.0). The negative variant with no warm-up and an empty `NUGET_PACKAGES` passed the gate: fsi never restored, and the empty folder was never created. A second try with a new `#i` line (a new key) restored from NuGet's 30-minute HTTP cache, again with no request.
+- Hypothesis: without the warm-up, the gate script's restore goes through the proxy and fails.
+- Rule: fsi keeps each resolved `#r`/`#i` set in `~/.packagemanagement/nuget/Cache/<hash>.fsx` and never restores it again, ignoring `NUGET_PACKAGES` for it; NuGet's HTTP cache then answers repeat downloads. Keep the warm-up anyway: on a fresh machine or with a new set, the restore does go through the proxy (NuGet reads `HTTPS_PROXY`) and fails the gate. To test that path, give the script a set never resolved (a new `#i` folder) and empty `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH`.
+- Evidence: scratch variants neg-nowarm (exit 0), neg-nowarm4 (6 × "CONNECT api.nuget.org:443 -> 403 refused", NU1301, GATE FAILED), pos-coldwarm3 (the warm-up downloaded the package and FSharp.Core, gate passed); references/nuget.md ("Packages that make requests", Traps); the template's F# section comment
+- Scope: skill (NuGet, F#)
+- Status: promoted: C-20260930-6 · helpful 1 · harmful 0 · last_confirmed 2026-09-30

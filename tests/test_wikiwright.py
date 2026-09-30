@@ -913,7 +913,8 @@ class TemplateTests(unittest.TestCase):
                       "#if NETFRAMEWORK", "TargetFramework=%TFM%", "ProxyEnv(null)", "AuthenticateAsServerAsync"):
             self.assertIn(piece, block)
         # The gate wants each call to throw and be logged once; the stand-in never connects out.
-        self.assertIn('l.StartsWith("stand-in: ") && l.Contains("gate.invalid")) != 4', block)
+        self.assertIn("var gateCalls = 4;", block)
+        self.assertIn('lines.Count(l => l.Contains(": threw ")) != calls || logged.Count != calls', block)
         stand_in = block[block.index("sealed class StandIn"):]
         for outbound in ("new TcpClient(", "ConnectAsync(", ".Connect(", "new HttpClient("):
             self.assertNotIn(outbound, stand_in)
@@ -927,7 +928,37 @@ class TemplateTests(unittest.TestCase):
         rest = text[:text.index(start)] + text[text.index("// ===== end of requests (1 of 2)"):]
         rest = rest[:rest.index("// ===== requests (2 of 2)")] + rest[rest.index(end):]
         code = [line for line in rest.splitlines() if not line.lstrip().startswith("//")]
-        for name in ("StandIn", "ProxyEnv", "RunSnippet", "BuildChild", "Seen(", "Answer"):
+        for name in ("StandIn", "ProxyEnv", "RunSnippet", "BuildChild", "Seen(", "Answer", "RunFsx", "Gate("):
+            self.assertFalse([line for line in code if name in line], name)
+
+    def test_nuget_template_fsi_gate(self):
+        # C-20260930-6: the .invalid gate runs under dotnet fsi as code, checked like the children's, after a
+        # warm-up without the proxy; the F# section is delimited so a run with no F# that requests deletes it.
+        text = self.read(os.path.join("..", "nuget", "wiki-verify.template.cs"))
+        start, end = "// ----- F# (dotnet fsi)", "// ----- end of F# -----"
+        section = text[text.index(start):text.index(end)]
+        block = text[text.index("// ===== requests (1 of 2)"):text.index("// ===== end of requests (1 of 2)")]
+        self.assertIn(section, block)
+        for piece in ('Fsi(scratch, "warm", reference + "printfn \\"restored\\"\\n", ProxyEnv(null))',
+                      'Gate("dotnet fsi", RunFsx("gate", reference + """', '"http://gate.invalid/"; "https://gate.invalid/"',
+                      "{{FS_DEFAULT_CLIENT_CALL}}", "{{FS_CALLER_CLIENT_CALL}}", "), gateCalls);",
+                      "var fsSnippets = new Dictionary<string, string>", "RunFsx(name, code)", ".packagemanagement"):
+            self.assertIn(piece, section)
+        # The warm-up comes before the gate, and every gate before any case.
+        self.assertLess(section.index('"warm"'), section.index('Gate("dotnet fsi"'))
+        self.assertLess(block.index("Gate(tfm, "), block.index(start))
+        self.assertLess(block.index(end), block.index("RunSnippet(child, name)"))
+        self.assertIn("string RunFsx(string name, string code)", text)
+        self.assertIn("ProxyEnv(standIn)", text[text.index("string RunFsx("):text.index("static void Gate(")])
+        # Fsi() lives outside the requests blocks: the pages' plain F# uses it too.
+        rest = text[:text.index("// ===== requests (1 of 2)")] + text[text.index("// ===== end of requests (1 of 2)"):]
+        rest = rest[:rest.index("// ===== requests (2 of 2)")]
+        self.assertIn("static string Fsi(string scratch, string name, string code", rest)
+        self.assertNotIn("// An F# snippet that requests", text)
+        # Cutting the F# section leaves no code naming it.
+        cut = text[:text.index(start)] + text[text.index(end):]
+        code = [line for line in cut.splitlines() if not line.lstrip().startswith("//")]
+        for name in ("reference", "fsSnippets", "FS_DEFAULT_CLIENT_CALL"):
             self.assertFalse([line for line in code if name in line], name)
 
     def test_grader_sees_a_recorder_that_names_no_host(self):

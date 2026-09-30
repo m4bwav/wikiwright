@@ -4,6 +4,17 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20260930-6 · 2026-09-30 · The fsi `.invalid` gate is code in the NuGet template, run for real (`fsx-gate`)
+- because: user request (the F# route's gate existed only as a comment and had never run); L-137, L-138; L-140
+- files: templates/nuget/wiki-verify.template.cs (header; requests block 1: `gateCalls`, the delimited F# section with the warm-up, the fsi gate and `fsSnippets`; `Fsi()` beside `Run()`; `Run()` trims stderr; requests block 2: `RunFsx()`, `Gate()`; the pages' F# example uses `Fsi()`); references/nuget.md (the F# bullet, Packages that make requests, Traps); tests/test_wikiwright.py (`test_nuget_template_fsi_gate`, the request-route test checks `Gate()`); LEARNINGS.md (L-140; L-137 confirmed)
+- What changed and why:
+  - The F# lines were comments that could not compile (they named `warmFsx` and `fsx`, defined nowhere or later), and the gate for fsi was a sentence. The F# section is now code between `// ----- F# (dotnet fsi)` and `// ----- end of F# -----`: a warm-up (the `#r` line and a `printfn`) without the proxy variables, then an `.fsx` gate under the proxy asking `http://gate.invalid/` and `https://gate.invalid/` on the default client and on `new HttpClient()`, then the pages' F# that requests. A run with no such F# deletes the section.
+  - Both routes go through one `Gate()`: every call threw, and the stand-in logged exactly `gateCalls` requests (4, or 2 for a call that takes no client), all to `gate.invalid`, or exit 1. The old check counted only `gate.invalid` lines, so a restore that reached the stand-in did not fail it.
+  - `Fsi()` writes `<scratch>/fsx/<name>.fsx` with LF and runs `dotnet fsi --quiet` from that folder, so warnings name the file without a path. `Run()` trims stderr: fsi pads its errors with blank lines.
+  - fsi quirks found, now in nuget.md and the comments: fsi reads `HTTP_PROXY`/`HTTPS_PROXY`; it caches each resolved `#r` set in `~/.packagemanagement/nuget/Cache` and never restores it again (L-140); an https route from F# needs its own client trusting the stand-in's thumbprint (the F# line is in a comment); Smart App Control can refuse a freshly built DLL, and the gate fails closed on it.
+- Measured: filled for IsImageUrlDotNet 2.0.0 from nuget.org (C# gate on net10.0, fsi gate, an F# case on `http://api.test/item`, an F# harness row on `https://secure.test/item`, a C# redirect case): exit 0, both gates 4 throws and 4 stand-in lines, two runs byte-identical. Negative variants: fsi gate without the proxy variables, exit 1 ("stand-in: no request"); no warm-up with a new set and empty package and HTTP caches, exit 1 (6 refused CONNECTs to api.nuget.org, NU1301); the same with the warm-up, exit 0. With the F# section cut, and with both requests blocks cut, the filled copy builds and runs. The template grew from 20,869 to 23,953 bytes (the F# section is 1,977), its header from 1,837 to 1,847; nuget.md from 8,338 to 10,150.
+- Tests: 76 unit tests.
+
 ### C-20260930-5 · 2026-09-30 · Release 0.7.2: the page title is printed once (`release-0.7.2`)
 - because: C-20260930-4; T-20260930-2
 - files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, history)
