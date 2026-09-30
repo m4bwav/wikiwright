@@ -208,6 +208,93 @@ class OutputsTests(unittest.TestCase):
             shutil.rmtree(d)
 
 
+SNIPPET_PROGRAM = (
+    "using Widget;\n\n"
+    "var cases = new List<Case>\n{\n"
+    "    new(\"first\", () =>\n    {\n"
+    "        var w = new Widget(\"a\");\n"
+    "        if (w.Ok)\n        {\n            Console.WriteLine(w.Name);\n        }\n"
+    "    }),\n"
+    '    new("fsharp", """\n'
+    "    #r \"nuget: Widget\"\n"
+    "    open Widget\n\n"
+    "    printfn \"%b\" (Widget.check \"a\")\n"
+    '    """),\n'
+    "};\n")
+
+SNIPPET_PAGES = {
+    "Home.md": (
+        "Install it:\n\n```sh\ndotnet add package Widget\n```\n\n"
+        "Use it:\n\n```csharp\nvar w = new Widget(\"a\");\n\nif (w.Ok)\n{\n    Console.WriteLine(w.Name); // \"a\"\n}\n"
+        "// \"True\"\n```\n\n"
+        "From F#:\n\n```fsharp\n#r \"nuget: Widget\"\nopen Widget\n\nprintfn \"%b\" (Widget.check \"a\")\n// => true\n```\n"),
+    "_Sidebar.md": "```csharp\nnot checked();\n```\n",
+}
+
+
+class SnippetsTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        write(self.d, SNIPPET_PAGES)
+        self.program = os.path.join(self.d, "verify.cs")
+        with open(self.program, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write(SNIPPET_PROGRAM)
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def test_nested_block_output_comments_and_raw_string(self):
+        # The C# block is indented inside a lambda in the program and carries "// "True"" output comments on the
+        # page; the F# block sits in a C# raw string literal. The install line is a command, not code.
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 0, out)
+        self.assertIn("snippets: 1 pages, 2 blocks checked, 0 missing, 0 skipped, 1 commands", out)
+        self.assertIn("Home.md:3: command, not checked: dotnet add package Widget", out)
+
+    def test_edited_block_fails(self):
+        write(self.d, {"Home.md": SNIPPET_PAGES["Home.md"].replace("w.Name", "w.Title")})
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 1, out)
+        self.assertIn("Home.md:9: error: code block not in the program (line 14 is in no program: "
+                      "Console.WriteLine(w.Title);): var w = new Widget(\"a\");", out)
+        self.assertIn("1 missing", out)
+
+    def test_skip_marker(self):
+        page = "<!-- snippets: skip (a signature, not run) -->\n```ts\nfunction widget(name: string): boolean\n```\n"
+        write(self.d, {"Home.md": page})
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 0, out)
+        self.assertIn("Home.md:2: skip: marked <!-- snippets: skip -->", out)
+        self.assertIn("0 blocks checked, 0 missing, 1 skipped", out)
+        # The marker is not the prose line before the block: outputs still reads the intro above it.
+        self.assertEqual(wikiwright.fences("Output:\n<!-- snippets: skip -->\n```\nx\n```\n")[0]["prev"], "Output:")
+
+    def test_string_literal_snippet(self):
+        write(self.d, {"Home.md": "```js\nimport w from 'widget';\n\nconsole.log(w('a'));\n```\n"})
+        with open(self.program, "w", encoding="utf-8", newline="\n") as fh:
+            fh.write("const APP = \"import w from 'widget';" + BACKSLASH + "n" + BACKSLASH + "nconsole.log(w('a'));"
+                     + BACKSLASH + "n\";\n")
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 0, out)
+        self.assertIn("1 blocks checked, 0 missing", out)
+
+    def test_commands_alone_pass_and_unread_code_fails(self):
+        write(self.d, {"Home.md": "```sh\nnpm install widget\nnpm test # the suites\n```\n"})
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 0, out)
+        self.assertIn("0 blocks checked, 0 missing, 0 skipped, 1 commands", out)
+        write(self.d, {"Home.md": "```sh\nfor f in *; do\n  echo \"$f\"\ndone\n```\n"})
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 1, out)
+        self.assertIn("code block not in the program", out)
+        # L-136: code in a language snippets does not read, and nothing checked, is not a pass.
+        write(self.d, {"Home.md": "```vb\nDim w = New Widget()\n```\n"})
+        code, out = run(["snippets", self.d, self.program])
+        self.assertEqual(code, 1, out)
+        self.assertIn("vb 1", out)
+        self.assertIn("none checked", out)
+
+
 def blocks(page):
     """What `outputs` checks on one page: [(kind, first line of content)]."""
     return [(kind, content.split("\n")[0]) for _, kind, content in wikiwright.output_blocks(page)]

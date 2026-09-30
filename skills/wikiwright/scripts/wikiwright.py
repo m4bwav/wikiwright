@@ -17,6 +17,12 @@ Subcommands
       Every block a page presents as output, and every //=> value, must
       appear in the verification script's saved output (the fixture's
       http://127.0.0.1:<port> read as https://example.com).
+  snippets DIR PROGRAM...
+      Every program-language code block on the pages (C#, F#, JavaScript,
+      TypeScript, Python, PowerShell, shell) must appear in the verification
+      program as a run of lines, each stripped, with blank lines and
+      output-value comments left out. Shell blocks that only run commands are
+      counted, not checked; <!-- snippets: skip (reason) --> skips a block.
   live OWNER/REPO|URL DIR [--kind KIND] [--no-anchors]
       After the push: every page answers 200 (on GitHub Home answers 301 to
       /wiki), and the sidebar and footer text render on the wiki root; on
@@ -884,6 +890,7 @@ FIXTURE = re.compile(r"http://127\.0\.0\.1:(?:[0-9]+|<port>)")
 PORT = re.compile(r"127\.0\.0\.1:[0-9]+")
 FENCE = re.compile(r"^(\s*)(```+|~~~+)\s*([\w+#-]*)")
 DIRECTIVE = re.compile(r"^<!--\s*outputs:\s*(?:(skip|check)\b)?\s*(?:node\s*(>=|<=|==|=|<|>)\s*([0-9]+))?.*-->$")
+SNIP_DIRECTIVE = re.compile(r"^<!--\s*snippets:\s*skip\b.*-->$")
 LANGS_OUTPUT = {"text", "txt", "plaintext", "console", "output"}
 LANGS_DATA = {"json", "jsonc", "json5", "xml", "html", "yaml", "yml", "csv", "tsv"}
 # Fences whose line comments start with '#'; every other fence uses '//'.
@@ -929,16 +936,18 @@ def is_intro(prose):
 
 def fences(text):
     """Every fenced block: start line, language, body, the prose line before it, the
-    <!-- outputs: --> directive before it, and whether only blank lines or directives
-    separate it from the block before it."""
+    <!-- outputs: --> directive before it, whether <!-- snippets: skip --> is before it, and
+    whether only blank lines or directives separate it from the block before it."""
     items, lines = [], text.split("\n")
-    i, prev, directive, scope, adjacent = 0, "", None, None, False
+    i, prev, directive, scope, adjacent, snip = 0, "", None, None, False, False
     while i < len(lines):
         m = FENCE.match(lines[i])
         if not m:
             stripped = lines[i].strip()
             d = DIRECTIVE.match(stripped)
-            if d and (d.group(1) or d.group(2)):
+            if SNIP_DIRECTIVE.match(stripped):
+                snip = True
+            elif d and (d.group(1) or d.group(2)):
                 directive = d.group(1) or directive
                 scope = (d.group(2).replace("==", "="), int(d.group(3))) if d.group(2) else scope
             elif stripped:
@@ -953,8 +962,8 @@ def fences(text):
             i += 1
         i += 1
         items.append({"start": start, "lang": lang, "body": body, "prev": prev,
-                      "directive": directive, "scope": scope, "adjacent": adjacent})
-        prev, directive, scope, adjacent = "", None, None, True
+                      "directive": directive, "scope": scope, "adjacent": adjacent, "snip": snip})
+        prev, directive, scope, adjacent, snip = "", None, None, True, False
     return items
 
 
@@ -1138,6 +1147,147 @@ def cmd_outputs(a):
         # prose lead line with its intro word too far from the colon is not recognised. Tag output fences `text`.
         print("error: %d code blocks and no output recognised; tag each output fence ```text, or mark a page "
               "that shows none with <!-- outputs: skip (reason) -->" % fenced)
+        return 1
+    return 1 if missing else 0
+
+
+# ---------------------------------------------------------------- snippets
+
+# Fence tags whose blocks are program code, to be found in the verification program.
+LANGS_PROGRAM = {"csharp", "cs", "c#", "fsharp", "fs", "f#", "js", "javascript", "mjs", "cjs", "jsx", "ts",
+                 "typescript", "tsx", "mts", "cts", "powershell", "pwsh", "ps1", "ps", "python", "py", "sh",
+                 "bash", "shell", "zsh"}
+LANGS_NOT_CODE = {"diff", "ini", "toml", "md", "markdown", "properties", "env", "dotenv", "http", "regex", "mermaid"}
+LANGS_SHELL = {"powershell", "pwsh", "ps1", "ps", "sh", "bash", "shell", "zsh"}
+# A shell line that runs one command: an optional prompt, then a command name (not a variable or keyword).
+COMMAND_LINE = re.compile(r"^(?:\$ |PS> ?|> )?[A-Za-z][\w.:/+-]*(?:\s|$)")
+SHELL_CONTROL = re.compile(
+    r"^(?:for|foreach|if|elif|else|while|until|case|esac|function|do|done|then|fi|try|catch|finally|param|"
+    r"return)\b|^[{}]|[{(]\s*$|^\w+=")
+# A whole-line comment: // in the C-family languages and F#, '# ' in Python, PowerShell and shell
+# (not #r, #if or #!, which are code). Comments do not run, so neither side's are compared: the
+# page's output comments and the program's lint comments both drop out.
+COMMENT_LINE = re.compile(r"^(?://|#(?:\s|$))")
+TRAILING_ARROW = re.compile(r"\s*(?://|#)\s?=>.*$")
+# The escapes a JavaScript template literal or a non-raw triple-quoted string puts before \, ` and $.
+TEMPLATE_ESCAPE = re.compile(re.escape(BACKSLASH) + r"([" + re.escape(BACKSLASH) + r"`$])")
+# A one-line "..." or '...' string literal, and the escapes a snippet held in one uses.
+STRING_LITERAL = re.compile(r'"((?:[^"\\]|\\.)*)"|' + r"'((?:[^'\\]|\\.)*)'")
+STRING_ESCAPE = re.compile(re.escape(BACKSLASH) + "(.)")
+ESCAPED = {"n": "\n", "t": "\t", "r": "", "0": ""}
+
+
+def code_line(line):
+    """A line as `snippets` compares it: stripped, or None when it is blank or a whole-line comment
+    (// "True", # => x, // eslint-disable-next-line). A trailing comment that shows a value, or
+    follows a print call, is dropped. The same on page and program, whatever the language, so
+    nesting and output comments do not matter."""
+    s = line.strip()
+    if not s or COMMENT_LINE.match(s):
+        return None
+    s = TRAILING_ARROW.sub("", s)
+    for mark in ("//", "#"):
+        t = TRAILING[mark].match(s)
+        if t and (VALUE.match(LEAD.sub("", t.group("c"))) or PRINT_CALL.search(t.group("code"))):
+            s = t.group("code").rstrip()
+    return s or None
+
+
+def code_lines(text):
+    return [c for c in (code_line(line) for line in text.split("\n")) if c is not None]
+
+
+def string_snippets(text):
+    """Every one-line string literal in a program that holds a multi-line snippet ("import x
+    from 'x';\\n\\nconsole.log(x);\\n"), with its escapes undone: a program that writes a page's code
+    to a file before running it."""
+    for line in text.split("\n"):
+        for m in STRING_LITERAL.finditer(line):
+            body = m.group(1) if m.group(1) is not None else m.group(2)
+            if BACKSLASH + "n" in body:
+                yield STRING_ESCAPE.sub(lambda e: ESCAPED.get(e.group(1), e.group(1)), body)
+
+
+def is_command_block(lang, body):
+    """A shell block that only runs commands (`dotnet add package X`, `npm ci`): install and
+    build steps, not program code. A block with a loop, a branch or an assignment is a script."""
+    if lang not in LANGS_SHELL:
+        return False
+    lines = [b.strip() for b in body if b.strip() and not b.strip().startswith("#")]
+    return bool(lines) and all(COMMAND_LINE.match(b) and not SHELL_CONTROL.search(b) for b in lines)
+
+
+def cmd_snippets(a):
+    if not os.path.isdir(a.dir):
+        print("error: %s is not a directory" % a.dir)
+        return 2
+    programs = []
+    for path in a.programs:
+        if not os.path.isfile(path):
+            print("error: %s is not a file" % path)
+            return 2
+        text = page_text(path)[1].replace("\r\n", "\n")
+        # The program as written (raw strings and here-strings need nothing undone), with
+        # template-literal escapes undone (a page's code inside a JavaScript `...` string), and each
+        # one-line string literal that holds a snippet, unescaped.
+        views = [text, TEMPLATE_ESCAPE.sub(r"\1", text)] + list(string_snippets(text))
+        for view in dict.fromkeys(views):
+            lines = code_lines(view)
+            if lines:
+                programs.append("\n" + "\n".join(lines) + "\n")
+    if not programs:
+        print("error: the program files hold no code")
+        return 2
+    known = set("\n".join(programs).split("\n"))
+    pages = sorted(f for f in os.listdir(a.dir) if f.endswith(".md") and f not in SPECIAL)
+    checked = missing = skipped = commands = code = 0
+    unread = {}
+    for f in pages:
+        text = page_text(os.path.join(a.dir, f))[1].replace("\r\n", "\n")
+        for block in fences(text):
+            lang, line = block["lang"], block["start"]
+            if lang not in LANGS_PROGRAM:
+                if lang and lang not in LANGS_OUTPUT and lang not in LANGS_DATA and lang not in LANGS_NOT_CODE:
+                    unread[lang] = unread.get(lang, 0) + 1
+                continue
+            if block["snip"]:
+                skipped += 1
+                print("%s:%d: skip: marked <!-- snippets: skip -->" % (f, line))
+                continue
+            if is_command_block(lang, block["body"]):
+                commands += 1
+                first = next(b.strip() for b in block["body"] if b.strip() and not b.strip().startswith("#"))
+                print("%s:%d: command, not checked: %s" % (f, line, first[:70]))
+                continue
+            code += 1
+            numbered = [(line + n + 1, c) for n, c in enumerate(code_line(b) for b in block["body"]) if c is not None]
+            want = [c for _, c in numbered]
+            if not want:
+                continue
+            checked += 1
+            needle = "\n" + "\n".join(want) + "\n"
+            if any(needle in p for p in programs):
+                continue
+            missing += 1
+            stray = next((n for n, w in enumerate(want) if w not in known), None)
+            if stray is None:
+                hint = " (every line is in a program, not as one run)"
+            elif stray == 0:
+                hint = " (its first line is in no program)"
+            else:
+                hint = " (line %d is in no program: %s)" % (numbered[stray][0], want[stray][:60])
+            print("%s:%d: error: code block not in the program%s: %s" % (f, line, hint, want[0][:70]))
+    if unread:
+        print("note: blocks in languages snippets does not read: %s"
+              % ", ".join("%s %d" % (k, v) for k, v in sorted(unread.items())))
+    print("snippets: %d pages, %d blocks checked, %d missing, %d skipped, %d commands"
+          % (len(pages), checked, missing, skipped, commands))
+    if (code or unread) and not checked and not skipped:
+        # L-136 `zero-checked-passes`: pages with code and nothing compared is not a pass. Install
+        # commands alone are not code to check.
+        print("error: %d code blocks and none checked; tag program code with its language (```csharp, ```js), "
+              "or mark a block no program can hold with <!-- snippets: skip (reason) -->"
+              % (code + sum(unread.values())))
         return 1
     return 1 if missing else 0
 
@@ -1848,6 +1998,15 @@ def main(argv=None):
                    help="the Node major every output ran on (default: read from each output's 'Node vN' line); "
                         "a block after <!-- outputs: node>=22 --> is checked only against outputs in its range")
     o.set_defaults(fn=cmd_outputs)
+    sn = sub.add_parser(
+        "snippets", help="every code block a page shows is in the verification program",
+        description="Every csharp, fsharp, js, ts, python, PowerShell and shell block on the pages must appear in "
+                    "the program files as a run of lines, compared stripped, without blank lines or output-value "
+                    "comments. Shell blocks that only run commands (dotnet add package X) are counted, not checked. "
+                    "Put <!-- snippets: skip (reason) --> on the line before a block no program can hold.")
+    sn.add_argument("dir", help="the wiki working copy (or a folder of draft pages)")
+    sn.add_argument("programs", nargs="+", help="the verification program (one or more files)")
+    sn.set_defaults(fn=cmd_snippets)
     u = sub.add_parser("unbs", help="replace <BS> placeholders with backslashes")
     u.add_argument("files", nargs="+")
     u.set_defaults(fn=cmd_unbs)

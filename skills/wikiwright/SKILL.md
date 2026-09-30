@@ -83,10 +83,11 @@ First reread every page once with one question per sentence: which script output
 ```
 WW check <wiki dir> --version X
 WW outputs <wiki dir> <the saved wiki-verify.out.txt> [--address '' when the pages show real host names]
+WW snippets <wiki dir> <the saved wiki-verify program>
 python <everwrite>/scripts/tells.py <wiki dir>/*.md
 ```
 
-`check` must exit 0. It covers page links and anchors, wikilinks, CRLF, `<BS>` leftovers, sidebar and footer, unclosed fences and attribution (`--partial` for a draft of a few pages without sidebar and footer). `outputs` must exit 0: every block a page presents as output, and every `//=>` value, must be in the saved output; tag output fences `text`, since pages with code blocks and no output it recognises fail (L-136 `zero-checked-passes`). Give it the oldest Node's output too; a block true on some Node lines only gets `<!-- outputs: node>=22 -->` before it. How it tells output from input, and its other markers (`skip`, `check`), are in [references/page-sets.md](references/page-sets.md) ("How `wikiwright.py outputs` reads a page"). The prose checker must report 0 strong findings; judge weak ones (quoted error messages are fine).
+`check` must exit 0. It covers page links and anchors, wikilinks, CRLF, `<BS>` leftovers, sidebar and footer, unclosed fences and attribution (`--partial` for a draft of a few pages without sidebar and footer). `outputs` must exit 0: every block a page presents as output, and every `//=>` value, must be in the saved output; tag output fences `text`, since pages with code blocks and no output it recognises fail (L-136 `zero-checked-passes`). Give it the oldest Node's output too; a block true on some Node lines only gets `<!-- outputs: node>=22 -->` before it. How it tells output from input, and its other markers (`skip`, `check`), are in [references/page-sets.md](references/page-sets.md) ("How `wikiwright.py outputs` reads a page"). `snippets` must exit 0: every code block is in the program as the page shows it, or marked `<!-- snippets: skip (reason) -->`. The prose checker must report 0 strong findings; judge weak ones (quoted error messages are fine).
 
 ## Step 7: publish
 
