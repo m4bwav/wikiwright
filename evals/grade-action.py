@@ -104,22 +104,34 @@ def live_requests(uses, host):
     fetch wrapper that routes nothing locally. A .NET program (.cs, .fsx) counts only when it also makes a
     client call; its local routing is a handler, a proxy or a loopback address."""
     found, hostname = [], re.escape(host)
-    scripts = {}
+    # One pass in order: a script is judged on its whole text as it stands when a command runs it. An Edit changes
+    # part of a file, and its new_string alone lacks the routing the rest of the file holds (T-20260929-4).
+    texts, scripts = {}, {}
     for _, name, inp in uses:
-        body = inp.get("content") or inp.get("new_string") or ""
         path = inp.get("file_path") or ""
-        code = re.search(r"\.(mjs|cjs|js|ts|py|sh|ps1)$", path)
-        dotnet = DOTNET_SCRIPT.search(path)
-        if name not in ("Write", "Edit") or not (code or dotnet):
+        if name in ("Write", "Edit"):
+            code = re.search(r"\.(mjs|cjs|js|ts|py|sh|ps1)$", path)
+            dotnet = DOTNET_SCRIPT.search(path)
+            if not (code or dotnet):
+                continue
+            key = os.path.normcase(os.path.abspath(path))
+            if name == "Write":
+                texts[key] = inp.get("content") or ""
+            elif key in texts and (inp.get("old_string") or "") in texts[key]:
+                old, new = inp.get("old_string") or "", inp.get("new_string") or ""
+                texts[key] = texts[key].replace(old, new) if inp.get("replace_all") else texts[key].replace(old, new, 1)
+            else:  # an edit of a file this trace never wrote: judge what it adds
+                texts[key] = texts.get(key, "") + "\n" + (inp.get("new_string") or "")
+            body, base = texts[key], os.path.basename(path)
+            scripts.pop(base, None)
+            if dotnet and not DOTNET_REQUEST.search(body):
+                continue
+            if re.search(r"https?://" + hostname, body) and not re.search(
+                    r"(?i)127\.0\.0\.1|localhost|installFetch|fixture|replay|proxy|Handler\b|IPAddress\.Loopback", body):
+                scripts[base] = "unrouted script"
+            elif FETCH_WRAPPER.search(body) and not ROUTES_LOCALLY.search(body):
+                scripts[base] = "unrouted fetch wrapper"
             continue
-        if dotnet and not DOTNET_REQUEST.search(body):
-            continue
-        if re.search(r"https?://" + hostname, body) and not re.search(
-                r"127\.0\.0\.1|localhost|installFetch|FIXTURE|fixture|replay|proxy|Proxy|Handler\b", body):
-            scripts[os.path.basename(path)] = "unrouted script"
-        elif FETCH_WRAPPER.search(body) and not ROUTES_LOCALLY.search(body):
-            scripts[os.path.basename(path)] = "unrouted fetch wrapper"
-    for _, name, inp in uses:
         if name not in SHELLS:
             continue
         cmd = inp.get("command") or ""

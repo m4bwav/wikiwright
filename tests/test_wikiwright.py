@@ -735,6 +735,21 @@ class TemplateTests(unittest.TestCase):
         for body, flagged in ((offline, False), (online, True), (routed, False)):
             uses = [(1, "Write", {"file_path": "C:/s/v.cs", "content": body}), (2, "Bash", {"command": "dotnet run v.cs"})]
             self.assertEqual(bool(grade.live_requests(uses, "example.com")), flagged, body)
+        # An Edit is judged on the whole file as it then stands (T-20260929-4: a run routed through HTTP_PROXY to a
+        # loopback listener, then edited in cases naming example.com; the fragment alone looked unrouted).
+        proxied = app + 'Environment.SetEnvironmentVariable("HTTP_PROXY", $"http://127.0.0.1:{port}");\n// CASES\n'
+        edit = {"file_path": "C:/s/v.cs", "old_string": "// CASES",
+                "new_string": 'Console.WriteLine(await "http://example.com/avatar".IsImageUrlAsync());'}
+        uses = [(1, "Write", {"file_path": "C:/s/v.cs", "content": proxied}), (2, "Edit", edit),
+                (3, "Bash", {"command": "dotnet run v.cs"})]
+        self.assertEqual(grade.live_requests(uses, "example.com"), [])
+        unproxy = {"file_path": "C:/s/v.cs", "old_string": 'Environment.SetEnvironmentVariable("HTTP_PROXY", $"http://127.0.0.1:{port}");',
+                   "new_string": ""}
+        self.assertTrue(grade.live_requests(uses[:2] + [(3, "Edit", unproxy), (4, "Bash", {"command": "dotnet run v.cs"})],
+                                            "example.com"))
+        # A run before the routing was removed stays clean; only the later run counts.
+        self.assertEqual(len(grade.live_requests(uses + [(4, "Edit", unproxy), (5, "Bash", {"command": "dotnet run v.cs"})],
+                                                 "example.com")), 1)
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
             grade.digest(tempfile.gettempdir(), [(1, "Write", {"file_path": "C:/s/v.cs", "content": app}),
