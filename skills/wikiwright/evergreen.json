@@ -86,17 +86,23 @@
       "m": null,
       "interval_after": 14,
       "note": "0.8.0: eighth run (replace-string-at-position, the first npm wiki gated by snippets); scaffold, both golden formats, a TypeScript matrix and old versions in snippet(), tsc by path (TypeScript 7), the fsi gate run for real, registry downloads per version, a UTF-8 grader; no new research"
+    },
+    {
+      "date": "2026-10-01",
+      "m": null,
+      "interval_after": 14,
+      "note": "0.9.0: ninth and tenth runs (TrailerClipperLib, the first command-line tool set; CachingServiceWithAOPSupport, time-dependent output); references split by package kind, scaffold nuget and the NuGet template in sections, programs-and-media and time-and-state, the grader reads dotnet tool installs and fails system installs; no new research"
     }
   ],
   "counts": {
-    "learnings": 32,
-    "changes": 33,
+    "learnings": 35,
+    "changes": 40,
     "research": 4,
-    "tests": 12
+    "tests": 13
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-09-30T13:40",
+    "last_run": "2026-10-01T03:30",
     "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py; unit and kit suites",
     "env": "DESKTOP-7KS2S6E",
     "cases": 9,
@@ -109,5 +115,5 @@
     },
     "research_after_days": null
   },
-  "version": "0.8.0"
+  "version": "0.9.0"
 }

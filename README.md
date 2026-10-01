@@ -24,7 +24,7 @@ wikiwright writes those pages from the source, tests, changelog, issues and regi
 
 Update mode ("update the wiki for 2.4.0") re-runs the saved verification script on the new version, compares its output with the saved one section by section (`wikiwright.py diffout`), and fixes the pages that changed. A wiki written before the script was saved is adopted first: the script is completed (or written) until every page output is in its output.
 
-Tested page sets: npm libraries with and without a CLI (the CLI set five times), NuGet libraries, packages with seeded or deterministic output, and a package whose output is files on disk. Applications, monorepos and command-line tools have no tested page set yet. On Gitea, Forgejo, GitLab and Azure DevOps, `preflight`, `check --host` and `live` follow what was measured on 2026-09-29 without an account (local Gitea, Forgejo and GitLab CE instances, and anonymous reads of public wikis); what needs an account is marked unverified in `references/hosts.md`, and one real wiki has been published there so far, on a local Forgejo.
+Tested page sets: npm libraries with and without a CLI (the CLI set five times), NuGet libraries, packages with seeded or deterministic output, a package whose output is files on disk, and a command-line tool (a dotnet tool shipped beside its library, which runs ffmpeg and writes media files). A NuGet library whose output depends on time (a cache's lifetimes) was shown with margins two runs agree on. Applications, websites and monorepos have no tested page set yet. On Gitea, Forgejo, GitLab and Azure DevOps, `preflight`, `check --host` and `live` follow what was measured on 2026-09-29 without an account (local Gitea, Forgejo and GitLab CE instances, and anonymous reads of public wikis); what needs an account is marked unverified in `references/hosts.md`, and one real wiki has been published there so far, on a local Forgejo.
 
 ## Install
 
@@ -44,6 +44,7 @@ The helper script needs Python 3.9 or newer, `git`, and the GitHub CLI (`gh`) lo
 python skills/wikiwright/scripts/wikiwright.py preflight OWNER/REPO --enable --clone ../REPO.wiki
 python skills/wikiwright/scripts/wikiwright.py registry PACKAGE        # npm or NuGet facts, one per line
 python skills/wikiwright/scripts/wikiwright.py scaffold npm PACKAGE 1.2.0 -o <scratch>/wiki-verify.mjs   # the npm verification script, cut to size
+python skills/wikiwright/scripts/wikiwright.py scaffold nuget ID 1.2.0 --namespace NS --type T --children net48   # the NuGet program, cut to size
 python skills/wikiwright/scripts/wikiwright.py check ../REPO.wiki --version 1.2.0
 python skills/wikiwright/scripts/wikiwright.py outputs ../REPO.wiki ai-docs/notes/<date>-wiki-verify.out.txt
 python skills/wikiwright/scripts/wikiwright.py snippets ../REPO.wiki ai-docs/notes/<date>-wiki-verify.cs

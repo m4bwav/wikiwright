@@ -673,4 +673,68 @@ Verbatim as they stood at commit 6404dfe, in file order; merged entries end with
 - Scope: skill (helper scripts and evals)
 - Status: promoted: C-20260930-9 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
 
+## Full text of shortened and merged entries (2026-10-01, release 0.9.0)
+
+Copied before L-120 and L-144 to L-147 were shortened on promotion and L-143 was merged into L-144 (C-20261001-6).
+
+### L-013 · 2026-09-28 · A skill's own run can teach the baseline; grade on the route, not the location (`baseline-learns-from-run`)
+- Trigger: T-20260928-2's action baseline verified its example like the skill, because the first real run had left a wiki note in the repository the case names, and the first grading looked for the script in the workspace. In T-20260928-3, action-1's prompt spelled out the method and its baseline passed; action-2, worded as a user would, split the arms (baselines 0 of 2 on the install) (2026-09-28).
+- Hypothesis: a case against a live repository measures the repository's docs as much as the skill, and a capable model follows a method the prompt names; the skill's value shows only when the prompt does not name it.
+- Rule: point action cases at a repository the skill has not touched (no wiki, no wiki note); give every action case an unhinted twin worded as a user would type it, and treat the hinted one as a regression check; grade verification by the install command in the trace, not by where a file was saved. Merges L-018 `unhinted-action-prompt`.
+- Evidence: T-20260928-2, T-20260928-3; evals/evals.json (action-1, action-2); evals/run-action.sh
+- Scope: skill tests
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-28
+
+### L-015 · 2026-09-28 · A Home-only draft fails `check` on the sidebar and footer by design (`home-only-check`)
+- Trigger: `check` on a folder holding only Home.md exited 1 with `_Sidebar.md` and `_Footer.md` missing and nothing else (seeded-random-utilities draft-only run, 2026-09-28); links to the planned pages would show red "create page" links once Home is published.
+- Hypothesis: `check` assumes a full page set, and a Home that may be published on its own must not link pages that do not exist.
+- Rule: for a Home-only draft run `check --partial` (0 errors expected). Leave out links to unwritten pages; link README anchors (checked for `id="user-content-…"` on the repository page), the CHANGELOG, registry and issues instead, and list the planned pages in the note as owed. L-108 `home-only-draft`, which linked them, was rejected.
+- Evidence: seeded-random-utilities (three drafts), is-an-image-url and stack-exchange-markdown-retriever (two) Home-only drafts; C-20260928-3 (`--partial`); T-20260928-4
+- Scope: skill
+- Status: active · helpful 6 · harmful 0 · last_confirmed 2026-09-29
+
+### L-120 · 2026-09-29 · A replay that differs on another runtime: bisect the harness first (`bisect-the-harness`)
+- Trigger: is-an-image-url's replay of 2.0.0 gave 65/45/64 on Node 20.20.2 against 68/45/77 on Node 24.18.0, bisected to the capture calling `dropConnections()` with no wait, so Node 20's fetch reused a dead socket. In stack-exchange-markdown-retriever's replay, after a dropped-tunnel case 2.0.0's fetch sent CONNECT again and again until its timeout (over 100 in 2 seconds), and late retries landed in the next case, moving the identical-request count between runs (16 or 17 of 20) (2026-09-29).
+- Hypothesis: a capture written for the old version carries no workarounds for the new one's transport, and undici retries a closed tunnel with no backoff.
+- Rule: when a replay differs between runtimes or runs, reproduce the smallest case and check the harness (waits between cases, connections closed, request lines counted per case window) before writing a behaviour difference on a page; scope replay counts to the Node line they ran on. A real difference (2.0.0 waits for its timeout where 1.1.7 failed at once) goes on the page as behaviour. Merges L-128 `connect-retry-leak`.
+- Evidence: is-an-image-url note (2026-09-29 section), wiki c6d5f1b; stack-exchange-markdown-retriever note and log; package-modernize:L-023
+- Scope: skill (references/golden-captures.md golden replay, templates/npm/host-fixture.mjs)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+
+### L-143 · 2026-09-30 · A page's file-based-app example runs as its own app, or the program's PublishAot=false hides its failure (`page-app-own-directives`)
+- Trigger: a draft of TrailerClipperLib's Home (TrailerClipper 2.0.0) showed the README's library call as a .NET 10 file-based app with only `#:package`. Run as its own app it failed on every file: FFMpegCore parses ffprobe's JSON by reflection, which file-based apps switch off by default, and TrailerClipper reports it as "ffprobe could not read '<file>': Reflection-based serialization has been disabled". Inside the verification program (which sets `#:property PublishAot=false`) the same call works.
+- Hypothesis: the README's code works wherever the package installs.
+- Rule: when a page shows a file-based app (`#:package` lines), the program writes that app exactly as the page shows it, directives included, into the case's scratch folder and runs it with `dotnet run <file>.cs`; never call the snippet's code from inside the program. A package whose dependencies use reflection-based System.Text.Json (FFMpegCore 5.x, seen here) needs `#:property PublishAot=false` on the page too, and the failure without it belongs on the page or its errors page.
+- Evidence: T-20261001-1 action-1-r1, an eval draft of TrailerClipperLib's Home (its repo-draft `ai-docs/notes/2026-09-30-wiki-verify.cs` and output, cases "home: without PublishAot=false" and "home: dotnet run clip.cs"); Windows 11, SDK 10.0.401
+- Scope: skill (NuGet)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-144 · 2026-09-30 · A NuGet example that declares types or touches process-wide state runs as its own program (`whole-program-per-example`)
+- Trigger: the tenth run (CachingServiceWithAOPSupport 2.0.0): its Autofac and Castle examples declare an interface and a class, which cannot sit in the template's `case` bodies; a wrapper namespace changed the printed cache keys and Autofac messages (`Ex7.Shelf`); `MemoryCache.Default` carried entries from one case into the next in one process; `Assembly.Location` named the child's `bin`, not the `lib/` folder; Castle.Core printed 5.0.0.0 for both 5.1.1 and 5.2.1.
+- Hypothesis: one child per framework with a `case` per snippet covers every NuGet package.
+- Rule: hold each example as a whole program, types global, and run it in its own process per config; a config is a framework plus pinned dependency versions (the ends of a declared range: Autofac 6.5.0 and 9.3.4); print each dependency's informational version and the loaded build from `TargetFrameworkAttribute`.
+- Evidence: the CachingServiceWithAOPSupport note and program (2026-09-30, branch wiki-2.0.0), its REPORT items 3 to 5, 7, 8
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-145 · 2026-09-30 · Expiry goes on a page only with margins that two runs agree on (`time-margins-two-runs`)
+- Trigger: the template says "no times", and nothing said how to show a cache lifetime (the tenth run).
+- Hypothesis: time-dependent behaviour cannot be printed stably.
+- Rule: show expiry only through what a caller controls (an attribute's lifetime, a default), with margins of at least a second around each boundary; run the whole program twice and compare with `diffout` (56 of 56 sections equal on Windows, 47 of 47 on Linux), say so on the page, and write "not shown" for what has no stable margin (eviction under memory pressure).
+- Evidence: CachingServiceWithAOPSupport's How-Results-Are-Cached (wiki cfef18b) and its note; REPORT item 6
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-146 · 2026-09-30 · A package that runs an external program: say which binary ran, and test side effects only through seams (`external-program-seams`)
+- Trigger: the ninth run (TrailerClipper 2.0.0 and `tclipper`): ffmpeg was found through PATH, a known folder or `TRAILERCLIPPER_FFMPEG`; on Windows "not found" could not be produced, since winget's Packages folder is a known folder; `tclipper --install-ffmpeg` runs winget, apt or dnf; ffmpeg prints heap addresses (`[mp3 @ 0x...]`); the template's `Run()` left stdin open, so a child that can prompt inherited it.
+- Hypothesis: an external program is a fixed part of the environment, like the runtime.
+- Rule: print the program's path and version per runtime and how it was found; make inputs with the program itself (lavfi `testsrc`, `sine`) and show results as ffprobe facts and listings; close every child's stdin; mask addresses with a pattern; reach a side-effect command only through the code's own seams (already installed, stdin redirected without `--yes`, no package manager on PATH) and mark the rest "not tested". The evals fail any system install (`grade-action.py`, `system_installs()`).
+- Evidence: the TrailerClipperLib note and program (2026-09-30, branch wiki-2.0.0), REPORT items 3, 5 to 7 and 13; evals/grade-action.py
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-147 · 2026-09-30 · A scratch .NET SDK on Linux without libicu needs invariant mode before its first call (`invariant-before-first-call`)
+- Trigger: both runs' WSL Ubuntu 26.04 had no libicu; the scratch SDK's own `dotnet --info` failed fast, and nuget.md's `apt-get download libicu` route needs a host the run rules forbid.
+- Hypothesis: the variable matters only to the program under test.
+- Rule: export `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` before the first `dotnet` call, say on the pages that Linux ran in invariant mode, and mark culture-dependent answers on Linux "not tested". Download the SDK and any program from the projects' own releases, check their published checksums and keep them in the run's scratch, never in the WSL home folder (an eval run left 1.3 GB in `~/wv`, T-20261001-1).
+- Evidence: both REPORTs (Linux sections; cs item 10); T-20261001-1
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-30
+
 Related: builds on [Learnings: wikiwright](LEARNINGS.md); see also [Changelog: wikiwright](CHANGELOG.md)

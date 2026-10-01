@@ -1,35 +1,33 @@
 # Handoff
 
-Updated 2026-09-30 (0.8.0 session). Read this first, then [log.md](log.md) for evidence.
+Updated 2026-10-01 (0.9.0 session). Read this first, then [log.md](log.md) for evidence.
 
 ## Current state
 
-- **wikiwright 0.8.0** (tag v0.8.0, GitHub Release; CI on Ubuntu, macOS and Windows; installed wikiwright@mark-local, `wikiwright.py cachecheck` all equal).
-  - `wikiwright.py scaffold npm PACKAGE VERSION [--bin] [--requests] [--by-host] [--files] [--golden OLD]` writes the npm verification script filled in and cut to the package's sections (12,722 bytes for a library without requests or files, against the 25,524-byte template), plus a `{"private": true}` package.json when none exists.
-  - The npm template's golden section compares both capture formats, chosen from the golden file's shape: the network one (named cases, answers, timing, requests) and package-modernize's synchronous one (cases by index and arguments, results by parsed value, header left out, quirks apart). Helpers are followed from the capture's `require('./...')` lines.
-  - `snippet()` takes `dir` (run the same page text against an old version) and a TypeScript matrix: `ext` (.mts, .cts, .ts), `typescript` (a compiler folder such as an alias `typescript6`), `--noEmit` in the flags; it prints `tsc <version>: exit N`. tsc is found by path, since TypeScript 7's exports hide `./bin/tsc` (L-141). TypeScript 7.0.2 refuses `node10` and `esModuleInterop: false` with TS5108 and still emits (references/npm.md).
-  - The NuGet template's fsi `.invalid` gate is code, run for real on IsImageUrlDotNet 2.0.0 with two negatives (L-140 `fsi-resolution-cache`: fsi never restores a resolved `#r` set again).
-  - `registry` prints last week's downloads per version for npm. The grader writes UTF-8 to a pipe (L-142).
-- **Eval suite T-20260930-3: 9/9.** Triggers 9/9 (0/9 without), decoys 0/6; action-1 and action-2 on replace-string-at-position (no forbidden host: it makes no requests), action-2's baseline fails (no wiki check); action-3 on get-title-at-url.
-- **Real runs: ten wikis.** The eighth skill run was replace-string-at-position, headless: 9 pages, wiki 21af852, outputs 48/48 on Node 24 and 20, snippets 34/34 (the first npm wiki the gate covers), golden 71/71 on 1.0.4 today and 26 identical against 2.0.0, live 9 pages and 18 anchors clean, repo tests 177/177. Its PR #4 (the note, program and outputs) is open, assigned to the maintainer with `needs-review`: the auto-mode classifier refused the agent's merge.
+- **wikiwright 0.9.0** (committed; tag, Release and reinstall: see the log's last lines for whether they happened, since publishing waited on the maintainer's "run it").
+  - References split by package kind (C-20261001-1): cores npm.md, page-sets.md, nuget.md; trait files npm-requests, npm-files, golden-captures, page-sets-cli, page-sets-seeded, nuget-requests, and new in 0.9.0 programs-and-media (an external program, media or binary output, NuGet file writing) and time-and-state (time-dependent output, process-wide state). SKILL.md Steps 3 and 4 route by trait; both real runs opened only their trait files.
+  - `scaffold nuget ID VERSION --namespace NS --type T [--children net48,net8.0] [--requests] [--fsharp] [--tool ID:COMMAND]` (C-20261001-3): the NuGet template is in sections; `children` runs each example as a whole program per config (framework plus pinned dependency versions), `tool` installs a dotnet tool into scratch and prints `Term()` transcripts with stdin closed. Scaffolds 10,121 (core) to 34,059 bytes (requests and children).
+  - The command-line tool page set is tested (TrailerClipper.Tool, page-sets-cli.md); a library and its tool take both sets in union.
+  - `check` no longer calls a heading of proper nouns Title Case (C-20261001-5). The grader reads `dotnet tool install` then the tool run, several package ids and fails any system install; run-action.sh passes deny rules one per argument.
+- **Eval suite T-20261001-1: 9/9.** action-1 and action-2 on TrailerClipperLib (both baselines fail), action-3 on get-title-at-url.
+- **Real runs: twelve wikis.** Ninth: TrailerClipperLib (11 pages, wiki 72e35c3, outputs 104/104, snippets 37/37, a `tclipper -o <folder>` crash found). Tenth: CachingServiceWithAOPSupport (9 pages, wiki cfef18b, outputs 45/45, snippets 34/34, expiry with margins). Reports: `%TEMP%\ww11\tc\REPORT.md`, `%TEMP%\ww11\cs\REPORT.md`; each repository's note on its `wiki-2.0.0` branch.
 
 ## Open work, in order
 
-1. **Split the references by package kind: done on branch `split-references`, waiting to merge** (C-20261001-1). npm.md, page-sets.md and nuget.md are cores; npm-requests.md, npm-files.md, golden-captures.md, page-sets-cli.md, page-sets-seeded.md and nuget-requests.md are read only for their trait, and SKILL.md Steps 2 to 4 and 6 name the file per trait. An npm library without a CLI, requests or files now reads 52,846 bytes where it read 74,614 (references alone 43% less); a package with every trait reads 4% more. The next real run should confirm a run opens only its files; the CHANGELOG entry has the table per kind.
-2. **Next owed wikis** (private inventory): TrailerClipper (and TrailerClipper.Tool, the command-line-tool candidate), CachingServiceWithAOPSupport. Retarget action-1 and action-2 at the next one before its run (L-013): it must have no wiki note; set `FORBID_HOST` only when the package requests a host its README names.
-3. **Gates that do not exist yet:** tables hand-copied from output, prose claims, and which output block belongs to which code block (the eighth run's item 12; page-sets.md, "known limits").
-4. **Saved npm scripts from before 0.7.1** (get-title-at-url, seeded-random-utilities, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever, format-json-files) run their cases as code, so `snippets` fails their wikis: move the cases into `snippet()` at each one's next update.
-5. **package-modernize's npm capture template** should label each case, so a replay can report by name rather than index (the eighth run's item 11c; that skill's repository).
-6. **Untested page sets:** application, monorepo, command-line tool. **Hosts:** anchor ids unmeasured on GitLab and Azure DevOps.
-7. **Inaccuracies waiting for releases:** replace-string-at-position (seven, its note), IsImageUrlDotNet (eight), format-json-files (nine), stack-exchange-markdown-retriever (six), get-title-at-url (its note's inaccuracy 5).
-8. **LEARNINGS.md is over its 200-line budget** (about 220): consolidate at the next release.
-9. **evergreen refresh:** wikiwright is due 2026-10-12.
+1. **The requests scaffold is bigger than the old template** (34,059 bytes against 23,932): trim the `children` and `requests` sections or split helpers into a file the scaffold copies beside the program, and measure.
+2. **Run items left** (the reports' numbers): a NuGet golden comparator (cs 9; both runs wrote one by hand), per-config Windows/Linux compare (cs 11), `registry --limit` is not found by runs (cs 14: say it in nuget.md), the overlay's npm text read by NuGet runs (cs 15), the note template's dependency matrix and time margins (cs 16), a usage-synopsis output form (tc 12), the everwrite path (tc 14), which file holds an L- ID (cs 13).
+3. **Gates that do not exist yet:** tables hand-copied from output, prose claims, which output belongs to which code block.
+4. **Saved npm scripts from before 0.7.1** run their cases as code: move them into `snippet()` at each one's next update.
+5. **package-modernize's npm capture template** should label each case (that skill's repository).
+6. **Untested page sets:** application, website, monorepo. **Hosts:** anchor ids unmeasured on GitLab and Azure DevOps.
+7. **Inaccuracies waiting for releases:** TrailerClipperLib (fifteen, including the `-o <folder>` crash), CachingServiceWithAOPSupport (four), replace-string-at-position (seven), IsImageUrlDotNet (eight), format-json-files (nine), stack-exchange-markdown-retriever (six), get-title-at-url (one).
+8. **evergreen refresh:** wikiwright is due 2026-10-12.
 
 ## Gotchas
 
-- Headless eval runs edit the source (L-017); `run-suite.sh` ends with `git status --short`. Grade on evidence, and read the traces with `grade-action.py <run> --digest` (L-122). In 0.8.0 an eval run's edit found a real bug (L-141): review, don't just revert.
+- Headless eval runs edit the source (L-017); `run-suite.sh` ends with `git status --short`. Grade on evidence; read traces with `grade-action.py <run> --digest`. An eval run in T-20261001-1 left 1.3 GB in WSL `~/wv`: check the WSL home after Linux runs.
 - Never `cd` in a shell call: a subagent inherits the session's folder (L-017). Check a shared clone's branch before committing in it.
-- The Skill tool serves the SKILL.md read at session start (L-012): real runs go headless (`claude -p`). Eval runs read the skill from the source folder: merge nothing into it while a run is going; build in worktrees and merge after.
-- Bash heredocs and a bare `python -` hang or mangle; write Python to a file first (L-001). The Write and Edit tools decode `\u` escapes.
+- The Skill tool serves the SKILL.md read at session start (L-012): real runs go headless (`claude -p`). Runs read the source folder through the overlay: merge nothing into it while a run is going; build in worktrees and merge after.
+- Bash heredocs and a bare `python -` hang (this session did it twice): write Python to a file first (L-001). The Write and Edit tools decode `\u` escapes.
 - Never run `wikiwright.py unbs` on SKILL.md or LEARNINGS.md.
-- An agent's `gh pr merge` is refused by the auto-mode classifier ("Merge Without Review"): assign the PR to the maintainer with `needs-review`.
+- The auto-mode classifier refuses an agent's wiki push ("Create Public Surface") and `gh pr merge` ("Merge Without Review") even with a kickoff's approval: ask the maintainer for an explicit "run it", or assign the PR with `needs-review`.

@@ -4,6 +4,30 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261001-7 · 2026-10-01 · Release 0.9.0: the ninth and tenth runs, references by package kind, `scaffold nuget`, the command-line tool set tested (`release-0.9.0`)
+- because: user request (the TrailerClipperLib and CachingServiceWithAOPSupport kickoff); C-20261001-1 to C-20261001-6; T-20261001-1; L-143 to L-147
+- files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`; Steps 3 and 4 route to the new references and to `scaffold nuget`), evergreen.json (version, counts, tests, history), README.md (tested page sets, `scaffold nuget`)
+- 0.9.0 gathers the entries below. `wikiwright.py releasecheck 0.9.0` checks the four version fields, this entry and T-20261001-1.
+- The ninth real run (TrailerClipperLib: TrailerClipper 2.0.0 and the dotnet tool TrailerClipper.Tool, headless, installed code): 11 pages with Commands and Configuration, wiki 72e35c3, check 0 errors, outputs 104 of 104, snippets 37 of 37, net10.0, net8.0 and net48 on Windows and net10.0 in WSL, golden 148 of 148 for 1.1.0 today on net48 (2.0.0 121 and 113, every difference a named exception), repository tests 193 and 193; $14.68, 40 minutes, 193 turns. It found a crash in `tclipper -o <folder>`, fifteen inaccuracies in the shipped docs and fifteen places the skill was wrong or missing (C-20261001-3, C-20261001-4). The command-line tool sketch held with the library set in union and became a tested set.
+- The tenth run (CachingServiceWithAOPSupport 2.0.0): 9 pages, wiki cfef18b, outputs 45 of 45, snippets 34 of 34, Autofac 6.5.0 and 9.3.4 on net10.0, net8.0 and net48 and net10.0 in WSL, expiry shown with margins two runs agreed on (56 of 56 sections), golden 158 of 158 for 1.0.1 today on both runtimes, API list 46 of 46, tests 48, 49, 3 and 3, consumers 6 of 6; $11.01, 28 minutes, 151 turns. Four inaccuracies, sixteen skill gaps (C-20261001-3 to C-20261001-5).
+- Both runs opened only the reference files for their traits, except that the files trait pointed a NuGet run at npm-files.md (now programs-and-media.md).
+- Token measurements (bytes a NuGet run reads: SKILL.md, the references it is routed to and the verification file it starts from; 0.8.0 read the whole 23,932-byte template):
+
+| NuGet kind | 0.8.0 | 0.9.0 | Change |
+|---|---:|---:|---:|
+| Library, no traits | 80,970 | 63,217 | -22% |
+| Children, golden, time (CachingServiceWithAOPSupport) | 80,970 | 89,009 | +10% |
+| Library and tool, children, golden, programs and media (TrailerClipperLib) | 80,970 | 100,723 | +24% |
+| Requests and children (IsImageUrlDotNet) | 80,970 | 91,615 | +13% |
+
+  The kinds that grew now get the child builder, the tool section, the time and media guidance and the golden notes that both runs wrote by hand (the tenth run rewrote the child machinery the template hid inside its requests block). The requests scaffold (34,059 bytes) is larger than the old whole template: trimming it is open work. npm runs read 17% to 29% less (C-20261001-1). LEARNINGS.md went from 37,314 bytes and about 229 lines at 0.8.0 to 36,606 bytes and 197 lines with five more lessons.
+- Tests: 94 unit tests, the node kit and snippet suites, and the suite T-20261001-1.
+
+### C-20261001-6 · 2026-10-01 · LEARNINGS.md under budget again after the runs' lessons (`learnings-consolidation-3`)
+- because: L-143 to L-147 took LEARNINGS.md to 222 lines; the 200-line budget
+- files: LEARNINGS.md (L-013, L-015, L-120, L-144 to L-147 shortened on promotion; L-143 merged into L-144), LEARNINGS-ARCHIVE.md (a section with the full text of the eight entries, copied before the change)
+- Each promoted entry keeps its Rule, Evidence and a Status naming where the rule now lives (the NuGet template's `children` and `tool` sections, nuget.md, programs-and-media.md, time-and-state.md, golden-captures.md, `check --partial`, run-action.sh). 222 lines to 197; backslashes in both files 12 before and after, no CR.
+
 ### C-20261001-5 · 2026-10-01 · `check` reads names the prose capitalizes as names, not Title Case (`proper-noun-headings`)
 - because: the tenth run's report (CachingServiceWithAOPSupport, item 12): `check` warned "Title Case" on "Runs on .NET Framework, .NET 8 and Linux", a sentence-case heading of proper nouns, and the run reworded a correct heading to clear it
 - files: scripts/wikiwright.py (`is_title_case()`, new `proper_nouns()`, `cmd_check`); tests/test_wikiwright.py (`test_proper_nouns_are_not_title_case`)
