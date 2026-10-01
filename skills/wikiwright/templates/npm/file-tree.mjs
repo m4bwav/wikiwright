@@ -1,7 +1,7 @@
 // file-tree: a fresh scratch copy of a fixture tree for every case of a package whose output is files on disk
 // (a formatter, a code generator, a renamer), so no case sees another's rewrite and nothing touches the
-// repository or the user's files (wikiwright L-130 `file-writing-package`, references/npm.md "Packages that
-// write files"). Copy this file beside wiki-verify.mjs, in the scratch project and in the repository's
+// repository or the user's files (wikiwright L-130 `file-writing-package`, references/npm-files.md).
+// Copy this file beside wiki-verify.mjs, in the scratch project and in the repository's
 // ai-docs/notes/ (as <date>-file-tree.mjs).
 //
 //   import {treeCase} from './file-tree.mjs';

@@ -1,5 +1,7 @@
 # NuGet packages: survey and verification
 
+Read this for every NuGet package; one that makes HTTP requests also takes [nuget-requests.md](nuget-requests.md).
+
 ## Registry facts for the survey
 
 Start with the helper. It reads the registration index (gzip-decoded, paged indexes followed), the search service and the latest `.nupkg`, and prints one fact per line:
@@ -42,20 +44,6 @@ Where the wiki shows other languages or hosts, run them too, from the program, s
 - Linux in WSL: a user-level `dotnet-install.sh --install-dir <scratch>` needs `bash`, not `sh`. .NET stops at start without libicu: `apt-get download libicu<N>` and `dpkg -x` into scratch, with its `usr/lib/<arch>` folder on `LD_LIBRARY_PATH`, avoid a system package. Invariant globalization mode also starts, but it changes culture-dependent answers. Set a distinctive `TMPDIR`, or masking `/tmp` rewrites content such as `file:///tmp/a.png`.
 - Unity, Xamarin and other hosts that were not run: say "not tested" on the page.
 
-## Packages that make requests
-
-The template's two `requests` blocks verify a package that makes HTTP requests without asking any real host; a package that makes none deletes them. First proved on IsImageUrlDotNet 2.0.0 on .NET 10 and .NET Framework 4.8 (2026-09-29).
-
-- `StandIn` is a proxy on 127.0.0.1 that answers the `.test` host names in `routes` from fixed answers. It takes http as absolute-form requests, and https as CONNECT and then TLS with a throwaway certificate that only the test client `StandInClient()` trusts. It never opens a socket of its own and logs each request line with its host.
-- It refuses every other host by answering: a reply that is not HTTP, or 403 to CONNECT. A stand-in that closes the connection makes HttpClient retry, 4 GETs or 16 CONNECTs per call on .NET 10 and 2 on .NET Framework (L-138 `refuse-by-answering`).
-- The pages' request snippets run in child apps, one per build. .NET Core and .NET 5+ read `HTTP_PROXY` and `HTTPS_PROXY`. .NET Framework ignores them, so the Framework child sets `WebRequest.DefaultWebProxy` before any snippet, and since Framework never proxies a loopback address the routes use `.test` names, never 127.0.0.1 (L-137 `dotnet-request-route`).
-- Restores run without the proxy variables: the children's builds, and `dotnet fsi` warmed with a script holding the `#r` line and a `printfn`. fsi resolves a script's `#r` and `#i` lines as one set and keeps the answer in `~/.packagemanagement/nuget/Cache/<hash>.fsx`. It never restores that set again. NuGet's own HTTP cache also answers a repeat download for 30 minutes. So only a set never resolved on the machine needs the network, and a page script with other `#r` lines needs its own warm-up. Without the warm-up that restore goes through the proxy (NuGet reads `HTTPS_PROXY`), meets the stand-in's 403s and fails the gate (tested 2026-09-30 with an empty `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH`).
-- The gate comes before any case, on every route (each child, then fsi): the package's default client and a caller's `new HttpClient()` ask `http://gate.invalid/` and `https://gate.invalid/`, so 4 calls, or 2 when the call takes no client (`gateCalls`). `Gate()` checks every route alike: each call must throw, and the stand-in must log exactly that many requests, all to `gate.invalid`, or the program exits 1. A call missing from the log went around the stand-in, a repeated one was retried, and any other host is a restore that reached the stand-in. fsi reads `HTTP_PROXY` and `HTTPS_PROXY` as a .NET 10 child does: run without them, its gate throws 4 times, logs "stand-in: no request" and fails (tested 2026-09-30). The F# section is delimited; a run whose pages hold no F# that requests deletes it.
-- An https route from F# is a harness row. It passes its own client, whose handler trusts the stand-in's thumbprint (the template's comment has the F# line). The default client refuses the throwaway certificate, as in C#.
-- Pages show the `.test` names or say the stand-in answered, and the real hosts are never asked (L-116 `by-host-name-proxy`, L-122 `sample-content-not-live`). An https row that needed `StandInClient()` says so.
-- Requests sent at once arrive in any order: sort their log lines, or print one call per snippet.
-- Check the pages with `wikiwright.py outputs --address ''`. The default treats `https://example.com` on a page as the fixture's `127.0.0.1` address, the npm kit's convention, which a `.test` route does not use.
-
 ## How the pages show output
 
 C#, F# and PowerShell have no REPL echo, so the NuGet wikis show values in comments. `wikiwright.py outputs` (0.3.0) reads a comment as output when it is quoted (`// "Marguerita"`, `// always "Alisa Streets"`), JSON-like (`// {"a":[1,2]}`), a number or literal, or when it follows a print call (`Console.WriteLine`, `printfn`) or a PowerShell expression (`[X]::LastNames.Count   # 88799`). A run of comment lines closing a code block after a blank line is that block's output, and so is an untagged block right after a code block. A bare word after any other call (`a.Next();  // Marguerita`) reads as an explanation: quote it or write `// => Marguerita`. Tag a command after a code block (```sh), or it reads as output (L-110 `outputs-in-comments`).
@@ -67,4 +55,4 @@ C#, F# and PowerShell have no REPL echo, so the NuGet wikis show values in comme
 - Windows 11 with Smart App Control on can refuse a freshly built program or child DLL ("An Application Control policy has blocked this file"). The gate fails closed and prints the message. Rebuilding the same bytes keeps the refusal; a build from another folder, or with any source change, gets new bytes (seen 2026-09-30).
 - An `init`-only property can still be assigned from PowerShell 7 after `::new()`; F# sets it with named arguments on the constructor (`Options(IndentSize = 2)`).
 
-Related: builds on [../SKILL.md](../SKILL.md); see also [page-sets.md](page-sets.md), [npm.md](npm.md).
+Related: builds on [../SKILL.md](../SKILL.md); see also [nuget-requests.md](nuget-requests.md), [golden-captures.md](golden-captures.md), [page-sets.md](page-sets.md), [npm.md](npm.md).

@@ -18,11 +18,17 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 | Library (npm, without a CLI) | seeded-random-utilities; replace-string-at-position (2026-09-30: nine pages, the behaviour page `How-Text-Is-Replaced`) |
 | Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter (written by hand, then retrofitted); IsImageUrlDotNet (2026-09-29, the first written by the skill from Step 1, and the first .NET package that makes requests: the same set, the behaviour page `How-Urls-Are-Checked`) |
 | Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever, format-json-files (fifth run, 2026-09-29: the set held again; the behaviour pages were `How-Links-Are-Replaced`, `How-Markdown-Is-Retrieved` and `How-Files-Are-Formatted`) |
-| Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary |
-| Output is files on disk | format-json-files (the CLI set, with the rules under "Library with a command line") |
-| Command-line tool | not yet (the section below is a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
+| Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary ([page-sets-seeded.md](page-sets-seeded.md)) |
+| Output is files on disk | format-json-files (the CLI set, with the rules in [page-sets-cli.md](page-sets-cli.md)) |
+| Command-line tool | not yet ([page-sets-cli.md](page-sets-cli.md) has a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
 | Application, website, monorepo | not yet (see the end of this page) |
 | Hosts other than GitHub | host mechanics measured 2026-09-29 without an account (Gitea, Forgejo, GitLab; Azure DevOps reads only); one real wiki, format-json-files on a local Forgejo 16.0.5, on 2026-09-29 ([hosts.md](hosts.md)) |
+
+Beside this page, read only what the package needs:
+
+- [page-sets-cli.md](page-sets-cli.md): a command line, a command-line tool, or files on disk
+- [page-sets-seeded.md](page-sets-seeded.md): seeded or deterministic output
+- [golden-captures.md](golden-captures.md): golden captures of old versions (npm and NuGet)
 
 ## Why a wiki beside the README
 
@@ -47,7 +53,7 @@ Every page earns its place with facts the README does not have. A page that only
 | The behaviour or output contract (named for the package: `Output-Format.md`, `How-Titles-Are-Chosen.md`, `Reproducible-Names.md`) | The exact rules the output follows, stated so a reader can predict any answer; what the package never changes; each rule with a verified example. |
 | Edge cases and errors (`Not-a-Validator.md`, `Errors-and-Edge-Cases.md`) | Odd inputs and what comes back for each, every error with its exact message, what the package refuses to do and why. |
 | Recipes (`Recipes.md`) | Real tasks: files, HTTP, tests, logging, framework integration, other languages. Each recipe runs as shown. |
-| Versions and upgrading (`Versions-and-Upgrading.md`) | Every release with its date (from the registry), what changed for callers, and a section per old major on moving to the current one, from the CHANGELOG and a golden capture of the old version, or the old major run against the same fixture when there is none (see "Golden captures" below). Whether each old version still installs, whether it is deprecated, and its recent downloads. The same calls on the old and the new version side by side, with their real output. |
+| Versions and upgrading (`Versions-and-Upgrading.md`) | Every release with its date (from the registry), what changed for callers, and a section per old major on moving to the current one, from the CHANGELOG and a golden capture of the old version, or the old major run against the same fixture when there is none (see [golden-captures.md](golden-captures.md)). Whether each old version still installs, whether it is deprecated, and its recent downloads. The same calls on the old and the new version side by side, with their real output. |
 | FAQ (`FAQ.md`) | The questions the issues, pull requests, README and survey raise, answered in two to five sentences each, linking the page with the detail. |
 | Development (`Development.md`) | Clone, build, test, lint commands, the CI matrix, how a release is made, where the maintainer's notes are (AGENTS.md, ai-docs). |
 | Optional: Performance (`Performance-and-Threading.md`) | Only with a benchmark or a thread-safety question to answer: the numbers with the machine and date, what is safe to share. |
@@ -56,63 +62,6 @@ Every page earns its place with facts the README does not have. A page that only
 An npm library without a command line takes exactly the table above: seeded-random-utilities had nine pages, with no Commands page. Its Getting started page ran every install route it names (npm, pnpm, yarn 4, Bun, Deno; see [npm.md](npm.md#other-runtimes-and-package-managers)), both module systems and a TypeScript compile that shows a real type error. replace-string-at-position (2026-09-30) took the same nine pages, with the behaviour page `How-Text-Is-Replaced`. It was the first npm wiki gated by `snippets`: 34 blocks, each held in the program as text. On a copy of the pages with four code blocks and one `//=>` value changed, `snippets` caught 4 of the 4 code changes, and `outputs` caught none of them, only the changed value.
 
 A known limit of the gates: neither checks prose, a table hand-copied from the output (a Versions table of old answers, a table of error messages), or which output belongs to which code block. `outputs` finds each output somewhere in the run, and `snippets` accepts a page block that is part of a longer snippet. The replace-string-at-position run wrote two wrong prose claims that only Step 6's reread caught. Reread the tables against the output line by line.
-
-## Deterministic or seeded output
-
-When the same input always gives the same output (a seeded generator, a formatter, embedded name lists), the wiki can promise exact output, and should:
-
-- Name the behaviour page after the promise (`Same-Seed-Same-Sequence.md`, `Reproducible-Names.md`). It says what stays the same across runs, runtimes, module systems and versions, each with the run that showed it, and what breaks the promise (a different order of calls, no seed, another library with the same algorithm names, floating-point functions engines approximate).
-- Show how the output is consumed, when that decides reproducibility: how many draws each call takes, and that one extra call moves everything after it.
-- Run each example twice and under each runtime the pages name, and compare. Save the script's output: seeded output is identical on every run, so the next release diffs it line by line (L-019 `save-the-output-too`). Keep time zones, paths, ports and timings out of it (L-022 `machine-free-output`).
-
-## Golden captures
-
-A repository modernized with package-modernize, or any repository that recorded an old version's behaviour (`test/golden/`, a capture script beside a JSON file), hands Versions and upgrading its best evidence (L-020 `replay-the-golden-capture`):
-
-1. Install the old version from the registry into its own scratch folder and run its capture script there. Compare the result with the golden file case by case. Identical means the recording still stands in for the old version.
-2. Run the same capture script against the current published version, changing only what must change (a dependency's version line), and compare again. The differing cases and changed quirks are the upgrade notes; each should match a CHANGELOG entry, and one that does not is a finding.
-3. Run any capture of the current version (`capture-2.0.0.cjs`) against the published build.
-4. Put the counts and the differing cases on the page. Only read the golden files, never rewrite them.
-
-On seeded-random-utilities: 1.1.4 today matched its recording in 322 of 322 cases, 2.0.0 in 316 (the six were the documented emoji exception), and 2.0.0 its own recording in 150 of 150.
-
-How to compare, for every capture:
-
-- By parsed value, never by bytes. A capture written before package-modernize's template changed holds raw UTF-8, and the current template writes ASCII escapes (`\u00e9`), so the same answer can differ byte for byte.
-- Leave the header out (`captured`, the date, and `node`, the version it ran on), and compare `quirks` (the export shape, symbol and proxy cases) apart from the results, with its own count.
-- Name each case in the report. Cases without names are reported by index and arguments together (`#37 (1, 'abc', null, 0)`), since an index alone would point at another case if one were ever inserted.
-
-A synchronous capture, from a library that makes no requests, replays against the new major as it is: the same capture script and helpers, copied beside each installed version, with no patches. replace-string-at-position's `capture-1.0.4.cjs` (with `codec.cjs`, 2026-09-30): 1.0.4 today gave 71 of 71 results and 8 of 8 quirks the same; 2.0.0 gave 26 identical and 45 differing (13 now throw `RangeError` and 32 `TypeError`), `ownKeys` gained two exports, and every difference was a CHANGELOG line. The patches below, and the four changes in [npm.md](npm.md), are for captures that make requests or write files.
-
-A package that makes requests records its old version against a fixture server of its own (is-an-image-url's `capture-1.0.4.cjs` with `fixture-server.cjs` and `codec.cjs`, L-113 `replay-requesting-capture`). What that needs:
-
-- Copy the capture script and every helper it requires beside each installed version, and install what the capture requires besides the package (is-an-image-url's needed `is-image` and an alias `is-image-300@npm:is-image@3.0.0`).
-- Patch only what the new layout breaks, and say which lines on the page: the bin's path (`cli.js` became `dist/cli.mjs`) and a dependency lookup that fails when the new version has none.
-- Run it as a child process, one version after the other: it starts its own server and has timing cases. It is a separate server from the wiki script's fixture; the wiki script only reads the JSON it prints.
-- Compare three things apart: the answer (return, throw, callback arguments), the timing (callback before or after return) and the request lines. A changed default (asynchronous callbacks) otherwise hides the answer changes among timing changes.
-
-A NuGet capture is a project (`tests/Golden/Capture`) that pins the old version in its `PackageReference` and writes one recording per runtime and OS (`1.0.2.net10.0-windows.json`, `1.0.2.net48-windows.json`). Copy the project to a scratch folder, change only the pinned version for the new one, build once, then run `dotnet run --no-build -f <tfm>` per framework as child processes, and compare each output with the recording for the same runtime and OS, answers and requests apart. The npm patches and the timing dimension above do not apply. Watch the Windows drive letter in file-path cases (the repository's golden test swaps it too), the ambient culture, and the obsolete-member warnings (CS0618, FS0044) the new version prints. On IsImageUrlDotNet, 1.0.2 today and 2.0.0's kept API each matched 117 of 117 answers and 117 of 117 requests on net10.0 (Windows and Linux) and on net48. package-modernize's NuGet capture template records only the method, arguments and result: in that view 1.0.2 on net48 differs from net10.0 in 10 cases, against 50 in the full recordings (L-011 `run-the-old-majors`).
-
-On is-an-image-url: 1.0.4 today matched its recording in 82 of 82 calls and 11 of 11 CLI runs; 2.0.0 gave the same answer in 68, and each of the 14 differences and 5 request changes was a CHANGELOG line.
-
-A capture that records through its own proxy with TLS (markdown-plain-link-replacer's `capture-1.1.16.cjs`, where request 2.88 honoured `HTTP_PROXY` and `HTTPS_PROXY`) replays unchanged against the old version (1.1.16 today: 154 of 154 calls, 18 of 18 CLI runs). Against a `fetch`-based new major it needs a proxy agent installed after the capture sets the variables and a fixture copy that serves tunnelled `http:` in plain HTTP; [npm.md](npm.md) ("Golden captures that record through a proxy with TLS") has the four changes. When a dependency's new major reads titles or names differently, mask that value and count the cases that differ only there apart: 55 of markdown-plain-link-replacer's 154 did, and the other 41 real differences were each a CHANGELOG line.
-
-## Library with a command line
-
-Add Commands (`Commands.md`): the usage text as the bin prints it, every flag, exit codes, stdout versus stderr, and real invocations with their real output (run the published bin; for a package that makes requests, against the local fixture server, then show the output with the fixture's address replaced by a real-looking one only when the replacement is stated on the page).
-
-A package whose requests go through its dependencies to the hosts its input names, with output computed from the host (markdown-plain-link-replacer names each link's site), needs the fixture served under the real host names, through a `fetch` wrapper or a proxy with TLS ([npm.md](npm.md), "Packages that request by host name through their dependencies"). Its pages then show real addresses with no substitution, and say once, on Home, that each page was a local copy and list the titles the copies had where an output depends on them. Such a package turns every lookup failure into "left unchanged", so Edge cases and errors needs a section on why a link was left, and the FAQ on proxies and trust; both came from the run, not from the README.
-
-A package whose output is files on disk (format-json-files) took the same set with no new page. What changed was how the pages show output, and what Edge cases and errors covers:
-
-- A file is shown as a "before" block and an "after" block, both printed by the script, and the prose beside them states what the text cannot show: the line endings, the BOM, the final newline, and whether an untouched file was written at all.
-- Command examples are terminal transcripts (`$ command`, the merged output, `$ echo $?`), from the template's `term()`, because the order of stdout and stderr is part of what a user sees.
-- Paths print with the platform's separator: the pages show the Linux run and say once that Windows prints `\`.
-- Edge cases and errors covers the file system as well as the input: encodings and BOMs, CRLF, comments and trailing commas, empty files, read-only files, symbolic and hard links, folders named like files, missing paths, and what a glob is (the shell's, not the package's).
-
-## Command-line tool (a dotnet tool, an npm package that is mostly a bin)
-
-Untested: no run has used this set yet. The first candidate among the maintainer's packages is TrailerClipper.Tool (a dotnet tool, command `tclipper`, in m4bwav/TrailerClipperLib). A sketch: Home, Getting started (install and uninstall, shell completion if any), Commands (one section per command), Configuration (files, environment variables, precedence), Recipes, Versions and upgrading, FAQ, Development.
 
 ## Not yet covered
 
@@ -159,4 +108,4 @@ This wiki describes PACKAGE VERSION and was last updated on YYYY-MM-DD. The libr
 
 Starting points: [../templates/pages/](../templates/pages/).
 
-Related: builds on [../SKILL.md](../SKILL.md); see also [publishing.md](publishing.md), [npm.md](npm.md), [nuget.md](nuget.md).
+Related: builds on [../SKILL.md](../SKILL.md); see also [page-sets-cli.md](page-sets-cli.md), [page-sets-seeded.md](page-sets-seeded.md), [golden-captures.md](golden-captures.md), [publishing.md](publishing.md), [npm.md](npm.md), [nuget.md](nuget.md).

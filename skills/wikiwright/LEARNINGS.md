@@ -35,7 +35,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 
 ### L-011 · 2026-09-28 · Run the old majors when there is no golden capture (`run-the-old-majors`)
 - Rule: Versions and upgrading takes its evidence from runs today, not from the changelog. With a golden capture, replay its script against the old version installed today and against the current one, compare case by case and never rewrite the golden file; a capture that starts its own fixture server runs as a child process per version, with answers, timing and requests compared apart. Without one, install each old major in its own folder and run the same cases. A NuGet capture is a project that pins the old version: copy it, change only the pin, build once, run `--no-build -f <tfm>` per framework, and compare with the recording for the same runtime and OS (IsImageUrlDotNet, 2026-09-29: 117 of 117 answers and requests on three recordings). Merges L-020 `replay-the-golden-capture` and L-113 `replay-requesting-capture`.
-- Evidence: rule in SKILL.md Step 4, references/page-sets.md ("Golden captures"), references/npm.md (proxy-recorded captures), the npm template's golden section; get-title-at-url, seeded-random-utilities, is-an-image-url, markdown-plain-link-replacer
+- Evidence: rule in SKILL.md Step 4, references/golden-captures.md, references/npm-requests.md (proxy-recorded captures), the npm template's golden section; get-title-at-url, seeded-random-utilities, is-an-image-url, markdown-plain-link-replacer
 - Update 2026-09-30 (replace-string-at-position, a synchronous capture of 1.0.4): it replayed against 2.0.0 with no patches. Compare by parsed value, not bytes, with the header left out and `quirks` apart; 1.0.4 today 71 of 71, 2.0.0 26 identical and 45 differing, each a CHANGELOG line.
 - Status: promoted: C-20260928-2, C-20260928-3 (L-020), C-20260928-4 (L-113), C-20260929-17 (NuGet), C-20260930-9 (synchronous captures) · helpful 3 · harmful 0 · last_confirmed 2026-09-30
 
@@ -90,7 +90,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 
 ### L-019 · 2026-09-28 · A saved script that does not print the pages' forms cannot re-verify them (`save-the-output-too`)
 - Rule: the verification script prints every output in the form the page shows it (`console.log`, a REPL echo, `Console.WriteLine`; never converted by hand) and nothing that depends on the machine (time zones, absolute paths, ports, timings). Its output is saved beside it with the port as `<port>`; `outputs` passes before publishing and again in update mode; output that cannot come from the script carries `<!-- outputs: skip (reason) -->`. Merges L-008 `print-as-the-page-shows` and L-022 `machine-free-output`.
-- Evidence: rule in SKILL.md Step 4 and Update mode step 3, references/page-sets.md (deterministic output), references/npm.md (Traps); get-title-at-url rehearsal (wiki 2807e56), seeded-random-utilities note
+- Evidence: rule in SKILL.md Step 4 and Update mode step 3, references/page-sets-seeded.md, references/npm.md (Traps); get-title-at-url rehearsal (wiki 2807e56), seeded-random-utilities note
 - Status: promoted: C-20260928-3 (L-008: C-20260928-2) · helpful 1 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-021 · 2026-09-28 · Deno, Bun, pnpm and yarn run from npm on a machine without them (`runtimes-from-npm`)
@@ -135,7 +135,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 
 ### L-116 · 2026-09-29 · A package that requests by host name through its dependencies: a proxy with TLS, trusted at start (`by-host-name-proxy`)
 - Rule: when output derives from the hosts a package requests, serve the fixture under the real host names. Either the host-fixture kit (plain and TLS servers behind a CONNECT proxy routed by port, a throwaway CA, `NO_PROXY` naming the loopback, variables set before each child starts, `runtimeEnv` for Deno and Bun, an npx warm-up, and a socket guard that reads `net.connect()`'s array form and is tested with an `.invalid` host), or a `fetch` wrapper routing by an `x-fixture-url` header when only Node runs and the package calls the global `fetch`. Print one case that shows a lookup reached the fixture. Merges L-112 `fetch-proxy-connect`, L-115 `route-fetch-preload`, L-117 `guard-normalised-args`, L-127 `no-proxy-loopback` and L-129 `kit-first-run`.
-- Evidence: rule in SKILL.md Step 4, references/npm.md ("Packages that request by host name through their dependencies"), templates/npm/host-fixture.mjs and tests/host-fixture.test.mjs; markdown-plain-link-replacer and stack-exchange-markdown-retriever runs
+- Evidence: rule in SKILL.md Step 4, references/npm-requests.md ("Packages that request by host name through their dependencies"), templates/npm/host-fixture.mjs and tests/host-fixture.test.mjs; markdown-plain-link-replacer and stack-exchange-markdown-retriever runs
 - Status: promoted: C-20260928-4 (L-112), C-20260929-1, C-20260929-4 (L-127), C-20260929-5 (L-129) · helpful 2 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-120 · 2026-09-29 · A replay that differs on another runtime: bisect the harness first (`bisect-the-harness`)
@@ -143,7 +143,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Hypothesis: a capture written for the old version carries no workarounds for the new one's transport, and undici retries a closed tunnel with no backoff.
 - Rule: when a replay differs between runtimes or runs, reproduce the smallest case and check the harness (waits between cases, connections closed, request lines counted per case window) before writing a behaviour difference on a page; scope replay counts to the Node line they ran on. A real difference (2.0.0 waits for its timeout where 1.1.7 failed at once) goes on the page as behaviour. Merges L-128 `connect-retry-leak`.
 - Evidence: is-an-image-url note (2026-09-29 section), wiki c6d5f1b; stack-exchange-markdown-retriever note and log; package-modernize:L-023
-- Scope: skill (references/page-sets.md golden replay, templates/npm/host-fixture.mjs)
+- Scope: skill (references/golden-captures.md golden replay, templates/npm/host-fixture.mjs)
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-122 · 2026-09-29 · Remote content from a fixture is sample content: label it, never record the real answer (`sample-content-not-live`)
@@ -163,17 +163,17 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 
 ### L-130 · 2026-09-29 · A package whose output is files: a fresh scratch tree per case, and the bytes the text hides (`file-writing-package`)
 - Rule: a package whose output is files is verified on a fresh copy of the case's tree per case with the file-tree kit, which prints each file's state and its contents before and after under a header of size, UTF-8, BOM, line endings and final newline; pages state those facts in prose. Command examples are transcripts from `term()` with both streams in order, and `cli()` takes `{cwd}`. The kit masks escaped paths and takes hard links, folder modes, `hide` and `limit`. Merges L-133 `file-tree-first-run`.
-- Evidence: rule in SKILL.md Step 4, references/npm.md ("Packages that write files"), templates/npm/file-tree.mjs and tests/file-tree.test.mjs; the format-json-files run (114 outputs)
+- Evidence: rule in SKILL.md Step 4, references/npm-files.md, templates/npm/file-tree.mjs and tests/file-tree.test.mjs; the format-json-files run (114 outputs)
 - Status: promoted: C-20260929-7, C-20260929-8 (L-133) · helpful 1 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-131 · 2026-09-29 · A recipe's third-party package breaks the page while the documented package stands still (`recipe-deps-drift`)
 - Rule: a clean diff proves only the cases already in the script. In update mode install every third-party package a recipe imports, and every tool a page names (`npm view <tool> version`; a new major beside the old under an alias, `typescript7@npm:typescript@7`), at its current `latest`, run the recipe on each Node line the pages name, print the version of every package and tool the pages name (diffout cannot see a drift the script never prints: get-title-at-url's saved script diffed 121 of 121 while its pages named an old TypeScript), and scope a block by the case that printed it (`<!-- outputs: node>=22 -->`); a stand-in proxy must handle both `CONNECT` and absolute-form requests.
-- Evidence: rule in SKILL.md Update mode step 3 and references/npm.md; get-title-at-url's Recipes page (undici 8, wiki 1e449b2); T-20260929-4 action-3-r2: Getting started says it compiles under TypeScript 6 while `npm install typescript` has given 7.0.2 since 2026-07-08, and three update runs diffed clean without noticing (the example compiles under 7.0.2)
+- Evidence: rule in SKILL.md Update mode step 3, references/npm.md and npm-requests.md; get-title-at-url's Recipes page (undici 8, wiki 1e449b2); T-20260929-4 action-3-r2: Getting started says it compiles under TypeScript 6 while `npm install typescript` has given 7.0.2 since 2026-07-08, and three update runs diffed clean without noticing (the example compiles under 7.0.2)
 - Status: promoted: C-20260929-8, C-20260929-13 (tools), C-20260930-2 (print versions), C-20260930-8 (a TypeScript matrix in `snippet()`) · helpful 5 · harmful 0 · last_confirmed 2026-09-30 (the fourth get-title-at-url update: TypeScript 7.0.2 and 6.0.3 both compile the page's example on Node 20, 22 and 24; wiki a020db1, PR #25. The eighth run: 7.0.2 refuses `node10` and `esModuleInterop: false` with TS5108, so replace-string-at-position's pages scope those setups to TypeScript 6 and earlier; references/npm.md, "The scratch project")
 
 ### L-132 · 2026-09-29 · A package that prints file paths needs a Linux run for the pages (`linux-run-for-paths`)
 - Rule: when output contains file paths, run the script on Linux too and show that run on the pages, stating the Windows difference once. A Linux Node comes from the registry (`npm pack node-linux-x64@<v>` and npm with shims, then `OLDEST_NODE_BIN`) or from nodejs.org checked against SHASUMS256; call `wsl.exe` from PowerShell, or set `MSYS_NO_PATHCONV=1` in Git Bash.
-- Evidence: rule in SKILL.md Step 4 and references/npm.md ("Packages that write files"); three format-json-files eval drafts and the sixth run
+- Evidence: rule in SKILL.md Step 4 and references/npm-files.md; three format-json-files eval drafts and the sixth run
 - Status: promoted: C-20260929-8 · helpful 3 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-136 · 2026-09-29 · `outputs` exited 0 when it checked nothing (`zero-checked-passes`)
@@ -200,7 +200,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Trigger: the first real run of the fsi `.invalid` gate (IsImageUrlDotNet 2.0.0). The negative variant with no warm-up and an empty `NUGET_PACKAGES` passed the gate: fsi never restored, and the empty folder was never created. A second try with a new `#i` line (a new key) restored from NuGet's 30-minute HTTP cache, again with no request.
 - Hypothesis: without the warm-up, the gate script's restore goes through the proxy and fails.
 - Rule: fsi keeps each resolved `#r`/`#i` set in `~/.packagemanagement/nuget/Cache/<hash>.fsx` and never restores it again, ignoring `NUGET_PACKAGES` for it; NuGet's HTTP cache then answers repeat downloads. Keep the warm-up anyway: on a fresh machine or with a new set, the restore does go through the proxy (NuGet reads `HTTPS_PROXY`) and fails the gate. To test that path, give the script a set never resolved (a new `#i` folder) and empty `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH`.
-- Evidence: scratch variants neg-nowarm (exit 0), neg-nowarm4 (6 × "CONNECT api.nuget.org:443 -> 403 refused", NU1301, GATE FAILED), pos-coldwarm3 (the warm-up downloaded the package and FSharp.Core, gate passed); references/nuget.md ("Packages that make requests", Traps); the template's F# section comment
+- Evidence: scratch variants neg-nowarm (exit 0), neg-nowarm4 (6 × "CONNECT api.nuget.org:443 -> 403 refused", NU1301, GATE FAILED), pos-coldwarm3 (the warm-up downloaded the package and FSharp.Core, gate passed); references/nuget-requests.md, references/nuget.md (Traps); the template's F# section comment
 - Scope: skill (NuGet, F#)
 - Status: promoted: C-20260930-6 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
 
