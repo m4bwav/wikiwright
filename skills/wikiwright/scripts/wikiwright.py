@@ -70,6 +70,15 @@ Subcommands
       and copy the kit each section imports beside it, with a package.json
       ({"private": true}) when the folder has none. Refuses to overwrite
       the script or a kit without --force.
+  scaffold nuget ID VERSION --namespace NS --type T [--children net48,net8.0]
+           [--requests] [--fsharp] [--tool ID:COMMAND] [-o FILE] [--force]
+      Write the NuGet verification program (wiki-verify.cs) with the id,
+      version, namespace and type filled in and only the sections the
+      package needs: child apps per framework for whole-program examples
+      (net10.0 always), the stand-in proxy and gate (implies children; its
+      calls are left as TODO_ names that do not compile), dotnet fsi, a
+      dotnet tool's install and transcripts. Refuses to overwrite without
+      --force.
 
 Standard library only, Python 3.9+. Exit 0 when clean, 1 on findings,
 2 on usage or environment errors.
@@ -2074,7 +2083,117 @@ def trim_sections(text, keep):
     return "\n".join(out)
 
 
+NUGET_ID = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+NUGET_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+(\.[0-9]+)?(-[0-9A-Za-z.-]+)?$")
+DOTNET_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
+DOTNET_TYPE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*(<,*>)?$")
+TFM = re.compile(r"^net[0-9]+(\.[0-9]+)?$")
+TOOL_COMMAND = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
+# The NuGet template's optional sections, in the order the summary names them. requests needs children.
+NUGET_SECTIONS = ("children", "requests", "fsharp", "tool")
+# What the scaffold writes for the gate's calls: names that do not compile, so a run stops until they are replaced.
+NUGET_GATE_TODO = (("DEFAULT_CLIENT_CALL", "TODO_DEFAULT_CLIENT_CALL(url)"),
+                   ("CALLER_CLIENT_CALL", "TODO_CALLER_CLIENT_CALL(url, mine)"),
+                   ("FS_DEFAULT_CLIENT_CALL", "TODO_FS_DEFAULT_CLIENT_CALL url"),
+                   ("FS_CALLER_CLIENT_CALL", "TODO_FS_CALLER_CLIENT_CALL url mine"))
+
+
+def scaffold_nuget(a):
+    checks = ((NUGET_ID, a.package, "a NuGet package id"), (NUGET_VERSION, a.version, "a version (X.Y.Z)"),
+              (DOTNET_NAME, a.namespace or "", "--namespace: a namespace"), (DOTNET_TYPE, a.type or "", "--type: a type name"))
+    for pattern, value, what in checks:
+        if not pattern.match(value):
+            print("error: %r is not %s" % (value, what))
+            return 2
+    frameworks = []
+    for tfm in ["net10.0"] + [t.strip() for t in (a.children or "").split(",") if t.strip()]:
+        if not TFM.match(tfm):
+            print("error: --children: %r is not a target framework (net48, net8.0)" % tfm)
+            return 2
+        if tfm not in frameworks:
+            frameworks.append(tfm)
+    tool_id = tool_command = ""
+    if a.tool is not None:
+        tool_id, _, tool_command = a.tool.partition(":")
+        if not NUGET_ID.match(tool_id) or not TOOL_COMMAND.match(tool_command):
+            print("error: --tool: %r is not ID:COMMAND (TrailerClipper.Tool:tclipper)" % a.tool)
+            return 2
+        if tool_id.lower() == a.package.lower():
+            print("error: --tool: %s is the package itself; a tool package cannot be a #:package reference (NU1212), "
+                  "so scaffold the library the tool ships beside, or write the program by hand" % tool_id)
+            return 2
+    wanted = {"children": a.children is not None or a.requests, "requests": a.requests, "fsharp": a.fsharp,
+              "tool": a.tool is not None}
+    keep = {name for name, on in wanted.items() if on}
+    out = os.path.abspath(a.output or "wiki-verify.cs")
+    if os.path.exists(out) and not a.force:
+        print("error: %s exists (pass --force to overwrite it)" % out)
+        return 2
+    with open(os.path.join(TEMPLATES_DIR, "nuget", "wiki-verify.template.cs"), "rb") as fh:
+        template = fh.read().decode("utf-8")
+    try:
+        text = trim_sections(template, keep)
+    except ValueError as e:
+        print("error: the template's section markers: %s" % e)
+        return 2
+    fills = [("PACKAGE_ID", a.package), ("PACKAGE_ID_LOWER", a.package.lower()), ("VERSION", a.version),
+             ("NAMESPACE", a.namespace), ("A_PUBLIC_TYPE", a.type), ("TOOL_ID", tool_id), ("TOOL_COMMAND", tool_command),
+             ("CONFIGS", "\n    ".join('new("%s"),' % tfm for tfm in frameworks))] + list(NUGET_GATE_TODO)
+    for name, value in fills:
+        text = text.replace("{{%s}}" % name, value)
+    left = sorted(set(PLACEHOLDER.findall(text)))
+    if left:
+        print("error: placeholders left unfilled: %s" % ", ".join(left))
+        return 2
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    data = text.encode("utf-8")
+    with open(out, "wb") as fh:
+        fh.write(data)
+    print("wrote %s: %s bytes (the template is %s)" % (out, format(len(data), ","), format(len(template.encode("utf-8")), ",")))
+    print("kept: core%s; dropped: %s" % ("".join(", " + n for n in NUGET_SECTIONS if n in keep),
+                                         ", ".join(n for n in NUGET_SECTIONS if n not in keep) or "none"))
+    if "children" in keep:
+        print("children: %s (net10.0 always; add a config per end of a dependency range, "
+              "new(\"net48\", [\"Autofac@9.3.4\"]))" % ", ".join(frameworks))
+    print("next:")
+    print("  - run from a scratch folder outside any project, with TEMP and TMP set to it (C:/ paths from Git Bash): "
+          "dotnet build %s && dotnet run --no-build %s > wiki-verify.out.txt" % ((os.path.basename(out),) * 2))
+    print("  - `dependencies`: the assembly names of the dependencies whose versions the pages name")
+    if "children" in keep:
+        print("  - `examples`: one whole program per C# block on the pages, as the page shows it, labelled by page")
+    else:
+        print("  - under '// ----- the cases': one Show() per example on the pages, labelled by page "
+              "(a page example that declares types needs --children)")
+    if "requests" in keep:
+        print("  - requests: replace TODO_DEFAULT_CLIENT_CALL and TODO_CALLER_CLIENT_CALL in the gate with the package's "
+              "request on its default client and on `mine` (gateCalls = 2 when it takes no client); one route per "
+              "behaviour in `routes`, .test names only")
+        if "fsharp" in keep:
+            print("  - fsharp: the same for TODO_FS_DEFAULT_CLIENT_CALL and TODO_FS_CALLER_CLIENT_CALL in the F# gate")
+    if "fsharp" in keep:
+        print("  - fsharp: each F# block through Fsi() (F# that requests goes in fsSnippets)")
+    if "tool" in keep:
+        print("  - tool: one Fresh() folder and Term() per command the pages show, with (folder, \"<cwd>\") as a mask; "
+              "never -g, never --yes")
+    return 0
+
+
 def cmd_scaffold(a):
+    npm_only = [flag for flag, on in (("--bin", a.bin), ("--by-host", a.by_host), ("--files", a.files),
+                                      ("--golden", a.golden is not None)) if on]
+    nuget_only = [flag for flag, on in (("--namespace", a.namespace is not None), ("--type", a.type is not None),
+                                        ("--children", a.children is not None), ("--fsharp", a.fsharp),
+                                        ("--tool", a.tool is not None)) if on]
+    wrong = npm_only if a.kind == "nuget" else nuget_only
+    if wrong:
+        print("error: %s: not for scaffold %s" % (", ".join(wrong), a.kind))
+        return 2
+    if a.kind == "nuget":
+        if a.namespace is None or a.type is None:
+            print("error: scaffold nuget needs --namespace NS and --type T (a public type of the package)")
+            return 2
+        return scaffold_nuget(a)
+    a.output = a.output or "wiki-verify.mjs"
     if not NPM_NAME.match(a.package):
         print("error: %r is not an npm package name" % a.package)
         return 2
@@ -2236,16 +2355,26 @@ def main(argv=None):
     rg.add_argument("--json", action="store_true", help="print the full structured survey as JSON")
     rg.set_defaults(fn=cmd_registry)
     sc = sub.add_parser("scaffold", help="write the verification script, filled in and cut to the sections needed")
-    sc.add_argument("kind", choices=("npm",), help="the template (npm)")
-    sc.add_argument("package", help="the package name")
+    sc.add_argument("kind", choices=("npm", "nuget"), help="the template (npm or nuget)")
+    sc.add_argument("package", help="the package name (npm) or id (NuGet)")
     sc.add_argument("version", help="the published version the wiki describes")
     sc.add_argument("--bin", action="store_true", help="the package has a bin: keep cli(), term() and the help case")
-    sc.add_argument("--requests", action="store_true", help="keep the local fixture server")
+    sc.add_argument("--requests", action="store_true",
+                    help="npm: keep the local fixture server; nuget: keep the stand-in proxy and the gate (implies "
+                         "--children)")
+    sc.add_argument("--namespace", help="nuget: the namespace the examples use")
+    sc.add_argument("--type", help="nuget: a public type of the package (its assembly is the one reported)")
+    sc.add_argument("--children", metavar="TFMS",
+                    help="nuget: run the pages' examples as whole programs in child apps on net10.0 and these "
+                         "frameworks (comma-separated: net48,net8.0; '' for net10.0 alone)")
+    sc.add_argument("--fsharp", action="store_true", help="nuget: keep Fsi() and, with --requests, the F# gate")
+    sc.add_argument("--tool", metavar="ID:COMMAND",
+                    help="nuget: keep the dotnet tool section (install into scratch, list, uninstall, Term())")
     sc.add_argument("--by-host", action="store_true",
                     help="keep the by-host-name section, switched on (implies --requests); copies host-fixture.mjs")
     sc.add_argument("--files", action="store_true", help="keep the files-on-disk section; copies file-tree.mjs")
     sc.add_argument("--golden", metavar="OLD_VERSION", help="keep the golden replay of capture-OLD_VERSION.cjs")
-    sc.add_argument("-o", "--output", default="wiki-verify.mjs", help="the script to write (default ./wiki-verify.mjs)")
+    sc.add_argument("-o", "--output", help="the script to write (default ./wiki-verify.mjs, or ./wiki-verify.cs for nuget)")
     sc.add_argument("--force", action="store_true", help="overwrite the script and the kits when they exist")
     sc.set_defaults(fn=cmd_scaffold)
     reconfigure = getattr(sys.stdout, "reconfigure", None)
