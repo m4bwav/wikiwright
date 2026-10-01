@@ -844,8 +844,29 @@ class OutputsNodeScopeTests(unittest.TestCase):
 TEMPLATES = os.path.join(HERE, "..", "skills", "wikiwright", "templates", "npm")
 
 
+def section_lines(text, name):
+    """The lines inside every `name` section of a template (nested sections included), joined with newlines."""
+    out, depth = [], 0
+    for line in text.split("\n"):
+        m = wikiwright.SECTION_MARK.match(line)
+        if m:
+            if m.group(2) == name:
+                depth += 1 if m.group(1) == "section" else -1
+            continue
+        if depth:
+            out.append(line)
+    return "\n".join(out)
+
+
+def code_only(text):
+    """A C# text's lines that are not comments, as a list."""
+    if isinstance(text, list):
+        text = "\n".join(text)
+    return [line for line in text.split("\n") if not line.lstrip().startswith("//")]
+
+
 class TemplateTests(unittest.TestCase):
-    """Regressions in the npm template and the host-fixture kit (tests/host-fixture.test.mjs runs the kit)."""
+    """Regressions in the templates and the host-fixture kit (tests/host-fixture.test.mjs runs the kit)."""
 
     def read(self, name):
         with open(os.path.join(TEMPLATES, name), encoding="utf-8") as fh:
@@ -905,63 +926,89 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("await snippet('getting-started esm', `\nimport pkg from '{{PACKAGE}}';", cases)
         self.assertNotIn("await capture(", cases)
 
+    def nuget_template(self):
+        return self.read(os.path.join("..", "nuget", "wiki-verify.template.cs"))
+
     def test_nuget_template_request_route(self):
-        # L-137, L-138: the .NET request route; a package that makes no requests deletes both blocks.
-        text = self.read(os.path.join("..", "nuget", "wiki-verify.template.cs"))
-        start, end = "// ===== requests (1 of 2)", "// ===== end of requests (2 of 2) ====="
-        block = text[text.index(start):text.index(end)]
+        # L-137, L-138: the .NET request route, in the requests sections; a package that makes none drops them.
+        text = self.nuget_template()
+        block = section_lines(text, "requests")
         for piece in ('"http://gate.invalid/", "https://gate.invalid/"', "GATE FAILED", "Environment.Exit(1)",
                       "REFUSED BY THE STAND-IN", "403 Forbidden", "WebRequest.DefaultWebProxy",
-                      "#if NETFRAMEWORK", "TargetFramework=%TFM%", "ProxyEnv(null)", "AuthenticateAsServerAsync"):
+                      "#if NETFRAMEWORK", "ProxyEnv(null)", "AuthenticateAsServerAsync", "runCase = RunSnippet;"):
             self.assertIn(piece, block)
+        # The children it runs in build per framework without the proxy variables (nuget-sections).
+        children = section_lines(text, "children")
+        for piece in ('"#:property TargetFramework=" + config.Framework', "WithoutProxy(), dir);",
+                      '"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY"'):
+            self.assertIn(piece, children)
         # The gate wants each call to throw and be logged once; the stand-in never connects out.
         self.assertIn("var gateCalls = 4;", block)
         self.assertIn('lines.Count(l => l.Contains(": threw ")) != calls || logged.Count != calls', block)
+        self.assertLess(text.index("Gate(child.Name, RunSnippet(child, \"gate\"), gateCalls);"),
+                        text.index("runCase(child, example.Label)"))
         stand_in = block[block.index("sealed class StandIn"):]
         for outbound in ("new TcpClient(", "ConnectAsync(", ".Connect(", "new HttpClient("):
             self.assertNotIn(outbound, stand_in)
-        # Run() takes an environment and a folder and reads stderr while stdout drains.
+        # Run() takes an environment and a folder, reads stderr while stdout drains, and closes stdin (tc 3).
         self.assertIn("static string Run(string file, string[] args, Dictionary<string, string?>? env = null, "
                       "string? cwd = null)", text)
-        self.assertIn("p.StandardError.ReadToEndAsync()", text)
-        self.assertIn("static string Mask(string text)", text)
-        self.assertIn("TMPDIR", text)
-        # With both blocks cut, no code line names the route.
-        rest = text[:text.index(start)] + text[text.index("// ===== end of requests (1 of 2)"):]
-        rest = rest[:rest.index("// ===== requests (2 of 2)")] + rest[rest.index(end):]
-        code = [line for line in rest.splitlines() if not line.lstrip().startswith("//")]
-        for name in ("StandIn", "ProxyEnv", "RunSnippet", "BuildChild", "Seen(", "Answer", "RunFsx", "Gate("):
+        for piece in ("p.StandardError.ReadToEndAsync()", "RedirectStandardInput = true", "p.StandardInput.Close();",
+                      "static string Mask(string text, params (string Text, string Token)[] extra)",
+                      "Regex.Replace(text, pattern, token)", "TMPDIR"):
+            self.assertIn(piece, text)
+        # With the requests sections cut, no code line names the route.
+        code = code_only(wikiwright.trim_sections(text, {"children", "fsharp", "tool"}))
+        for name in ("StandIn", "ProxyEnv", "RunSnippet", "Seen(", "Answer", "RunFsx", "Gate(", "Outcome"):
             self.assertFalse([line for line in code if name in line], name)
 
     def test_nuget_template_fsi_gate(self):
         # C-20260930-6: the .invalid gate runs under dotnet fsi as code, checked like the children's, after a
-        # warm-up without the proxy; the F# section is delimited so a run with no F# that requests deletes it.
-        text = self.read(os.path.join("..", "nuget", "wiki-verify.template.cs"))
-        start, end = "// ----- F# (dotnet fsi)", "// ----- end of F# -----"
-        section = text[text.index(start):text.index(end)]
-        block = text[text.index("// ===== requests (1 of 2)"):text.index("// ===== end of requests (1 of 2)")]
-        self.assertIn(section, block)
+        # warm-up without the proxy; it sits in the fsharp section inside requests, so it needs both.
+        text = self.nuget_template()
+        section = section_lines(text, "fsharp")
         for piece in ('Fsi(scratch, "warm", reference + "printfn \\"restored\\"\\n", ProxyEnv(null))',
                       'Gate("dotnet fsi", RunFsx("gate", reference + """', '"http://gate.invalid/"; "https://gate.invalid/"',
                       "{{FS_DEFAULT_CLIENT_CALL}}", "{{FS_CALLER_CLIENT_CALL}}", "), gateCalls);",
                       "var fsSnippets = new Dictionary<string, string>", "RunFsx(name, code)", ".packagemanagement"):
             self.assertIn(piece, section)
+            self.assertNotIn(piece, wikiwright.trim_sections(text, {"children", "fsharp", "tool"}))
         # The warm-up comes before the gate, and every gate before any case.
         self.assertLess(section.index('"warm"'), section.index('Gate("dotnet fsi"'))
-        self.assertLess(block.index("Gate(tfm, "), block.index(start))
-        self.assertLess(block.index(end), block.index("RunSnippet(child, name)"))
+        self.assertLess(text.index("Gate(child.Name, "), text.index('Gate("dotnet fsi"'))
+        self.assertLess(text.index("RunFsx(name, code)"), text.index("runCase(child, example.Label)"))
         self.assertIn("string RunFsx(string name, string code)", text)
         self.assertIn("ProxyEnv(standIn)", text[text.index("string RunFsx("):text.index("static void Gate(")])
-        # Fsi() lives outside the requests blocks: the pages' plain F# uses it too.
-        rest = text[:text.index("// ===== requests (1 of 2)")] + text[text.index("// ===== end of requests (1 of 2)"):]
-        rest = rest[:rest.index("// ===== requests (2 of 2)")]
-        self.assertIn("static string Fsi(string scratch, string name, string code", rest)
+        # Fsi() needs only the fsharp section: the pages' plain F# uses it too.
+        self.assertIn("static string Fsi(string scratch, string name, string code", wikiwright.trim_sections(text, {"fsharp"}))
         self.assertNotIn("// An F# snippet that requests", text)
         # Cutting the F# section leaves no code naming it.
-        cut = text[:text.index(start)] + text[text.index(end):]
-        code = [line for line in cut.splitlines() if not line.lstrip().startswith("//")]
-        for name in ("reference", "fsSnippets", "FS_DEFAULT_CLIENT_CALL"):
+        code = code_only(wikiwright.trim_sections(text, {"children", "requests", "tool"}))
+        for name in ("reference", "fsSnippets", "FS_DEFAULT_CLIENT_CALL", "Fsi("):
             self.assertFalse([line for line in code if name in line], name)
+
+    def test_nuget_template_children_and_tool(self):
+        # The ninth and tenth runs (tc 2-4, cs 1, 3-5, 7, 8): children outside requests, whole-program examples with
+        # global types, one process per example, configs with extra #:package lines, dependency versions from the
+        # informational version and TargetFrameworkAttribute, and a tool section with a merged-stream Term().
+        text = self.nuget_template()
+        children = section_lines(text, "children")
+        for piece in ("#:include harness.cs", "global using static WikiHarness;", "[System.Runtime.CompilerServices.ModuleInitializer]",
+                      "static class WikiCase{i}", "batches.FindIndex(b => !b.Types.Overlaps(types))",
+                      'l.StartsWith("#:") ? l : "#:package " + l', "Lines is { Length: > 0 }",
+                      "foreach (var name in new string[] { %DEPENDENCIES% })", "app.Command!.Append(key)"):
+            self.assertIn(piece, children)
+        self.assertNotIn("namespace Ex", children)
+        for piece in ("AssemblyInformationalVersionAttribute", "TargetFrameworkAttribute", "AssemblyFileVersionAttribute"):
+            self.assertIn(piece, text[text.index("static string Installed("):])
+        self.assertFalse([line for line in code_only(text) if re.search(r"[Aa]ssembly\)?\.Location", line)])
+        tool = section_lines(text, "tool")
+        for piece in ('Start("cmd.exe", [], env, cwd, "/d /s /c ', 'Start("/bin/sh", ["-c", "{ " + command',
+                      '"$ echo $?' + BACKSLASH + 'n" + exit', "--tool-path tools", "dotnet tool uninstall {{TOOL_ID}} --tool-path tools-u",
+                      '".store"', "static string Fresh(", "static string Listing(", '(help, "<cwd>")'):
+            self.assertIn(piece, tool)
+        self.assertNotIn(" -g", code_only(tool))
+        self.assertNotIn("--yes", code_only(tool))
 
     def test_grader_sees_a_recorder_that_names_no_host(self):
         # L-122: a fetch wrapper that passes requests through, then run, is a request to the real service.
@@ -1417,6 +1464,138 @@ class ScaffoldTests(unittest.TestCase):
             "2 cases", "answers: 2 identical", "timing: 2 identical", "requests: 2 identical"])
         self.assertEqual(shown["golden: 2.1.0"].split("\n"), [
             "2 cases", "answers: 1 identical; differ: two", "timing: 2 identical", "requests: 2 identical"])
+
+
+# A line only each optional section of the NuGet template holds (C-20261001-3, `nuget-sections`).
+NUGET_SECTION_SIGNS = {
+    "children": ("static Child BuildChild(", "var examples = new List<Example>", "record Config(string Framework",
+                 "static (string Usings, string Statements, string Types) Split(", "#:include harness.cs",
+                 "[System.Runtime.CompilerServices.ModuleInitializer]", "static Dictionary<string, string?> WithoutProxy()"),
+    "requests": ("sealed class StandIn", "var gateCalls = 4;", "static void Gate(", "WebRequest.DefaultWebProxy",
+                 "internal static async Task<string> Outcome<T>", "runCase = RunSnippet;"),
+    "fsharp": ("static string Fsi(string scratch",),
+    "tool": ("static string Term(string command", "static string Fresh(", "static string Listing(",
+             "--tool-path tools", 'var toolVersion = "2.1.0";'),
+}
+NUGET_CORE_SIGNS = ("#:package Widget.Core@2.1.0", "#:property PublishAot=false", "using Widget;",
+                    "var asm = typeof(WidgetType).Assembly;", "string[] dependencies = [];",
+                    "static string Run(string file", "p.StandardInput.Close();", "static string Mask(string text, params",
+                    "static string Installed(Assembly assembly)", "Masks.Patterns", "// ----- the cases",
+                    "widget.core/2.1.0/lib/netstandard2.0")
+
+
+class ScaffoldNugetTests(unittest.TestCase):
+    def setUp(self):
+        self.d = tempfile.mkdtemp()
+        with open(os.path.join(TEMPLATES, "..", "nuget", "wiki-verify.template.cs"), "rb") as fh:
+            self.template = fh.read().decode("utf-8")
+
+    def tearDown(self):
+        shutil.rmtree(self.d)
+
+    def scaffold(self, *flags, name="wiki-verify.cs", package="Widget.Core", ident=("--namespace", "Widget", "--type", "WidgetType")):
+        out = os.path.join(self.d, name)
+        code, printed = run(["scaffold", "nuget", package, "2.1.0"] + list(ident) + ["-o", out] + list(flags))
+        text = ""
+        if os.path.exists(out):
+            with open(out, "rb") as fh:
+                text = fh.read().decode("utf-8")
+        return code, printed, text
+
+    def test_template_markers_balance_and_name_the_known_sections(self):
+        names = re.findall(r"^// ===== section: ([a-z-]+) =====$", self.template, re.M)
+        self.assertEqual(set(names), set(NUGET_SECTION_SIGNS))
+        self.assertEqual(len(names), len(re.findall(r"^// ===== end: ", self.template, re.M)))
+        full = wikiwright.trim_sections(self.template, set(NUGET_SECTION_SIGNS))
+        self.assertNotIn("// =====", full)
+        self.assertNotIn(chr(13), self.template)
+        # requests lives inside children wherever it runs examples; the F# gate inside requests.
+        for line in ("runCase = RunSnippet;", "Gate(child.Name, RunSnippet(child, \"gate\"), gateCalls);"):
+            self.assertNotIn(line, wikiwright.trim_sections(self.template, {"requests", "fsharp", "tool"}))
+        self.assertNotIn('Gate("dotnet fsi"', wikiwright.trim_sections(self.template, {"children", "fsharp", "tool"}))
+
+    def test_each_flag_keeps_its_sections_and_drops_the_rest(self):
+        cases = {
+            (): set(),
+            ("--children", ""): {"children"},
+            ("--children", "net48,net8.0"): {"children"},
+            ("--requests",): {"children", "requests"},
+            ("--fsharp",): {"fsharp"},
+            ("--requests", "--fsharp"): {"children", "requests", "fsharp"},
+            ("--tool", "Widget.Tool:widget"): {"tool"},
+            ("--children", "net48", "--requests", "--fsharp", "--tool", "Widget.Tool:widget"): set(NUGET_SECTION_SIGNS),
+        }
+        for flags, kept in cases.items():
+            with self.subTest(flags=flags):
+                code, printed, text = self.scaffold(*flags, "--force")
+                self.assertEqual(code, 0, printed)
+                for sign in NUGET_CORE_SIGNS:
+                    self.assertIn(sign, text)
+                for section, signs in NUGET_SECTION_SIGNS.items():
+                    for sign in signs:
+                        (self.assertIn if section in kept else self.assertNotIn)(sign, text)
+                (self.assertIn if {"requests", "fsharp"} <= kept else self.assertNotIn)('Gate("dotnet fsi"', text)
+                self.assertNotIn("// =====", text)
+                self.assertNotIn("{{", text.replace("{{\\n", ""))
+                self.assertNotIn("\n\n\n", text)
+                self.assertIn("kept: core", printed)
+                self.assertIn("%s bytes" % format(len(text.encode("utf-8")), ","), printed)
+                self.assertLess(len(text), len(self.template) + 1)
+
+    def test_placeholders_filled(self):
+        _, printed, text = self.scaffold("--children", "net48,net10.0,net8.0", "--requests", "--fsharp",
+                                         "--tool", "Widget.Tool:widget")
+        self.assertIn('{\n    new("net10.0"),\n    new("net48"),\n    new("net8.0"),\n};', text)
+        self.assertIn("children: net10.0, net48, net8.0", printed)
+        for todo in ("TODO_DEFAULT_CLIENT_CALL(url)", "TODO_CALLER_CLIENT_CALL(url, mine)", "TODO_FS_DEFAULT_CLIENT_CALL url",
+                     "TODO_FS_CALLER_CLIENT_CALL url mine"):
+            self.assertIn(todo, text)
+            self.assertIn(todo.split("(")[0].split(" ")[0], printed)
+        for filled in ('"dotnet tool install Widget.Tool --version " + toolVersion', 'Term("widget -h", help, toolEnv)',
+                       '#r \\"nuget: Widget.Core, 2.1.0\\"', '"#:package Widget.Core@2.1.0"',
+                       "typeof(global::Widget.WidgetType).Assembly", '"Widget.Tool".ToLowerInvariant()'):
+            self.assertIn(filled, text)
+        self.assertEqual(sorted(set(re.findall(r"\{\{[A-Z_]+\}\}", text))), [])
+        # The no-flag program is the core alone, a quarter of the template.
+        _, _, core = self.scaffold("--force")
+        self.assertLess(len(core), 0.3 * len(self.template))
+        for name in ("BuildChild", "StandIn", "Term(", "Fsi(", "examples", "configs"):
+            self.assertFalse([line for line in code_only(core) if name in line], name)
+
+    def test_refuses_to_overwrite_without_force(self):
+        self.assertEqual(self.scaffold()[0], 0)
+        path = os.path.join(self.d, "wiki-verify.cs")
+        with open(path, "wb") as fh:
+            fh.write(b"// mine\n")
+        code, printed, text = self.scaffold("--tool", "Widget.Tool:widget")
+        self.assertEqual(code, 2)
+        self.assertIn("exists (pass --force", printed)
+        self.assertEqual(text, "// mine\n")
+        code, printed, text = self.scaffold("--force")
+        self.assertEqual(code, 0, printed)
+        self.assertIn("#:package Widget.Core@2.1.0", text)
+
+    def test_bad_input_writes_nothing(self):
+        bad = [
+            dict(package="Bad Id"), dict(flags=("--children", "net48;net8.0")), dict(flags=("--children", "netstandard2.0")),
+            dict(flags=("--tool", "Widget.Tool")), dict(flags=("--tool", "Widget.Tool:bad command")),
+            dict(flags=("--tool", "widget.core:widget")), dict(ident=("--namespace", "Widget")),
+            dict(ident=("--namespace", "Widget;", "--type", "T")), dict(ident=("--namespace", "Widget", "--type", "T()")),
+            dict(flags=("--bin",)), dict(flags=("--golden", "1.0.0")),
+        ]
+        for case in bad:
+            with self.subTest(case=case):
+                code, printed, text = self.scaffold(*case.get("flags", ()), package=case.get("package", "Widget.Core"),
+                                                    ident=case.get("ident", ("--namespace", "Widget", "--type", "WidgetType")))
+                self.assertEqual(code, 2, printed)
+                self.assertEqual(text, "")
+        code, printed = run(["scaffold", "nuget", "Widget.Core", "2.1", "--namespace", "W", "--type", "T", "-o",
+                             os.path.join(self.d, "v.cs")])
+        self.assertEqual(code, 2)
+        code, printed = run(["scaffold", "npm", "widget", "2.1.0", "--namespace", "W", "-o", os.path.join(self.d, "w.mjs")])
+        self.assertEqual(code, 2)
+        self.assertIn("--namespace: not for scaffold npm", printed)
+        self.assertFalse(os.path.exists(os.path.join(self.d, "w.mjs")))
 
 
 def rmtree(d):
