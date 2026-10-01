@@ -1,6 +1,6 @@
 # Learnings: wikiwright
 
-Procedural lessons for [SKILL.md](SKILL.md). Research findings live in [RESEARCH.md](RESEARCH.md); every change is logged in [CHANGELOG.md](CHANGELOG.md); test runs in [TESTS.md](TESTS.md); state in `evergreen.json`. Format and write-time gate: MAINTENANCE.md (LEARNINGS-FORMAT). Retired and merged entries, and the full text of every entry shortened in the 2026-09-29 consolidation, are in [LEARNINGS-ARCHIVE.md](LEARNINGS-ARCHIVE.md); a promoted entry here keeps its rule and where the rule now lives.
+Procedural lessons for [SKILL.md](SKILL.md). Research findings live in [RESEARCH.md](RESEARCH.md); every change is logged in [CHANGELOG.md](CHANGELOG.md); test runs in [TESTS.md](TESTS.md); state in `evergreen.json`. Format and write-time gate: MAINTENANCE.md (LEARNINGS-FORMAT). Retired and merged entries, and the full text of every entry shortened or merged in the 2026-09-29 and 2026-10-01 consolidations, are in [LEARNINGS-ARCHIVE.md](LEARNINGS-ARCHIVE.md); a promoted entry here keeps its rule and where the rule now lives.
 
 Write an entry the moment a real signal happens: a user correction, the same error twice, a discovered workaround, an environment fact, a stated preference, a failed test or a failure in use. Check existing entries first, by meaning (`evergreen.py search "<the lesson>" --kinds learnings` finds near-duplicates in every registered unit): add / update / retire / none. Trigger and Hypothesis are required. Promote after three confirmations; retire when harmful > helpful.
 
@@ -14,9 +14,9 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Status: promoted: C-20260928-1 · helpful 2 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-002 · 2026-09-28 · The wiki repository exists only after a first page is saved in the web UI (`first-page-click`)
-- Rule: GitHub creates the wiki repository only when someone saves a first page in the web UI; enabling the feature does not, and no API can. Run `preflight` (ls-remote, re-checked for 60 seconds after `--enable`) before writing and ask for the click in the first message. Clone the placeholder, commit on it and `git push` without force (force only for a working copy begun with `git init`), to the branch ls-remote names (`master` on GitHub). Merges L-003 `wiki-branch-master` and L-010 `placeholder-fast-forward`.
-- Evidence: rule in SKILL.md Step 1 and Step 7, references/publishing.md; DotNetRandomNameGenerator, get-title-at-url and seeded-random-utilities notes (2026-09-28)
-- Status: promoted: C-20260928-1, C-20260928-2 (L-010), C-20260928-3 (resolved) · helpful 3 · harmful 0 · last_confirmed 2026-09-28
+- Rule: GitHub creates the wiki repository only when someone saves a first page in the web UI; enabling the feature does not, and no API can. Run `preflight` (ls-remote, re-checked for 60 seconds after `--enable`) before writing, even for a draft of one page and even when the overlay lists the wiki as owed or done (the overlay says where things live, ls-remote says what exists), and ask for the click in the first message. Clone the placeholder, commit on it and `git push` without force (force only for a working copy begun with `git init`), to the branch ls-remote names (`master` on GitHub). Merges L-003 `wiki-branch-master`, L-010 `placeholder-fast-forward` and L-109 `record-is-not-state`.
+- Evidence: rule in SKILL.md Step 1 and Step 7, references/publishing.md; DotNetRandomNameGenerator, get-title-at-url and seeded-random-utilities notes (2026-09-28); T-20260928-4 (1 of 5 runs skipped preflight, L-109)
+- Status: promoted: C-20260928-1, C-20260928-2 (L-010), C-20260928-3 (resolved), C-20260928-4 (L-109) · helpful 3 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-006 · 2026-09-28 · A markdown table cannot hold multi-line output (`table-cannot-hold-output`)
 - Rule: input and output go in paired code blocks; tables only for one-line values (a GitHub table cell is one line, and `<br>` inside code does not break it).
@@ -34,9 +34,8 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Status: promoted: C-20260928-2 (marked promoted in the 2026-09-29 consolidation) · helpful 1 · harmful 0 · last_confirmed 2026-09-28
 
 ### L-011 · 2026-09-28 · Run the old majors when there is no golden capture (`run-the-old-majors`)
-- Rule: Versions and upgrading takes its evidence from runs today, not from the changelog. With a golden capture, replay its script against the old version installed today and against the current one, compare case by case and never rewrite the golden file; a capture that starts its own fixture server runs as a child process per version, with answers, timing and requests compared apart. Without one, install each old major in its own folder and run the same cases. A NuGet capture is a project that pins the old version: copy it, change only the pin, build once, run `--no-build -f <tfm>` per framework, and compare with the recording for the same runtime and OS (IsImageUrlDotNet, 2026-09-29: 117 of 117 answers and requests on three recordings). Merges L-020 `replay-the-golden-capture` and L-113 `replay-requesting-capture`.
-- Evidence: rule in SKILL.md Step 4, references/golden-captures.md, references/npm-requests.md (proxy-recorded captures), the npm template's golden section; get-title-at-url, seeded-random-utilities, is-an-image-url, markdown-plain-link-replacer
-- Update 2026-09-30 (replace-string-at-position, a synchronous capture of 1.0.4): it replayed against 2.0.0 with no patches. Compare by parsed value, not bytes, with the header left out and `quirks` apart; 1.0.4 today 71 of 71, 2.0.0 26 identical and 45 differing, each a CHANGELOG line.
+- Rule: Versions and upgrading takes its evidence from runs today, not from the changelog. With a golden capture, replay its script against the old version installed today and against the current one, compare case by case and never rewrite the golden file; a capture that starts its own fixture server runs as a child process per version, with answers, timing and requests compared apart. Without one, install each old major in its own folder and run the same cases. A NuGet capture is a project that pins the old version: copy it, change only the pin, build once, run `--no-build -f <tfm>` per framework, and compare with the recording for the same runtime and OS (IsImageUrlDotNet, 2026-09-29: 117 of 117 answers and requests on three recordings). A synchronous capture replays with no patches; compare by parsed value, not bytes, with the header left out and `quirks` apart. Merges L-020 `replay-the-golden-capture` and L-113 `replay-requesting-capture`.
+- Evidence: rule in SKILL.md Step 4, references/golden-captures.md (with "Synchronous golden captures"), references/npm-requests.md (proxy-recorded captures), the npm template's golden section; get-title-at-url, seeded-random-utilities, is-an-image-url, markdown-plain-link-replacer, replace-string-at-position (2026-09-30)
 - Status: promoted: C-20260928-2, C-20260928-3 (L-020), C-20260928-4 (L-113), C-20260929-17 (NuGet), C-20260930-9 (synchronous captures) · helpful 3 · harmful 0 · last_confirmed 2026-09-30
 
 ### L-012 · 2026-09-28 · A plugin installed mid-session is not invocable; a user-skills junction is, after a delay (`midsession-skill-load`)
@@ -118,15 +117,10 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: rule in SKILL.md Update mode ("A draft-only request"); get-title-at-url and is-an-image-url drafts
 - Status: promoted: C-20260929-3 · helpful 8 · harmful 0 · last_confirmed 2026-09-29
 
-### L-109 · 2026-09-28 · The overlay's list of wikis is a record, not the wiki's state (`record-is-not-state`)
-- Rule: Step 1 runs preflight even for a draft of one page and even when the overlay lists the wiki as owed or done: the overlay says where things live, ls-remote says what exists.
-- Evidence: rule in SKILL.md Step 1; T-20260928-4 (1 of 5 runs skipped it)
-- Status: promoted: C-20260928-4 (marked promoted in the 2026-09-29 consolidation) · helpful 0 · harmful 0 · last_confirmed 2026-09-28
-
 ### L-110 · 2026-09-28 · NuGet wikis show outputs in comments; 0.2.0's check read none of them (`outputs-in-comments`)
-- Rule: `outputs` reads the forms NuGet and hand-written wikis use: an untagged or data block right after its input or code block, a comment value (quoted, JSON-like, a number or literal, after a print call or a PowerShell expression), a closing run of comment lines, and an intro word only within six words of the colon. Pages quote bare-word comment values or write `// =>`, and a command right after a code block gets its fence tag. Merges L-103 `input-output-pairs`.
-- Evidence: rule in scripts/wikiwright.py (outputs) with OutputFormsTests, SKILL.md Step 5, references/nuget.md, references/page-sets.md; the JsonPrettyPrinter and RandomNameGeneratorLibrary wikis
-- Status: promoted: C-20260928-4 · helpful 2 · harmful 0 · last_confirmed 2026-09-28
+- Rule: `outputs` reads the forms NuGet and hand-written wikis use: an untagged or data block right after its input or code block, a comment value (quoted, JSON-like, a number or literal, after a print call or a PowerShell expression), a closing run of comment lines, and an intro word only within six words of the colon. Pages quote bare-word comment values or write `// =>`, and a command right after a code block gets its fence tag. Tag every output fence `text` and read the "N outputs checked" count, not only the exit code: `outputs` exits 1 when the pages hold code blocks and it recognised no output (a page with none says so with `<!-- outputs: skip (reason) -->`). Merges L-103 `input-output-pairs` and L-136 `zero-checked-passes`.
+- Evidence: rule in scripts/wikiwright.py (outputs, `cmd_outputs`) with OutputFormsTests and OutputsTests, SKILL.md Steps 5 and 6, references/nuget.md, references/page-sets.md ("How `wikiwright.py outputs` reads a page"); the JsonPrettyPrinter and RandomNameGeneratorLibrary wikis; an IsImageUrlDotNet eval draft that printed "0 outputs checked" and exited 0 (T-20260929-4, L-136)
+- Status: promoted: C-20260928-4, C-20260929-13 (L-136) · helpful 3 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-111 · 2026-09-28 · Unseeded examples: print the value after checking it is on its list (`membership-for-random`)
 - Rule: an unseeded example is printed only after checking it is on the list its method draws from, labelled so; a random line in a snippet's output becomes a stable placeholder after the same check.
@@ -162,61 +156,33 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Status: promoted: C-20260928-4 (L-114), C-20260929-4, C-20260929-9 (L-135) · helpful 1 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-130 · 2026-09-29 · A package whose output is files: a fresh scratch tree per case, and the bytes the text hides (`file-writing-package`)
-- Rule: a package whose output is files is verified on a fresh copy of the case's tree per case with the file-tree kit, which prints each file's state and its contents before and after under a header of size, UTF-8, BOM, line endings and final newline; pages state those facts in prose. Command examples are transcripts from `term()` with both streams in order, and `cli()` takes `{cwd}`. The kit masks escaped paths and takes hard links, folder modes, `hide` and `limit`. Merges L-133 `file-tree-first-run`.
-- Evidence: rule in SKILL.md Step 4, references/npm-files.md, templates/npm/file-tree.mjs and tests/file-tree.test.mjs; the format-json-files run (114 outputs)
-- Status: promoted: C-20260929-7, C-20260929-8 (L-133) · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+- Rule: a package whose output is files is verified on a fresh copy of the case's tree per case with the file-tree kit, which prints each file's state and its contents before and after under a header of size, UTF-8, BOM, line endings and final newline; pages state those facts in prose. Command examples are transcripts from `term()` with both streams in order, and `cli()` takes `{cwd}`. The kit masks escaped paths and takes hard links, folder modes, `hide` and `limit`. When output contains file paths, run the script on Linux too and show that run on the pages, stating the Windows difference once; a Linux Node comes from the registry (`npm pack node-linux-x64@<v>` and npm with shims, then `OLDEST_NODE_BIN`) or from nodejs.org checked against SHASUMS256; call `wsl.exe` from PowerShell, or set `MSYS_NO_PATHCONV=1` in Git Bash. Merges L-133 `file-tree-first-run` and L-132 `linux-run-for-paths`.
+- Evidence: rule in SKILL.md Step 4, references/npm-files.md, templates/npm/file-tree.mjs and tests/file-tree.test.mjs; the format-json-files run (114 outputs), three of its eval drafts and the sixth run (L-132)
+- Status: promoted: C-20260929-7, C-20260929-8 (L-133, L-132) · helpful 4 · harmful 0 · last_confirmed 2026-09-29
 
 ### L-131 · 2026-09-29 · A recipe's third-party package breaks the page while the documented package stands still (`recipe-deps-drift`)
 - Rule: a clean diff proves only the cases already in the script. In update mode install every third-party package a recipe imports, and every tool a page names (`npm view <tool> version`; a new major beside the old under an alias, `typescript7@npm:typescript@7`), at its current `latest`, run the recipe on each Node line the pages name, print the version of every package and tool the pages name (diffout cannot see a drift the script never prints: get-title-at-url's saved script diffed 121 of 121 while its pages named an old TypeScript), and scope a block by the case that printed it (`<!-- outputs: node>=22 -->`); a stand-in proxy must handle both `CONNECT` and absolute-form requests.
 - Evidence: rule in SKILL.md Update mode step 3, references/npm.md and npm-requests.md; get-title-at-url's Recipes page (undici 8, wiki 1e449b2); T-20260929-4 action-3-r2: Getting started says it compiles under TypeScript 6 while `npm install typescript` has given 7.0.2 since 2026-07-08, and three update runs diffed clean without noticing (the example compiles under 7.0.2)
 - Status: promoted: C-20260929-8, C-20260929-13 (tools), C-20260930-2 (print versions), C-20260930-8 (a TypeScript matrix in `snippet()`) · helpful 5 · harmful 0 · last_confirmed 2026-09-30 (the fourth get-title-at-url update: TypeScript 7.0.2 and 6.0.3 both compile the page's example on Node 20, 22 and 24; wiki a020db1, PR #25. The eighth run: 7.0.2 refuses `node10` and `esModuleInterop: false` with TS5108, so replace-string-at-position's pages scope those setups to TypeScript 6 and earlier; references/npm.md, "The scratch project")
 
-### L-132 · 2026-09-29 · A package that prints file paths needs a Linux run for the pages (`linux-run-for-paths`)
-- Rule: when output contains file paths, run the script on Linux too and show that run on the pages, stating the Windows difference once. A Linux Node comes from the registry (`npm pack node-linux-x64@<v>` and npm with shims, then `OLDEST_NODE_BIN`) or from nodejs.org checked against SHASUMS256; call `wsl.exe` from PowerShell, or set `MSYS_NO_PATHCONV=1` in Git Bash.
-- Evidence: rule in SKILL.md Step 4 and references/npm-files.md; three format-json-files eval drafts and the sixth run
-- Status: promoted: C-20260929-8 · helpful 3 · harmful 0 · last_confirmed 2026-09-29
-
-### L-136 · 2026-09-29 · `outputs` exited 0 when it checked nothing (`zero-checked-passes`)
-- Rule: tag every output fence `text`, and read the "N outputs checked" count, not only the exit code. `outputs` now exits 1 when the pages hold code blocks and it recognised no output (a page with none says so with `<!-- outputs: skip (reason) -->`).
-- Evidence: the eval run's `outputs` lines before and after the tag; scripts/wikiwright.py (`cmd_outputs`) and OutputsTests; references/page-sets.md ("How `wikiwright.py outputs` reads a page")
-- Status: promoted: C-20260929-13 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
-
 ### L-137 · 2026-09-29 · A .NET package's requests reach a stand-in by a different route on each runtime (`dotnet-request-route`)
-- Rule: .NET Core and .NET 5+ read `HTTP_PROXY`/`HTTPS_PROXY`; .NET Framework ignores them, so its child sets `WebRequest.DefaultWebProxy`, and since Framework never proxies a loopback address the routes use `.test` names. Restores (child builds, fsi's `#r "nuget:"`) run without the proxy variables, first. The `.invalid` gate runs on every route before any case.
-- Evidence: the run's report ("Request route", ".NET Framework and Linux"); the template filled for IsImageUrlDotNet 2.0.0, where net48 without the `DefaultWebProxy` line failed the gate with "stand-in: no request"
-- Status: promoted: C-20260929-15, C-20260930-6 (the fsi route as code) · helpful 2 · harmful 0 · last_confirmed 2026-09-30
-
-### L-138 · 2026-09-29 · A stand-in that refuses by closing the connection makes HttpClient retry (`refuse-by-answering`)
-- Rule: refuse by answering: a reply that is not HTTP to a GET, 403 to a CONNECT. The gate expects each call logged exactly once, so a retry fails it.
-- Evidence: the run's report ("One surprise"); the template's negative variant that closed instead logged 4 GETs per http call on .NET 10 and failed the gate
-- Status: promoted: C-20260929-15 · helpful 1 · harmful 0 · last_confirmed 2026-09-29
+- Rule: .NET Core and .NET 5+ read `HTTP_PROXY`/`HTTPS_PROXY`; .NET Framework ignores them, so its child sets `WebRequest.DefaultWebProxy`, and since Framework never proxies a loopback address the routes use `.test` names. Restores (child builds, fsi's `#r "nuget:"`) run without the proxy variables, first. The `.invalid` gate runs on every route before any case. The stand-in refuses by answering (a reply that is not HTTP to a GET, 403 to a CONNECT): a closed connection makes HttpClient retry, and the gate expects each call logged exactly once. fsi keeps each resolved `#r`/`#i` set in `~/.packagemanagement/nuget/Cache/<hash>.fsx` and never restores it again (ignoring `NUGET_PACKAGES`), so a skipped warm-up usually goes unseen; keep the warm-up (with a new set the restore goes through the proxy, which NuGet reads, and fails the gate), and to test that path give the script a set never resolved (a new `#i` folder) with empty `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH`. Merges L-138 `refuse-by-answering` and L-140 `fsi-resolution-cache`.
+- Evidence: rule in references/nuget-requests.md, references/nuget.md (Traps) and templates/nuget/wiki-verify.template.cs; the seventh run's report ("Request route", ".NET Framework and Linux", "One surprise"): net48 without the `DefaultWebProxy` line failed the gate with "stand-in: no request", and a stand-in that closed instead logged 4 GETs per http call on .NET 10; the fsi scratch variants neg-nowarm (exit 0), neg-nowarm4 (NU1301, GATE FAILED) and pos-coldwarm3 (L-140)
+- Status: promoted: C-20260929-15, C-20260930-6 (the fsi route as code; L-140) · helpful 4 · harmful 0 · last_confirmed 2026-09-30
 
 ### L-139 · 2026-09-30 · The host prints the page title once; the page must not print it again (`title-printed-once`)
 - Rule: a wiki page starts with its first paragraph, never with a heading that repeats the file-name title the host prints, and never puts a heading straight under one with the same words. `check` fails both; the everwrite checker flags them with `--wiki`.
 - Evidence: the maintainer's correction on 2026-09-30 (get-title-at-url's Getting started showed "Getting Started" and then "Getting started"; "saying the same thing twice exactly is a mistake most humans wouldn't make"). page-sets.md had allowed it. Rule in SKILL.md Step 5, references/page-sets.md, scripts/wikiwright.py (check), CheckTests; everwrite C-20260930-1
 - Status: promoted: C-20260930-4 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
 
-### L-140 · 2026-09-30 · fsi resolves each set of `#r` lines once, so a skipped warm-up usually goes unseen (`fsi-resolution-cache`)
-- Trigger: the first real run of the fsi `.invalid` gate (IsImageUrlDotNet 2.0.0). The negative variant with no warm-up and an empty `NUGET_PACKAGES` passed the gate: fsi never restored, and the empty folder was never created. A second try with a new `#i` line (a new key) restored from NuGet's 30-minute HTTP cache, again with no request.
-- Hypothesis: without the warm-up, the gate script's restore goes through the proxy and fails.
-- Rule: fsi keeps each resolved `#r`/`#i` set in `~/.packagemanagement/nuget/Cache/<hash>.fsx` and never restores it again, ignoring `NUGET_PACKAGES` for it; NuGet's HTTP cache then answers repeat downloads. Keep the warm-up anyway: on a fresh machine or with a new set, the restore does go through the proxy (NuGet reads `HTTPS_PROXY`) and fails the gate. To test that path, give the script a set never resolved (a new `#i` folder) and empty `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH`.
-- Evidence: scratch variants neg-nowarm (exit 0), neg-nowarm4 (6 × "CONNECT api.nuget.org:443 -> 403 refused", NU1301, GATE FAILED), pos-coldwarm3 (the warm-up downloaded the package and FSharp.Core, gate passed); references/nuget-requests.md, references/nuget.md (Traps); the template's F# section comment
-- Scope: skill (NuGet, F#)
-- Status: promoted: C-20260930-6 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
-
 ### L-141 · 2026-09-30 · The npm template's tsc lookup throws under TypeScript 7 (`tsc-by-path`)
-- Trigger: an update-mode eval run of get-title-at-url (T-20260930-3, action-3) moved its cases into the template's `snippet()`; the first TypeScript snippet threw `ERR_PACKAGE_PATH_NOT_EXPORTED: Package subpath './bin/tsc' is not defined by "exports"` with `npm install typescript` = 7.0.2 (2026-09-30). The script's own `tscRun`, which joins `node_modules/typescript/bin/tsc`, compiled under 7.0.2 all along.
 - Rule: find a package's bin by path (`path.resolve('node_modules', 'typescript', 'bin', 'tsc')`), not with `require.resolve('<pkg>/bin/...')`: a package with an `exports` map hides every subpath it does not list. The template's `runSnippet` is fixed that way.
-- Evidence: T-20260930-3 (action-3, an eval draft; checked in scratch the same day: `require.resolve('typescript/bin/tsc')` gives ERR_PACKAGE_PATH_NOT_EXPORTED under 7.0.2, whose `exports` lists `.`, `./package.json` and `./unstable/*` only); templates/npm/wiki-verify.template.mjs
-- Scope: skill
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+- Evidence: rule in templates/npm/wiki-verify.template.mjs (`runSnippet`, by path); T-20260930-3 (action-3: ERR_PACKAGE_PATH_NOT_EXPORTED under TypeScript 7.0.2, whose `exports` lists `.`, `./package.json` and `./unstable/*` only)
+- Status: promoted: C-20260930-8 (marked promoted in the 2026-10-01 consolidation) · helpful 1 · harmful 0 · last_confirmed 2026-09-30
 
 ### L-142 · 2026-09-30 · Every script here that prints outside text writes UTF-8 (`utf8-every-printer`)
-- Trigger: the eighth run (replace-string-at-position) ran `evals/grade-action.py <run> --digest > file` on Windows with `PYTHONIOENCODING` unset; it died with `UnicodeEncodeError: 'charmap' codec can't encode character '\u2714'` on a command in the trace. `wikiwright.py diffout` had crashed the same way on 2026-09-29 and was fixed in 0.4.1 (archived), but the grader was not.
-- Hypothesis: the grader prints only ASCII it builds itself.
 - Rule: any script in this repository that prints text it did not write (trace commands, program output, page text) reconfigures stdout and stderr to UTF-8 with replacement at start, and its test runs it as a subprocess with stdout piped and `PYTHONIOENCODING=cp1252`, which reproduces the Windows console on every system.
-- Evidence: evals/grade-action.py (`utf8_streams()`); tests/test_wikiwright.py (`test_grader_digest_writes_utf8_to_a_pipe`, which fails on the 0.7.2 grader); LEARNINGS-ARCHIVE.md (the diffout crash)
-- Scope: skill (helper scripts and evals)
+- Evidence: rule in evals/grade-action.py (`utf8_streams()`) and tests/test_wikiwright.py (`test_grader_digest_writes_utf8_to_a_pipe`, which fails on the 0.7.2 grader); the eighth run's `--digest` crash on Windows; LEARNINGS-ARCHIVE.md (the diffout crash)
 - Status: promoted: C-20260930-9 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
 
 ### L-143 · 2026-09-30 · A page's file-based-app example runs as its own app, or the program's PublishAot=false hides its failure (`page-app-own-directives`)
