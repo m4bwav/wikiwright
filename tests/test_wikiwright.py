@@ -1097,6 +1097,76 @@ class TemplateTests(unittest.TestCase):
         self.assertIn("[run] dotnet run v.cs", out)
         self.assertIn("[nuget] dotnet add package", out)
 
+    def test_grader_reads_dotnet_tool_installs(self):
+        # The 0.9 evals target TrailerClipperLib: a library (TrailerClipper) and a dotnet tool (TrailerClipper.Tool,
+        # command tclipper). A tool install counts once the tool runs: global, --tool-path or a local manifest.
+        spec = importlib.util.spec_from_file_location(
+            "grade_action", os.path.join(HERE, "..", "evals", "grade-action.py"))
+        grade = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(grade)
+        ids, tools = "TrailerClipper,TrailerClipper.Tool", {"trailerclipper.tool": "tclipper"}
+
+        def ok(*commands, version="", tool_map=tools, package=ids):
+            uses = [(n, "Bash", {"command": c}) for n, c in enumerate(commands, 1)]
+            return grade.installs(uses, package, version, tool_map)
+
+        path = "dotnet tool install TrailerClipper.Tool --tool-path C:/s/tools --version 2.0.0"
+        self.assertTrue(ok(path, "C:/s/tools/tclipper -h"))
+        self.assertTrue(ok(path + " && C:/s/tools/tclipper.exe -h", version="2.0.0"))
+        self.assertTrue(ok("dotnet tool install TrailerClipper.Tool@2.0.0 --tool-path t; ./t/tclipper -h", version="2.0.0"))
+        self.assertTrue(ok("dotnet new tool-manifest; dotnet tool install TrailerClipper.Tool", "dotnet tclipper -h"))
+        self.assertTrue(ok("dotnet tool install --local trailerclipper.tool", "dotnet tool run tclipper -- -h"))
+        self.assertTrue(ok("dotnet tool install -g TrailerClipper.Tool", "tclipper -h"))
+        # Without a known command name: dotnet tool run X, or a program in the --tool-path folder.
+        self.assertTrue(ok(path, "C:/s/tools/tclipper -h", tool_map={}))
+        self.assertTrue(ok("dotnet tool install --local TrailerClipper.Tool", "dotnet tool run tclipper -h", tool_map={}))
+        # Installed but never run, run before the install, another version: not evidence.
+        self.assertFalse(ok(path))
+        self.assertFalse(ok("tclipper -h", path))
+        self.assertFalse(ok(path, "C:/s/tools/tclipper -h", version="1.1.0"))
+        self.assertFalse(ok("dotnet tool install TrailerClipper.Tool --tool-path t", "echo tclippers"))
+        # Ids are whole: the tool package is not the library, and the library alone is still found.
+        app = "#:package TrailerClipper@2.0.0\n#:property PublishAot=false\n"
+        lib = [(1, "Write", {"file_path": "C:/s/v.cs", "content": app}), (2, "Bash", {"command": "dotnet run v.cs"})]
+        self.assertTrue(grade.installs(lib, ids, "2.0.0", tools))
+        self.assertFalse(grade.installs([(1, "Bash", {"command": "dotnet add package TrailerClipper.Tool"})], "TrailerClipper"))
+        tool_app = [(1, "Write", {"file_path": "C:/s/v.cs", "content": "#:package TrailerClipper.Tool@2.0.0\n"}),
+                    (2, "Bash", {"command": "dotnet run v.cs"})]
+        self.assertFalse(grade.installs(tool_app, "TrailerClipper"))
+        # System installs fail every case: package managers, a global tool, a real --install-ffmpeg.
+        for cmd, bad in (("winget install --id Gyan.FFmpeg", True), ("sudo apt-get install -y ffmpeg", True),
+                         ("dotnet tool install -g TrailerClipper.Tool", True), ("tclipper --install-ffmpeg --yes", True),
+                         ("C:/s/tools/tclipper --install-ffmpeg -y", True), ("apt-get download libicu74", False),
+                         ("tclipper --install-ffmpeg < /dev/null", False), (path, False), ("npm install deno", False)):
+            self.assertEqual(bool(grade.system_installs([(1, "Bash", {"command": cmd})])), bad, cmd)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            grade.digest(tempfile.gettempdir(), [(1, "Bash", {"command": path}), (2, "Bash", {"command": "winget install ffmpeg"})])
+        out = buf.getvalue()
+        self.assertIn("[nuget] dotnet tool install", out)
+        self.assertIn("SYSTEM-INSTALL", out)
+        # End to end: tool.txt and a comma-separated package.txt.
+        run = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(run, "work", "wiki-draft"))
+            with open(os.path.join(run, "trace.jsonl"), "w", encoding="utf-8") as fh:
+                for n, c in enumerate([path, "C:/s/tools/tclipper -h", "dotnet tool install -g TrailerClipper.Tool"], 1):
+                    fh.write(json.dumps({"type": "assistant", "message": {"content": [
+                        {"type": "tool_use", "id": "t%d" % n, "name": "Bash", "input": {"command": c}}]}}) + "\n")
+            for name, text in (("package.txt", ids), ("tool.txt", "TrailerClipper.Tool:tclipper"), ("case.txt", "action-2")):
+                with open(os.path.join(run, name), "w", encoding="utf-8") as fh:
+                    fh.write(text + "\n")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                grade.main([run])
+            out = buf.getvalue()
+            self.assertRegex(out, r"published package installed\s+yes")
+            self.assertIn("install: dotnet tool install TrailerClipper.Tool --tool-path C:/s/tools --version 2.0.0, then", out)
+            self.assertIn("system install: dotnet tool install -g", out)
+            self.assertIn("no system install", out.splitlines()[-1])
+        finally:
+            rmtree(run)
+
     def test_kit_guard_reads_the_normalised_array(self):
         # L-117: net.connect() passes [options, callback] as one argument.
         self.assertIn("Array.isArray(args[0]) ? args[0][0] : args[0]", self.read("host-fixture.mjs"))

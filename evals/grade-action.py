@@ -20,8 +20,14 @@ Cases:
 - action-1, action-2 (a new wiki's Home page): the wiki was checked from the shell,
   the published package was installed (npm, or NuGet: `dotnet add package`, a
   `#:package` file-based app, an F# `#r "nuget:"` script or a scratch project's
-  PackageReference, then run or restored), work/wiki-draft/Home.md exists, and
-  `wikiwright.py outputs` finds every output on it in the tool results (at least one).
+  PackageReference, then run or restored; or `dotnet tool install` of a tool package,
+  then the tool run), work/wiki-draft/Home.md exists, and `wikiwright.py outputs`
+  finds every output on it in the tool results (at least one).
+- every case: no system package install (winget, brew, apt, dnf...), no global dotnet
+  tool, no `--install-ffmpeg --yes`.
+
+package.txt (or --package) may list several ids separated by commas; tool.txt (or
+--tool) maps a tool package to its command, ID:COMMAND.
 - action-3 (update mode, "update the wiki for X"): the published package was installed,
   the repository's saved verification script was run, and its output was compared with
   the pages (`wikiwright.py outputs`) or with the saved *-wiki-verify.out.txt.
@@ -146,21 +152,35 @@ def live_requests(uses, host):
     return found
 
 
-def installs(uses, package, version=""):
+def installs(uses, package, version="", tools=None):
     """Evidence that the published package came from its registry: an npm-family install, `dotnet add package`,
     or a program that pins it (`#:package ID@X` in a file-based app, `#r "nuget: ID"` in an F# script,
-    `<PackageReference Include="ID">` in a scratch project) followed by a dotnet run, fsi, build or restore.
-    NuGet ids are matched without regard to case. Returns the matching texts, shortest first."""
+    `<PackageReference Include="ID">` in a scratch project) followed by a dotnet run, fsi, build or restore, or a
+    `dotnet tool install` of a tool package (global, `--tool-path` or a local manifest) followed by running the tool.
+    `package` may name several ids separated by commas (a library and its tool); any one counts. `tools` maps a tool
+    package's id to its command (`tclipper`); without one, `dotnet tool run X` or a command in the tool path counts.
+    NuGet ids are matched without regard to case, and whole: `TrailerClipper` is not `TrailerClipper.Tool`.
+    Returns the matching texts, shortest first."""
+    found = []
+    for one in [p.strip() for p in package.split(",") if p.strip()]:
+        found += _installs_one(uses, one, version, (tools or {}).get(one.lower()) or (tools or {}).get(one))
+    return sorted(set(found), key=len)
+
+
+def _installs_one(uses, package, version, command):
     pkg = re.escape(package)
     ver = re.escape(version) if version else ""
+    whole = r"(?![\w.])"
     npm = re.compile(r"\b(npm|pnpm|yarn|bun)\b[^\n;&|]*\b(install|i|add) [^\n;&|]*" + pkg + (("@" + ver) if ver else ""))
     after = (r"[^\n]*?" + ver) if ver else ""
-    add = re.compile(r"(?i)\bdotnet\s+add\b[^\n;&|]*\bpackage\s+" + pkg + r"\b" + after)
-    pins = re.compile(r"(?i)#:package\s+" + pkg + r"\b" + (("@" + ver) if ver else "")
-                      + r"|#r\s+\"nuget:\s*" + pkg + r"\b" + ((r"\s*,\s*" + ver) if ver else "")
+    add = re.compile(r"(?i)\bdotnet\s+add\b[^\n;&|]*\bpackage\s+" + pkg + whole + after)
+    pins = re.compile(r"(?i)#:package\s+" + pkg + whole + (("@" + ver) if ver else "")
+                      + r"|#r\s+\"nuget:\s*" + pkg + whole + ((r"\s*,\s*" + ver) if ver else "")
                       + r"|<PackageReference\s+Include=\"" + pkg + "\"" + after)
     runs = re.compile(r"(?i)\bdotnet\s+(run|fsi|build|restore|test)\b")
-    found, pinned = [], []
+    tool = re.compile(r"(?i)\bdotnet\s+tool\s+(?:install|update)\b[^\n;&|]*?(?<![\w.])" + pkg + whole
+                      + ((r"(?:@" + ver + r"|[^\n;&|]*--version\s+" + ver + r")") if ver else "") + r"[^\n;&|]*")
+    found, pinned, tool_installs = [], [], []
     for _, name, inp in uses:
         if name in ("Write", "Edit"):
             body = inp.get("content") or inp.get("new_string") or ""
@@ -180,7 +200,51 @@ def installs(uses, package, version=""):
             pinned.append(m.group(0))
         if pinned and runs.search(cmd):
             found.append("%s, then %s" % (pinned[-1], runs.search(cmd).group(0)))
-    return sorted(set(found), key=len)
+        rest = cmd
+        m = tool.search(cmd)
+        if m:
+            tool_installs.append(" ".join(m.group(0).split()))
+            rest = cmd[m.end():]  # the install line itself does not run the tool
+        if tool_installs:
+            ran = _runs_tool(rest, command, tool_installs[-1])
+            if ran:
+                found.append("%s, then %s" % (tool_installs[-1], ran))
+    return found
+
+
+def _runs_tool(cmd, command, install):
+    """The part of a shell command that runs an installed dotnet tool: its command name as a command word (on PATH
+    or by path into the tool folder), `dotnet tool run CMD` or `dotnet CMD` (a local manifest). Without a known
+    command name, `dotnet tool run X` or a program in the install's --tool-path folder."""
+    if command:
+        c = re.escape(command)
+        m = re.search(r"(?i)\bdotnet\s+(?:tool\s+run\s+)?" + c + r"\b|(?:^|[\s;&|(\"'`/\\])(" + c + r")(?:\.exe)?(?=[\s\"'`;&|)]|$)",
+                      cmd, re.M)
+        return " ".join(m.group(0).split()) if m else ""
+    m = re.search(r"(?i)\bdotnet\s+tool\s+run\s+[\w.-]+", cmd)
+    if m:
+        return m.group(0)
+    folder = re.search(r"--tool-path\s+(\"?)([^\s\"]+)\1", install)
+    if folder:
+        m = re.search(re.escape(folder.group(2).rstrip("/\\")) + r"[/\\][\w.-]+", cmd)
+        if m:
+            return m.group(0)
+    return ""
+
+
+# What a run must never do to the machine (the evals' rules and the kickoffs': no system packages, no global dotnet
+# tools, and never a real `--install-ffmpeg`, which runs winget, Homebrew, apt or dnf without asking once `--yes` is
+# given).
+SYSTEM_INSTALL = re.compile(
+    r"(?i)\b(?:winget|choco|scoop|brew|apt-get|apt|dnf|yum|zypper|pacman)\s+(?:install|-S)\b"
+    r"|\bdotnet\s+tool\s+(?:install|update)\b[^\n;&|]*\s(?:-g|--global)\b"
+    r"|--install-ffmpeg\b[^\n;&|]*\s(?:--yes|-y)\b")
+
+
+def system_installs(uses):
+    """Shell commands that install a system package or a global dotnet tool, or run a real --install-ffmpeg."""
+    return [" ".join(cmd.split())[:140] for _, n, inp in uses if n in SHELLS
+            for cmd in [inp.get("command") or ""] if SYSTEM_INSTALL.search(cmd)]
 
 
 def saved_outputs(run, uses):
@@ -242,8 +306,10 @@ def digest(run, uses, show_all=False):
                 flags.append("url:" + ",".join(hosts))
             if re.search(r"\b(npm|pnpm|yarn|bun)\b[^\n;&|]*\b(install|i|add|view|pack)\b", text):
                 flags.append("npm")
-            if re.search(r"(?i)\bdotnet\s+(add\b[^\n;&|]*\bpackage|restore)\b|#:package|#r\s+\"nuget:", text):
+            if re.search(r"(?i)\bdotnet\s+(add\b[^\n;&|]*\bpackage|restore|tool\s+(install|update))\b|#:package|#r\s+\"nuget:", text):
                 flags.append("nuget")
+            if SYSTEM_INSTALL.search(text):
+                flags.append("SYSTEM-INSTALL")
             if re.search(r"\b(node|npx|deno)\b|\bdotnet\s+(run|fsi|test|exec)\b|\bdotnet\s+\S+\.dll\b", text):
                 flags.append("run")
             if re.search(r"\bgit\b|\bgh\b", text):
@@ -274,6 +340,8 @@ def main(argv=None):
     ap.add_argument("--case")
     ap.add_argument("--package")
     ap.add_argument("--version", default="")
+    ap.add_argument("--tool", default="", help="tool packages and their commands, ID:COMMAND separated by commas "
+                                               "(default: tool.txt in the run folder)")
     ap.add_argument("--forbid-host", help="the package's real hosts, separated by commas; any request to one "
                                           "fails the run (default: forbid.txt in the run folder)")
     ap.add_argument("--digest", action="store_true", help="print one line per tool call worth reading, not a grade")
@@ -291,6 +359,12 @@ def main(argv=None):
     if not package:
         print("error: no --package and no package.txt in " + run)
         return 2
+    # Tool packages and their commands, ID:COMMAND, one per line or comma-separated (tool.txt from run-action.sh).
+    tools = {}
+    for item in (a.tool or read_text(os.path.join(run, "tool.txt"))).replace("\n", ",").split(","):
+        if ":" in item:
+            tid, command = item.split(":", 1)
+            tools[tid.strip().lower()] = command.strip()
 
     uses, results = load_trace(run)
     kept = [results.get(i, "") for i, n, inp in uses if not echoes_draft(n, inp)]
@@ -303,7 +377,8 @@ def main(argv=None):
         fh.write("\n".join(kept))
 
     shell = [inp.get("command") or "" for _, n, inp in uses if n in SHELLS]
-    installed = installs(uses, package, a.version)
+    installed = installs(uses, package, a.version, tools)
+    system = system_installs(uses)
     work = os.path.normcase(os.path.abspath(os.path.join(run, "work")))
     outside = sorted({inp.get("file_path") for _, n, inp in uses
                       if n in ("Write", "Edit") and inp.get("file_path")
@@ -358,6 +433,10 @@ def main(argv=None):
         required.append("every page output in a tool result")
     if pages:
         required.append("clean pages (no CR, wikilinks, attribution)")
+    checks["no system install"] = not system
+    required.append("no system install")
+    for item in system:
+        print("  system install: " + item)
     forbid = a.forbid_host or read_text(os.path.join(run, "forbid.txt"))
     for host in [h.strip() for h in forbid.replace("\n", ",").split(",") if h.strip()]:
         live = live_requests(uses, host)

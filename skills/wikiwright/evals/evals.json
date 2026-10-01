@@ -52,11 +52,11 @@
     {
       "id": "action-1",
       "kind": "action",
-      "prompt": "Draft the Home page of a GitHub wiki for m4bwav/replace-string-at-position in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.",
+      "prompt": "Draft the Home page of a GitHub wiki for m4bwav/TrailerClipperLib in ./wiki-draft/Home.md, with a working example and its real output. Check whether the repo's wiki exists first. Don't push or commit anything anywhere.",
       "expectations": [
         "the wiki repository was checked from the shell (wikiwright.py preflight or git ls-remote of the .wiki.git URL)",
         "wiki-draft/Home.md exists and shows an example output",
-        "the example was run against the published package (replace-string-at-position 2.0.0 from npm: npm, pnpm, yarn or bun install in the trace; the script may live in the session scratchpad when no clone is in the workspace)",
+        "the example was run against the published package (TrailerClipper 2.0.0 or TrailerClipper.Tool 2.0.0 from nuget.org: dotnet add package, a #:package file-based app, an F# #r \"nuget:\" script or a scratch project's PackageReference, then run or restored; or dotnet tool install of the tool, then tclipper run; the script may live in the session scratchpad when no clone is in the workspace)",
         "every output block on the page appears in a tool result of the trace (wikiwright.py outputs wiki-draft <tool results extracted from trace.jsonl> exits 0)"
       ],
       "evidence": {
@@ -71,21 +71,21 @@
           {
             "type": "trace",
             "tool": "Bash|PowerShell",
-            "input_match": "\\b(npm|pnpm|yarn|bun)\\b[^\\n;&|]*\\b(install|i|add) [^\\n;&|]*replace-string-at-position"
+            "input_match": "(?i)\\bdotnet\\s+(add\\b[^\\n;&|]*\\bpackage\\s+TrailerClipper|tool\\s+install\\b[^\\n;&|]*TrailerClipper\\.Tool)|#:package\\s+TrailerClipper@|#r\\s+\"nuget:\\s*TrailerClipper\\b|<PackageReference\\s+Include=\"TrailerClipper\""
           }
         ]
       },
-      "baseline": "T-20260928-2 (against get-title-at-url): the baseline also checked the wiki and verified its example, because it read the repository's new ai-docs wiki note (L-013 `baseline-learns-from-run`). From T-20260928-3 the case names seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran; see TESTS.md for the arms' results. From T-20260928-4 (0.3.0) the case names is-an-image-url, which had only GitHub's placeholder page and no wiki note when the suite ran; seeded-random-utilities had its wiki note from the second run. From T-20260929-1 (0.4.0) the case names markdown-plain-link-replacer, whose wiki held only the page the maintainer saved and which had no wiki note when the suite ran; is-an-image-url had its wiki and note from the third run. From T-20260929-2 (0.5.0) it names stack-exchange-markdown-retriever, whose wiki held only the page the maintainer saved and which had no wiki note; markdown-plain-link-replacer had its wiki and note from the fourth run. From T-20260929-3 (0.6.0) it names format-json-files, whose wiki held only the page the maintainer saved and which had no wiki note; the first package whose output is files on disk, and one that makes no requests. From T-20260929-4 (0.7.0) it names IsImageUrlDotNet, whose wiki held only the page the maintainer saved and which had no wiki note: the first NuGet package the case targets (F#, called from C# and F#), and one whose online check makes requests; example.com, which its README names, is forbidden. The grader reads NuGet installs. From 0.8.0 it names replace-string-at-position, whose wiki held only the page the maintainer saved and which had no wiki note: an npm library without a CLI that makes no requests (no forbidden host: its README names example.com only inside a string), with a golden capture of 1.0.4 and consumer tests; IsImageUrlDotNet had its wiki and note from the seventh run.",
+      "baseline": "T-20260928-2 (against get-title-at-url): the baseline also checked the wiki and verified its example, because it read the repository's new ai-docs wiki note (L-013 `baseline-learns-from-run`). From T-20260928-3 the case names seeded-random-utilities, which had only GitHub's placeholder page and no wiki note when the suite ran; see TESTS.md for the arms' results. From T-20260928-4 (0.3.0) the case names is-an-image-url, which had only GitHub's placeholder page and no wiki note when the suite ran; seeded-random-utilities had its wiki note from the second run. From T-20260929-1 (0.4.0) the case names markdown-plain-link-replacer, whose wiki held only the page the maintainer saved and which had no wiki note when the suite ran; is-an-image-url had its wiki and note from the third run. From T-20260929-2 (0.5.0) it names stack-exchange-markdown-retriever, whose wiki held only the page the maintainer saved and which had no wiki note; markdown-plain-link-replacer had its wiki and note from the fourth run. From T-20260929-3 (0.6.0) it names format-json-files, whose wiki held only the page the maintainer saved and which had no wiki note; the first package whose output is files on disk, and one that makes no requests. From T-20260929-4 (0.7.0) it names IsImageUrlDotNet, whose wiki held only the page the maintainer saved and which had no wiki note: the first NuGet package the case targets (F#, called from C# and F#), and one whose online check makes requests; example.com, which its README names, is forbidden. The grader reads NuGet installs. From 0.8.0 it names replace-string-at-position, whose wiki held only the page the maintainer saved and which had no wiki note: an npm library without a CLI that makes no requests (no forbidden host: its README names example.com only inside a string), with a golden capture of 1.0.4 and consumer tests; IsImageUrlDotNet had its wiki and note from the seventh run. From 0.9.0 it names TrailerClipperLib, whose wiki held only the page the maintainer saved and which had no wiki note: a NuGet library (TrailerClipper) and a dotnet tool (TrailerClipper.Tool, command tclipper) that run a local ffmpeg and write media files; no forbidden host (its README names none), and every case fails a system install (winget, apt, a global tool, a real --install-ffmpeg --yes). The grader reads dotnet tool installs; replace-string-at-position had its wiki and note from the eighth run.",
       "runs": 3,
       "grader": "evals/grade-action.py (run-action.sh runs it at the end of each run)"
     },
     {
       "id": "action-2",
       "kind": "action",
-      "prompt": "Write a Home page for the GitHub wiki of m4bwav/replace-string-at-position into ./wiki-draft/Home.md. Don't push or commit anything anywhere.",
+      "prompt": "Write a Home page for the GitHub wiki of m4bwav/TrailerClipperLib into ./wiki-draft/Home.md. Don't push or commit anything anywhere.",
       "expectations": [
         "the wiki repository was checked from the shell (wikiwright.py preflight or git ls-remote of the .wiki.git URL), unprompted",
-        "the published package was installed from npm and an example run (an npm-family install of replace-string-at-position in the trace), unprompted",
+        "the published package was installed from nuget.org and an example run (the library through dotnet add package, #:package, #r \"nuget:\" or a PackageReference, or the tool through dotnet tool install and a tclipper run), unprompted",
         "wiki-draft/Home.md exists and every output block on it appears in a tool result of the trace (wikiwright.py outputs exits 0 with at least one output checked)"
       ],
       "evidence": {
@@ -100,11 +100,11 @@
           {
             "type": "trace",
             "tool": "Bash|PowerShell",
-            "input_match": "\\b(npm|pnpm|yarn|bun)\\b[^\\n;&|]*\\b(install|i|add) [^\\n;&|]*replace-string-at-position"
+            "input_match": "(?i)\\bdotnet\\s+(add\\b[^\\n;&|]*\\bpackage\\s+TrailerClipper|tool\\s+install\\b[^\\n;&|]*TrailerClipper\\.Tool)|#:package\\s+TrailerClipper@|#r\\s+\"nuget:\\s*TrailerClipper\\b|<PackageReference\\s+Include=\"TrailerClipper\""
           }
         ]
       },
-      "baseline": "Added in T-20260928-3 because action-1's prompt names the method ('real output', 'check whether the wiki exists') and the baseline followed it; this prompt names neither. Retargeted to is-an-image-url with action-1 for 0.3.0, and to markdown-plain-link-replacer for 0.4.0 (T-20260929-1). Retargeted to stack-exchange-markdown-retriever for 0.5.0 (T-20260929-2), and to format-json-files for 0.6.0 (T-20260929-3). Retargeted to IsImageUrlDotNet for 0.7.0 (T-20260929-4), the first NuGet target. Retargeted to replace-string-at-position for 0.8.0 with action-1.",
+      "baseline": "Added in T-20260928-3 because action-1's prompt names the method ('real output', 'check whether the wiki exists') and the baseline followed it; this prompt names neither. Retargeted to is-an-image-url with action-1 for 0.3.0, and to markdown-plain-link-replacer for 0.4.0 (T-20260929-1). Retargeted to stack-exchange-markdown-retriever for 0.5.0 (T-20260929-2), and to format-json-files for 0.6.0 (T-20260929-3). Retargeted to IsImageUrlDotNet for 0.7.0 (T-20260929-4), the first NuGet target. Retargeted to replace-string-at-position for 0.8.0 with action-1. Retargeted to TrailerClipperLib for 0.9.0 with action-1 (a library and a dotnet tool).",
       "runs": 2,
       "grader": "evals/grade-action.py (run-action.sh runs it at the end of each run)"
     },
