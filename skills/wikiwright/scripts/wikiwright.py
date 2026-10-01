@@ -530,12 +530,33 @@ def headings(text, kind="github"):
     return found
 
 
-def is_title_case(h):
+def is_title_case(h, proper=frozenset()):
+    """A heading whose later long words are all capitalized. Words the page's prose capitalizes mid-sentence
+    (`proper`, from proper_nouns()) are names, not title case: ".NET Framework, .NET 8 and Linux" is sentence case."""
     words = [w for w in re.findall(r"[A-Za-z][A-Za-z'-]*", h)]
     if len(words) < 3:
         return False
     rest = [w for w in words[1:] if len(w) > 3]
-    return len(rest) >= 2 and all(w[0].isupper() and not w.isupper() for w in rest)
+    return len(rest) >= 2 and all(w[0].isupper() and not w.isupper() for w in rest) and not all(w in proper for w in rest)
+
+
+def proper_nouns(lines):
+    """Capitalized words the prose uses mid-sentence (not after . ! ? or a colon), outside headings and code."""
+    found, fence = set(), False
+    for line in lines:
+        if re.match(r"^\s*(```|~~~)", line):
+            fence = not fence
+            continue
+        if fence or re.match(r"^#{1,6}\s", line):
+            continue
+        text = re.sub(r"`[^`]*`", " ", line)
+        last = None
+        for m in re.finditer(r"[A-Za-z][A-Za-z'-]*", text):
+            between = text[last:m.start()] if last is not None else None
+            if between is not None and not re.search(r"[.!?:]\s", between + " ") and m.group(0)[0].isupper():
+                found.add(m.group(0))
+            last = m.end()
+    return found
 
 
 def same_words_key(text):
@@ -612,6 +633,7 @@ def cmd_check(a):
                 seen_heading, previous = True, ("heading", words)
             elif line.strip():
                 previous = ("text", None)
+        proper = proper_nouns(lines)
         for n, line in enumerate(lines, 1):
             if "[[" in line and "]]" in line:
                 if kind in ("gitea", "forgejo", "gitlab"):
@@ -619,7 +641,7 @@ def cmd_check(a):
                 else:
                     err(f, n, "wikilink; use [Text](Page-Name)")
             m = re.match(r"^#{1,6}\s+(.*)$", line)
-            if m and is_title_case(m.group(1)):
+            if m and is_title_case(m.group(1), proper):
                 warn(f, n, "heading looks like Title Case; use sentence case: " + m.group(1).strip())
             for text_, target in LINK.findall(line):
                 if re.match(r"^[a-z][a-z0-9+.-]*:", target, re.I) or target.startswith("//"):

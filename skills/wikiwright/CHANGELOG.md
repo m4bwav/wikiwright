@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261001-5 · 2026-10-01 · `check` reads names the prose capitalizes as names, not Title Case (`proper-noun-headings`)
+- because: the tenth run's report (CachingServiceWithAOPSupport, item 12): `check` warned "Title Case" on "Runs on .NET Framework, .NET 8 and Linux", a sentence-case heading of proper nouns, and the run reworded a correct heading to clear it
+- files: scripts/wikiwright.py (`is_title_case()`, new `proper_nouns()`, `cmd_check`); tests/test_wikiwright.py (`test_proper_nouns_are_not_title_case`)
+- A heading warns only when its later long words are all capitalized and at least one of them is not a word the same page's prose capitalizes mid-sentence (outside headings, code and inline code; not after `.`, `!`, `?` or `:`). "Which Runtimes Were Tested" still warns. The four NuGet and npm wikis checked today (CachingServiceWithAOPSupport, TrailerClipperLib, get-title-at-url, IsImageUrlDotNet) stay at 0 warnings. 88 unit tests.
+
 ### C-20261001-2 · 2026-10-01 · LEARNINGS.md back under budget (`learnings-consolidation-2`)
 - because: ai-docs/HANDOFF.md open work item 8; the 200-line budget for active learnings (MAINTENANCE.md "Links and budgets"), which LEARNINGS.md passed at 228 lines
 - files: LEARNINGS.md (header; L-002, L-011, L-110, L-130, L-137, L-141, L-142; L-109, L-132, L-136, L-138 and L-140 removed as merged); LEARNINGS-ARCHIVE.md (header; new "Merged (2026-10-01)" list; new "Full text of shortened and merged entries (2026-10-01 consolidation)"; the `Related:` line moved to the end of the file); evergreen.json (`counts.learnings`)

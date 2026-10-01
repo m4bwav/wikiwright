@@ -103,6 +103,16 @@ class CheckTests(unittest.TestCase):
         self.assertIn("never closed", out)
         self.assertIn("Title Case", out)
 
+    def test_proper_nouns_are_not_title_case(self):
+        # The tenth run (CachingServiceWithAOPSupport): "## Runs on .NET Framework, .NET 8 and Linux" is sentence case,
+        # since the prose names .NET Framework and Linux mid-sentence. A heading of common words still warns.
+        faq = ("The package runs on .NET Framework 4.8 and on Linux in WSL.\n\n"
+               "## Runs on .NET Framework, .NET 8 and Linux\n\nText.\n\n## Which Runtimes Were Tested\n\nText.\n")
+        write(self.d, {"FAQ.md": faq, "_Sidebar.md": GOOD["_Sidebar.md"] + "- [FAQ](FAQ)\n"})
+        code, out = run(["check", self.d])
+        self.assertNotIn("Title Case; use sentence case: Runs on", out)
+        self.assertIn("Title Case; use sentence case: Which Runtimes Were Tested", out)
+
     def test_title_printed_once(self):
         # L-139: GitHub prints the file name as the page title; `# Getting started` under it repeats it.
         write(self.d, {"Getting-Started.md": "# Getting Started\n\nInstall it first.\n\n## Install\n\n### Install\n\nRun it.\n"})
