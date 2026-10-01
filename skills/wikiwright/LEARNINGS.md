@@ -218,3 +218,11 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: evals/grade-action.py (`utf8_streams()`); tests/test_wikiwright.py (`test_grader_digest_writes_utf8_to_a_pipe`, which fails on the 0.7.2 grader); LEARNINGS-ARCHIVE.md (the diffout crash)
 - Scope: skill (helper scripts and evals)
 - Status: promoted: C-20260930-9 · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-143 · 2026-09-30 · A page's file-based-app example runs as its own app, or the program's PublishAot=false hides its failure (`page-app-own-directives`)
+- Trigger: a draft of TrailerClipperLib's Home (TrailerClipper 2.0.0) showed the README's library call as a .NET 10 file-based app with only `#:package`. Run as its own app it failed on every file: FFMpegCore parses ffprobe's JSON by reflection, which file-based apps switch off by default, and TrailerClipper reports it as "ffprobe could not read '<file>': Reflection-based serialization has been disabled". Inside the verification program (which sets `#:property PublishAot=false`) the same call works.
+- Hypothesis: the README's code works wherever the package installs.
+- Rule: when a page shows a file-based app (`#:package` lines), the program writes that app exactly as the page shows it, directives included, into the case's scratch folder and runs it with `dotnet run <file>.cs`; never call the snippet's code from inside the program. A package whose dependencies use reflection-based System.Text.Json (FFMpegCore 5.x, seen here) needs `#:property PublishAot=false` on the page too, and the failure without it belongs on the page or its errors page.
+- Evidence: T-20261001-1 action-1-r1, an eval draft of TrailerClipperLib's Home (its repo-draft `ai-docs/notes/2026-09-30-wiki-verify.cs` and output, cases "home: without PublishAot=false" and "home: dotnet run clip.cs"); Windows 11, SDK 10.0.401
+- Scope: skill (NuGet)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
