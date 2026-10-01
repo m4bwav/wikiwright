@@ -192,3 +192,31 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: T-20261001-1 action-1-r1, an eval draft of TrailerClipperLib's Home (its repo-draft `ai-docs/notes/2026-09-30-wiki-verify.cs` and output, cases "home: without PublishAot=false" and "home: dotnet run clip.cs"); Windows 11, SDK 10.0.401
 - Scope: skill (NuGet)
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-144 · 2026-09-30 · A NuGet example that declares types or touches process-wide state runs as its own program (`whole-program-per-example`)
+- Trigger: the tenth run (CachingServiceWithAOPSupport 2.0.0): its Autofac and Castle examples declare an interface and a class, which cannot sit in the template's `case` bodies; a wrapper namespace changed the printed cache keys and Autofac messages (`Ex7.Shelf`); `MemoryCache.Default` carried entries from one case into the next in one process; `Assembly.Location` named the child's `bin`, not the `lib/` folder; Castle.Core printed 5.0.0.0 for both 5.1.1 and 5.2.1.
+- Hypothesis: one child per framework with a `case` per snippet covers every NuGet package.
+- Rule: hold each example as a whole program, types global, and run it in its own process per config; a config is a framework plus pinned dependency versions (the ends of a declared range: Autofac 6.5.0 and 9.3.4); print each dependency's informational version and the loaded build from `TargetFrameworkAttribute`.
+- Evidence: the CachingServiceWithAOPSupport note and program (2026-09-30, branch wiki-2.0.0), its REPORT items 3 to 5, 7, 8
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-145 · 2026-09-30 · Expiry goes on a page only with margins that two runs agree on (`time-margins-two-runs`)
+- Trigger: the template says "no times", and nothing said how to show a cache lifetime (the tenth run).
+- Hypothesis: time-dependent behaviour cannot be printed stably.
+- Rule: show expiry only through what a caller controls (an attribute's lifetime, a default), with margins of at least a second around each boundary; run the whole program twice and compare with `diffout` (56 of 56 sections equal on Windows, 47 of 47 on Linux), say so on the page, and write "not shown" for what has no stable margin (eviction under memory pressure).
+- Evidence: CachingServiceWithAOPSupport's How-Results-Are-Cached (wiki cfef18b) and its note; REPORT item 6
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-146 · 2026-09-30 · A package that runs an external program: say which binary ran, and test side effects only through seams (`external-program-seams`)
+- Trigger: the ninth run (TrailerClipper 2.0.0 and `tclipper`): ffmpeg was found through PATH, a known folder or `TRAILERCLIPPER_FFMPEG`; on Windows "not found" could not be produced, since winget's Packages folder is a known folder; `tclipper --install-ffmpeg` runs winget, apt or dnf; ffmpeg prints heap addresses (`[mp3 @ 0x...]`); the template's `Run()` left stdin open, so a child that can prompt inherited it.
+- Hypothesis: an external program is a fixed part of the environment, like the runtime.
+- Rule: print the program's path and version per runtime and how it was found; make inputs with the program itself (lavfi `testsrc`, `sine`) and show results as ffprobe facts and listings; close every child's stdin; mask addresses with a pattern; reach a side-effect command only through the code's own seams (already installed, stdin redirected without `--yes`, no package manager on PATH) and mark the rest "not tested". The evals fail any system install (`grade-action.py`, `system_installs()`).
+- Evidence: the TrailerClipperLib note and program (2026-09-30, branch wiki-2.0.0), REPORT items 3, 5 to 7 and 13; evals/grade-action.py
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-09-30
+
+### L-147 · 2026-09-30 · A scratch .NET SDK on Linux without libicu needs invariant mode before its first call (`invariant-before-first-call`)
+- Trigger: both runs' WSL Ubuntu 26.04 had no libicu; the scratch SDK's own `dotnet --info` failed fast, and nuget.md's `apt-get download libicu` route needs a host the run rules forbid.
+- Hypothesis: the variable matters only to the program under test.
+- Rule: export `DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1` before the first `dotnet` call, say on the pages that Linux ran in invariant mode, and mark culture-dependent answers on Linux "not tested". Download the SDK and any program from the projects' own releases, check their published checksums and keep them in the run's scratch, never in the WSL home folder (an eval run left 1.3 GB in `~/wv`, T-20261001-1).
+- Evidence: both REPORTs (Linux sections; cs item 10); T-20261001-1
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-30
