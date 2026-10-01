@@ -56,7 +56,7 @@ Show("installed", $"{asm.GetName().Name} {asm.GetCustomAttribute<AssemblyInforma
 // HTTP, or 403 to CONNECT. Closing the connection instead makes HttpClient retry (4 GETs or 16 CONNECTs
 // on .NET 10, 2 on .NET Framework; L-138). It never opens a socket of its own, and it logs every
 // request line with its host. Pages show the `.test` names or label the stand-in; the real hosts are
-// never asked (L-116, L-122; references/nuget.md "Packages that make requests").
+// never asked (L-116, L-122; references/nuget-requests.md).
 //
 // Request snippets run in child apps, one per build of the package, so a process finds its proxy where
 // a user's would: HTTP_PROXY and HTTPS_PROXY on .NET Core and .NET 5+. .NET Framework ignores them, so

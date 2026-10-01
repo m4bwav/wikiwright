@@ -18,7 +18,7 @@
 // ===== section: requests =====
 // Network: the package talks only to the local fixture server below, never the internet. A package whose
 // requests go to the hosts its input names, with output computed from the host, uses the "by host name"
-// section instead of fixture addresses (references/npm.md, L-116).
+// section instead of fixture addresses (references/npm-requests.md, L-116).
 // ===== end: requests =====
 // OLDEST_NODE=<major> reruns everything under the oldest Node in engines (the last section, L-106); compare
 // the two outputs, and a new release's output with the saved one, with `wikiwright.py diffout OLD NEW`.
@@ -347,11 +347,10 @@ if (binEntry) {
 // lines the new layout breaks, such as the bin's path, and name them on the page), one after the other.
 // A synchronous capture (package-modernize's template) usually replays unpatched. The golden file is only read.
 // The comparator suits the golden file's format, picked at run time (below). A capture that writes
-// files needs TEMP, TMP and TMPDIR pointed into scratch and views for files instead (references/npm.md, "Packages
-// that write files").
+// files needs TEMP, TMP and TMPDIR pointed into scratch and views for files instead (references/npm-files.md).
 // A capture that records through its own proxy with TLS, replayed against a fetch-based major, also needs
 // undici's EnvHttpProxyAgent after it sets the proxy variables and a fixture copy that serves CONNECT to
-// port 80 in plain HTTP (references/npm.md, "Golden captures that record through a proxy with TLS").
+// port 80 in plain HTTP (references/npm-requests.md, "Golden captures that record through a proxy with TLS").
 const {GOLDEN, OLD} = process.env;
 if (GOLDEN && OLD) {
 	const CAPTURE = 'capture-{{OLD_VERSION}}.cjs';

@@ -4,6 +4,29 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261001-1 · 2026-10-01 · References split by package kind (`references-by-kind`)
+- because: ai-docs/HANDOFF.md open work item 1; the eighth run's measurement (about 60% of npm.md and page-sets.md, 43 KB read, did not apply to an npm library without requests or files); C-20260930-10
+- files: references/npm.md (core: registry facts, the scratch project, the CLI against the fixture, the oldest Node, complementary tools, other runtimes, traps); references/npm-requests.md (new: Rules for requests, Packages that request by host name through their dependencies, Golden captures that record through a proxy with TLS); references/npm-files.md (new: Packages that write files); references/golden-captures.md (new: page-sets.md's Golden captures, npm.md's golden replay paragraph and Synchronous golden captures, the golden trap); references/page-sets.md (core: the runs and kinds table, Why a wiki, Library, Not yet covered, conventions, how `outputs` and `snippets` read a page, sidebar and footer); references/page-sets-cli.md (new: Library with a command line, Command-line tool); references/page-sets-seeded.md (new: Deterministic or seeded output); references/nuget.md (core) and references/nuget-requests.md (new: Packages that make requests); SKILL.md (Steps 2, 3, 4 and 6 name the file per trait; the golden bullet points to golden-captures.md); templates/npm/wiki-verify.template.mjs, file-tree.mjs, host-fixture.mjs, templates/nuget/wiki-verify.template.cs (comment pointers); LEARNINGS.md (evidence pointers of L-011, L-019, L-116, L-120, L-130, L-131, L-132, L-140); AGENTS.md (what `references/` holds)
+- What changed: text moved, not rewritten. Each core file names the trait files under its heading, and each new file opens with one line saying when to read it and ends with a `Related:` line. The links that had to change after a move now point at the new file and anchor (the four proxy changes are `npm-requests.md#golden-captures-that-record-through-a-proxy-with-tls`). The npm "CLI against the fixture" bullet became a core section, since a CLI without requests needs `term()` and the closed stdin too. SKILL.md went from 3,561 to 3,554 words (23,170 to 23,329 bytes, the longer link paths). The scaffold's printed next steps name no reference, so they are unchanged.
+- Measured with `wc -c`, counting SKILL.md and every reference a run of that kind is told to read (hosts.md and publishing.md left out, as they are read only on another host or when preflight says so); tokens at 4 bytes each:
+
+| Kind | Before bytes | Before tokens | After bytes | After tokens | Change |
+|---|---:|---:|---:|---:|---:|
+| (a) npm library, no CLI, requests or files | 74,614 | 18,654 | 52,846 | 13,212 | -29% |
+| (b) npm library with a CLI | 74,614 | 18,654 | 55,844 | 13,961 | -25% |
+| (c) npm package that makes requests | 74,614 | 18,654 | 59,451 | 14,863 | -20% |
+| (d) npm package that writes files (with the CLI page set) | 74,614 | 18,654 | 60,922 | 15,230 | -18% |
+| (e) npm with a golden capture | 74,614 | 18,654 | 61,568 | 15,392 | -17% |
+| (f) NuGet library | 57,038 | 14,260 | 45,188 | 11,297 | -21% |
+| (g) NuGet library that makes requests | 57,038 | 14,260 | 48,888 | 12,222 | -14% |
+| (h) command-line tool (dotnet tool) | 57,038 | 14,260 | 48,186 | 12,046 | -16% |
+| (i) npm seeded library with golden (seeded-random-utilities) | 74,614 | 18,654 | 62,818 | 15,704 | -16% |
+| (j) npm CLI, requests by host, golden (markdown-plain-link-replacer) | 74,614 | 18,654 | 71,171 | 17,793 | -5% |
+| (k) every npm trait at once | 74,614 | 18,654 | 77,499 | 19,375 | +4% |
+
+- For kind (a) the references alone went from 51,444 bytes (npm.md 27,726, page-sets.md 23,718) to 29,517 (14,533 and 14,984), 43% less. The split costs about 2.9 KB of headings, when-to-read lines and `Related:` lines, so a package with every trait reads 4% more than before. nuget.md went from 10,150 to 6,875 bytes, nuget-requests.md is 3,700. The npm template went from 25,524 to 25,516 bytes (comment pointers only, in its requests and golden sections), so the no-flag scaffold is unchanged.
+- Tests: 86 unit tests; a scratch link check of SKILL.md, the references, LEARNINGS.md and this file (113 relative links and anchors, GitHub slugs, 0 broken); everwrite tells.py 0 strong on SKILL.md and the nine changed or new references. No version bump.
+
 ### C-20260930-10 · 2026-09-30 · Release 0.8.0: the eighth run, `scaffold`, both golden formats, a TypeScript matrix, the fsi gate (`release-0.8.0`)
 - because: user request (the 0.8.0 kickoff); C-20260930-6 to C-20260930-9; T-20260930-3; L-140 to L-142, L-131
 - files: .claude-plugin/plugin.json, scripts/wikiwright.py (`VERSION`), SKILL.md (`metadata.version`), evergreen.json (version, counts, tests, history)

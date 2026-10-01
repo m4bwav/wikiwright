@@ -1,6 +1,6 @@
 // host-fixture: serve pages under their real host names to the published package, its CLI, old versions, Deno,
 // Bun and the package managers, with nothing reaching the internet (wikiwright L-116 `by-host-name-proxy`,
-// L-117 `guard-normalised-args`, references/npm.md). Copy this file beside wiki-verify.mjs, in the scratch
+// L-117 `guard-normalised-args`, references/npm-requests.md). Copy this file beside wiki-verify.mjs, in the scratch
 // project and in the repository's ai-docs/notes/ (as <date>-host-fixture.mjs).
 //
 //   import {startHostFixture} from './host-fixture.mjs';
