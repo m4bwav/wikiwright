@@ -1,6 +1,6 @@
 # Page sets and page conventions
 
-Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from ten wikis, written from 2026-09-28 to 30:
+Which pages a wiki gets, what goes on each, and the rules every page follows. Read after the survey, before writing. The page sets come from twelve wikis, written from 2026-09-28 to 30:
 
 - RandomNameGeneratorLibrary: a .NET library with seeded data.
 - JsonPrettyPrinter: a .NET formatter.
@@ -12,15 +12,17 @@ Which pages a wiki gets, what goes on each, and the rules every page follows. Re
 - format-json-files (2026-09-29): an npm library with a CLI whose output is files on disk (it rewrites JSON files in place and makes no requests), every case on a fresh scratch tree through the file-tree kit, run on Windows and Linux, with a golden capture of 1.0.6 that builds its own trees.
 - IsImageUrlDotNet (2026-09-29): an F# NuGet library called from C# and F#, whose online check makes requests (through a stand-in proxy answering `.test` names, labelled on the pages), run on net10.0, .NET Framework 4.8 and net8.0 on Windows and net10.0 on Linux, with golden recordings of 1.0.2 per runtime and OS from a capture project.
 - replace-string-at-position (2026-09-30): the second npm library without a CLI, with no requests and a synchronous golden capture of 1.0.4; the first npm wiki gated by `snippets`. The run committed the wiki and left the push to the maintainer.
+- TrailerClipperLib (2026-09-30): a NuGet library and the dotnet tool `tclipper` from one repository, both running ffmpeg and writing media files; the first wiki with a command-line tool, run on net10.0, .NET 8 and .NET Framework 4.8 on Windows and net10.0 on Linux, with a golden recording of 1.1.0.
+- CachingServiceWithAOPSupport (2026-09-30): a NuGet library for Autofac and Castle whose output depends on time (cached results expire) and on a store shared by the whole process, run at both ends of its Autofac range, with golden recordings of 1.0.1 per runtime.
 
 | Kind | Tested on |
 |---|---|
 | Library (npm, without a CLI) | seeded-random-utilities; replace-string-at-position (2026-09-30: nine pages, the behaviour page `How-Text-Is-Replaced`) |
-| Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter (written by hand, then retrofitted); IsImageUrlDotNet (2026-09-29, the first written by the skill from Step 1, and the first .NET package that makes requests: the same set, the behaviour page `How-Urls-Are-Checked`) |
+| Library (NuGet) | RandomNameGeneratorLibrary, JsonPrettyPrinter (written by hand, then retrofitted); IsImageUrlDotNet (2026-09-29, the first written by the skill from Step 1, and the first .NET package that makes requests: the same set, the behaviour page `How-Urls-Are-Checked`); CachingServiceWithAOPSupport (2026-09-30: nine pages, the behaviour page `How-Results-Are-Cached`, with [time-and-state.md](time-and-state.md)) |
 | Library with a command line (npm) | get-title-at-url, is-an-image-url, markdown-plain-link-replacer, stack-exchange-markdown-retriever, format-json-files (fifth run, 2026-09-29: the set held again; the behaviour pages were `How-Links-Are-Replaced`, `How-Markdown-Is-Retrieved` and `How-Files-Are-Formatted`) |
 | Deterministic or seeded output | seeded-random-utilities, RandomNameGeneratorLibrary ([page-sets-seeded.md](page-sets-seeded.md)) |
-| Output is files on disk | format-json-files (the CLI set, with the rules in [page-sets-cli.md](page-sets-cli.md)) |
-| Command-line tool | not yet ([page-sets-cli.md](page-sets-cli.md) has a sketch; candidate: TrailerClipper.Tool, a dotnet tool) |
+| Output is files on disk | format-json-files (the CLI set, with the rules in [page-sets-cli.md](page-sets-cli.md)); TrailerClipper (media files, [programs-and-media.md](programs-and-media.md)) |
+| Command-line tool | TrailerClipper.Tool (2026-09-30: the set in [page-sets-cli.md](page-sets-cli.md), in union with its library's, eleven pages) |
 | Application, website, monorepo | not yet (see the end of this page) |
 | Hosts other than GitHub | host mechanics measured 2026-09-29 without an account (Gitea, Forgejo, GitLab; Azure DevOps reads only); one real wiki, format-json-files on a local Forgejo 16.0.5, on 2026-09-29 ([hosts.md](hosts.md)) |
 
@@ -29,6 +31,8 @@ Beside this page, read only what the package needs:
 - [page-sets-cli.md](page-sets-cli.md): a command line, a command-line tool, or files on disk
 - [page-sets-seeded.md](page-sets-seeded.md): seeded or deterministic output
 - [golden-captures.md](golden-captures.md): golden captures of old versions (npm and NuGet)
+- [programs-and-media.md](programs-and-media.md): the package runs an external program, or its output is media or other binary files
+- [time-and-state.md](time-and-state.md): output depends on time, or on state that outlives a call (a cache, a static, a container)
 
 ## Why a wiki beside the README
 
@@ -65,7 +69,7 @@ A known limit of the gates: neither checks prose, a table hand-copied from the o
 
 ## Not yet covered
 
-An application, a website, a monorepo with several packages and a command-line tool have no tested page set (still lacking on 2026-09-30, after the tenth wiki; the command-line candidate is TrailerClipper.Tool). On GitLab, Gitea, Forgejo and Azure DevOps the page set stays and the navigation files change; [hosts.md](hosts.md) has what was measured and what is unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
+An application, a website and a monorepo with several packages have no tested page set (still lacking on 2026-09-30, after the twelfth wiki). One repository with a library and its tool is covered: the [command-line tool set](page-sets-cli.md#command-line-tool-a-dotnet-tool-an-npm-package-that-is-mostly-a-bin) and the two-package rule in the [conventions](#conventions-every-page-follows). On GitLab, Gitea, Forgejo and Azure DevOps the page set stays and the navigation files change; [hosts.md](hosts.md) has what was measured and what is unverified. For an application, start from Home, Getting started (run it), Configuration, Architecture, Deploying, FAQ, Development, and record what the run learned in LEARNINGS.md.
 
 ## Conventions every page follows
 
@@ -76,6 +80,7 @@ An application, a website, a monorepo with several packages and a command-line t
 - Anything not run says so: "not tested" beside the platform or runtime, never an implied yes (JsonPrettyPrinter's Unity row).
 - Versions: the API reference names the version that introduced each member later than the page's baseline; the footer names the current version and the date the wiki was last updated.
 - Numbers from the registry (downloads, sizes, dates) carry the date they were read.
+- Two packages from one repository (a library and its tool): the footer names both packages and their versions ("This wiki describes TrailerClipper and TrailerClipper.Tool 2.0.0 ... Both packages are MIT licensed."), the sidebar links both registry pages, and `WW registry` runs once per package. `check --version` takes one version, which served here since both were 2.0.0.
 - LF line endings, UTF-8 without a byte order mark.
 - No AI attribution in pages or wiki commits.
 - Prose is checked with the everwrite checker when it is installed (`tells.py *.md`); zero strong findings.
@@ -90,7 +95,7 @@ It finds every block a page presents as output and every `//=>` value, and repor
   - it follows its input block or its code block directly, untagged. A command right after a code block therefore needs its fence tag (```sh).
 - **Values in code blocks.** `//=>` and `# =>` values, quoted or JSON-like values in comments, comments after a print call or on a PowerShell expression line, and comment lines that close a block (the NuGet wikis' forms, L-110 `outputs-in-comments`).
 - **Transcripts.** Commands in a `$ ` transcript are skipped; what follows each one is checked.
-- **Markers** on the line before a block: `<!-- outputs: skip (reason) -->` for output no script can print (npm's install lines with a timing); `<!-- outputs: check -->` to force a block to be read as output; `<!-- outputs: node>=22 -->` (also `<=`, `=`, `<`, `>`, and combined as `check node<22`) for a block true on some Node lines only. A scoped block is checked only against the outputs whose `Node vN` line (the template's `installed` section, or `--node N`) is in range, and skipped when none is (L-119 `diffout-first-use`).
+- **Markers** on the line before a block: `<!-- outputs: skip (reason) -->` for output no script can print (npm's install lines with a timing); `<!-- outputs: check -->` to force a block to be read as output; `<!-- outputs: node>=22 -->` (also `<=`, `=`, `<`, `>`, and combined as `check node<22`) for a block true on some Node lines only. A scoped block is checked only against the outputs whose `Node vN` line (the template's `installed` section, or `--node N`) is in range, and skipped when none is (L-119 `diffout-first-use`). A usage synopsis fenced `text` reads as output: mark it `<!-- outputs: skip (usage synopsis) -->`, as TrailerClipper's Commands page did.
 
 ## How `wikiwright.py snippets` reads a page
 
@@ -108,4 +113,4 @@ This wiki describes PACKAGE VERSION and was last updated on YYYY-MM-DD. The libr
 
 Starting points: [../templates/pages/](../templates/pages/).
 
-Related: builds on [../SKILL.md](../SKILL.md); see also [page-sets-cli.md](page-sets-cli.md), [page-sets-seeded.md](page-sets-seeded.md), [golden-captures.md](golden-captures.md), [publishing.md](publishing.md), [npm.md](npm.md), [nuget.md](nuget.md).
+Related: builds on [../SKILL.md](../SKILL.md); see also [page-sets-cli.md](page-sets-cli.md), [page-sets-seeded.md](page-sets-seeded.md), [golden-captures.md](golden-captures.md), [programs-and-media.md](programs-and-media.md), [time-and-state.md](time-and-state.md), [publishing.md](publishing.md), [npm.md](npm.md), [nuget.md](nuget.md).
