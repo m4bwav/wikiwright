@@ -66,6 +66,20 @@ Your own values stay out of this repository: where your clones live, identities,
 
 The skill keeps its research current on a schedule (tier fast): GitHub's wiki rules, the registries' APIs and the tools for checking doc examples are re-checked from primary sources, and every change is logged with its reason in [CHANGELOG.md](skills/wikiwright/CHANGELOG.md). The research basis is in [RESEARCH.md](skills/wikiwright/RESEARCH.md); the lessons from real runs are in [LEARNINGS.md](skills/wikiwright/LEARNINGS.md).
 
+## Privacy
+
+wikiwright collects nothing for itself: there is no wikiwright server, account or telemetry. The skill is instructions for your agent, and the helper script runs on your machine. The work does go online, because a wiki is written from public registry data and published to your repository. These are the routes, and each one runs only when the step that needs it runs.
+
+GitHub, as you. The preflight runs `gh repo view` and, when you ask for it, `gh repo edit --enable-wiki`, using your own `gh` login. `git` checks, clones and pushes the `OWNER/REPO.wiki.git` repository with your own git credentials, and the survey reads the repository's issues, pull requests and releases through `gh`. The pages it pushes are public on a public repository. `wikiwright.py live` then fetches the published wiki pages from github.com without credentials.
+
+Package registries, anonymously. `wikiwright.py registry` reads package facts from registry.npmjs.org and api.npmjs.org (download counts), or from api.nuget.org and NuGet's search service. The verification step installs the published package from npm or nuget.org into a scratch folder and may fetch tools the same way: `npx` downloads a pinned Node or TypeScript (`node@20.20.2`, `typescript@7.0.2`), Corepack fetches pnpm or Yarn, and `dotnet` restores NuGet packages or installs a dotnet tool into the scratch folder. When the package under test makes requests, the templates answer them from a fixture server on 127.0.0.1, so its examples do not reach the internet. A package whose own job is to download something (a media tool fetching ffmpeg, say) does that when its examples run, and a runtime the machine lacks, such as the .NET SDK, comes from its vendor's site if you agree to install it.
+
+Other wiki hosts, only when you name one. For Gitea, Forgejo, GitLab or Azure DevOps the script calls that host's API at the address you give it, and sends the token in the environment variable `WIKIWRIGHT_TOKEN` when it is set. That variable is the only credential the script reads itself. It also reads `WIKIWRIGHT_OVERLAY` (the path of your private overlay) and `CLAUDE_CONFIG_DIR` (to find the installed plugin for `cachecheck`). It never reads your npm or NuGet tokens and never publishes a package.
+
+Research refresh. When the skill's research is due, the agent runs web searches and fetches public documentation with its own web tools, and may run `npx skills@1.7.0 find` for install counts on skills.sh. Those requests carry search terms about wikis and registries, not your code.
+
+What is kept: the wiki pages in the wiki repository, and in your repository's `ai-docs/notes/` the verification script, its output and a note on how to update the wiki at the next release. Scratch folders are yours to delete. Whatever your AI app does with the conversation is covered by that app's own privacy policy.
+
 ## Versioning
 
 Semantic versions; tags `vX.Y.Z` with a GitHub Release each. MIT licence, see [LICENSE](LICENSE).

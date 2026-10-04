@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261003-2 · 2026-10-03 · Release 0.9.1: ready for the Claude plugin directory, launcher packages pinned (`directory-prep`)
+- because: user request (submission to the Claude plugin directory and its pre-submission checklist); T-20261003-1
+- files: .claude-plugin/plugin.json (version; documentationUrl to the wiki, supportUrl, privacyPolicyUrl), ../../README.md (Privacy), references/npm.md (the oldest Node in engines; TypeScript), templates/npm/wiki-verify.template.mjs (OLDEST_NODE comments), SKILL.md (Step 3 oldest-Node line; `metadata.version`), MAINTENANCE.md and RESEARCH.md (`npx skills@1.7.0`), scripts/wikiwright.py (`VERSION`), evergreen.json (version), ../../ai-docs/decisions (the 92-character decision file name shortened to `2026-09-28-wikiwright-own-plugin.md`)
+- The directory wants every package a launcher runs pinned: the docs now pass `OLDEST_NODE` an exact version (20.20.2; the template already accepted one, and a bare major still works), and show `npx -p typescript@7.0.2` and `npx skills@1.7.0`. The README's Privacy section lists every route the skill and script use. The long decision file name broke Windows clones under deep paths (Filename too long). 0.9.1 also carries C-20261003-1 and C-20261004-1.
+
 ### C-20261004-1 · 2026-10-04 · Ignore EPIPE on child stdin in the npm templates (`stdin-epipe-guard`)
 - because: L-150; CI on PR #3 failed on windows-latest 3.13 with an unhandled EPIPE
 - files: templates/npm/wiki-verify.template.mjs (`run()`, `cli()`), templates/npm/host-fixture.mjs (`child()`), tests/host-fixture.test.mjs

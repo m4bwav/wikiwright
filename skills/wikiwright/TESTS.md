@@ -8,6 +8,12 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20261003-1 · 2026-10-03 · unit tests + `claude plugin validate` + pinned launcher paths · Windows 11 native · 4/4
+- Unit tests: 94 Python tests pass, 21 Node tests pass (1 skipped). `claude plugin validate .` passes; the manifest has one warning (a root CLAUDE.md is not plugin context, expected).
+- Pinned paths run: `npx -y -p node@20.20.2 node -p process.version` printed v20.20.2, and `npx -y -p typescript@7.0.2 tsc --version` printed 7.0.2; `npx -y skills@1.7.0 find "skill lint"` listed results.
+- Triggers, decoys and action cases not rerun: the description is unchanged, and the skill changed only in pinned versions in examples.
+- led to: C-20261003-2
+
 ### T-20261001-1 · 2026-10-01 · claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py · Windows 11 native · 9/9
 - Setup: source committed before the suite (b9cb08c: the grader reads `dotnet tool install` of a tool package followed by running the tool, several package ids per repository and tool commands, and fails a system install in every case; action-1 and action-2 retargeted at m4bwav/TrailerClipperLib, whose wiki held only the page the maintainer saved and which had no wiki note: a NuGet library and a dotnet tool that run a local ffmpeg and write media files, no forbidden host; the deny rules now reach `claude -p` one per argument). action-3 stayed on get-title-at-url. Plugin reinstalled, `cachecheck` 24 of 24 equal. Two streams at once in `%TEMP%/ww11` (s12: action-1 and action-2; s3: action-3, which shares no target with them); the reference split was built meanwhile in a worktree and merged after (L-017).
 - trigger-1 to trigger-3: 9/9 with the plugin, 0/9 without ($1.76). decoy-1, decoy-2: 0/6 in both arms ($0.58).

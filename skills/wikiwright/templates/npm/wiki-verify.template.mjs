@@ -20,7 +20,7 @@
 // requests go to the hosts its input names, with output computed from the host, uses the "by host name"
 // section instead of fixture addresses (references/npm-requests.md, L-116).
 // ===== end: requests =====
-// OLDEST_NODE=<major> reruns everything under the oldest Node in engines (the last section, L-106); compare
+// OLDEST_NODE=<exact version> reruns everything under the oldest Node in engines (the last section, L-106); compare
 // the two outputs, and a new release's output with the saved one, with `wikiwright.py diffout OLD NEW`.
 
 // ===== section: requests =====
@@ -452,8 +452,9 @@ if (GOLDEN && OLD) {
 // ===== end: golden =====
 
 // ----- the oldest Node line in engines (L-106) -----
-// OLDEST_NODE=<major> reruns this whole script under that Node (downloaded by npx) and saves that run as
-// wiki-verify.node<major>.out.txt. The Node binary is copied alone into its own folder, which goes first on PATH
+// OLDEST_NODE=<version> reruns this whole script under that Node (downloaded by npx) and saves that run as
+// wiki-verify.node<version>.out.txt. Give the exact version (20.20.2, from `npm view node@20 version`) so npx runs a
+// pinned package; a bare major takes whatever is newest in that line. The Node binary is copied alone into its own folder, which goes first on PATH
 // so the shells and bins the cases spawn use it too: the npm node package's bin folder also holds a text file
 // named `node`, and Git Bash skips that folder and runs the system Node without a word (L-118). Every shell case
 // prints the Node it ran (`node --version` inside the shell). On Windows `npx.cmd` runs the node.exe installed

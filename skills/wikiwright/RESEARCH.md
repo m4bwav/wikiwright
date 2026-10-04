@@ -33,7 +33,7 @@ Subject (the goal and the latest thinking on reaching it):
 
 Tooling (skills, plugins, MCP servers, scripts, knowledge graphs built for this subject):
 
-- `path:SKILL.md "github wiki"` on GitHub code search (plain "wiki" returns personal LLM-wiki skills), sorted by recently updated; `npx skills find "github wiki"` and skills.sh for install counts
+- `path:SKILL.md "github wiki"` on GitHub code search (plain "wiki" returns personal LLM-wiki skills), sorted by recently updated; `npx skills@1.7.0 find "github wiki"` and skills.sh for install counts
 - `https://registry.modelcontextprotocol.io/v0/servers?search=github wiki`; fallback `"github wiki" mcp server site:glama.ai OR site:pulsemcp.com`
 - `"github wiki" skill OR plugin OR "mcp server" <year> site:github.com`
 - Most used: skills.sh weekly and 24-hour installs for `github wiki` (never all-time; exclude meta and installer skills); `anthropics/claude-plugins-official` and `claude-plugins-community` searched for `github wiki` (record the tier)
