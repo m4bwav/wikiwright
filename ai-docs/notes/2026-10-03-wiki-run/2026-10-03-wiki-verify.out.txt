@@ -1,0 +1,333 @@
+## installed
+clone: a809eff 2026-09-30
+Python 3.14.6
+git version 2.55.0.windows.3
+gh version 2.100.0 (2026-09-03)
+v24.18.0
+## home-check
+$ python skills/wikiwright/scripts/wikiwright.py check tests/fixtures/good-wiki --version 1.2.0
+check: 3 pages, 0 errors, 0 warnings
+$ echo $?
+0
+## start-version
+$ python skills/wikiwright/scripts/wikiwright.py --version
+0.9.0
+## cmd-help
+$ python skills/wikiwright/scripts/wikiwright.py --help
+usage: wikiwright.py [-h] [--version]
+                     {preflight,check,live,outputs,snippets,unbs,diffout,cachecheck,releasecheck,registry,scaffold} ...
+
+wikiwright helper: the mechanical half of writing a GitHub wiki.
+
+positional arguments:
+  {preflight,check,live,outputs,snippets,unbs,diffout,cachecheck,releasecheck,registry,scaffold}
+    preflight           wiki feature, wiki repository, placeholder, clone
+    check               lint a wiki working copy
+    live                check the published pages
+    outputs             every output a page shows appears in the verify output
+    snippets            every code block a page shows is in the verification
+                        program
+    unbs                replace <BS> placeholders with backslashes
+    diffout             compare two runs of a verification script, section by
+                        section
+    cachecheck          the installed plugin cache against the source, by
+                        SHA-256
+    releasecheck        version fields, CHANGELOG entry and a test run before
+                        tagging
+    registry            a compact registry survey of an npm or NuGet package
+    scaffold            write the verification script, filled in and cut to
+                        the sections needed
+
+options:
+  -h, --help            show this help message and exit
+  --version             show program's version number and exit
+## cmd-no-command
+$ python skills/wikiwright/scripts/wikiwright.py
+usage: wikiwright.py [-h] [--version]
+                     {preflight,check,live,outputs,snippets,unbs,diffout,cachecheck,releasecheck,registry,scaffold} ...
+wikiwright.py: error: the following arguments are required: cmd
+$ echo $?
+2
+## cmd-unknown-command
+$ python skills/wikiwright/scripts/wikiwright.py publish
+usage: wikiwright.py [-h] [--version]
+                     {preflight,check,live,outputs,snippets,unbs,diffout,cachecheck,releasecheck,registry,scaffold} ...
+wikiwright.py: error: argument cmd: invalid choice: 'publish' (choose from 'preflight', 'check', 'live', 'outputs', 'snippets', 'unbs', 'diffout', 'cachecheck', 'releasecheck', 'registry', 'scaffold')
+$ echo $?
+2
+## cmd-streams
+$ python skills/wikiwright/scripts/wikiwright.py publish 2>/dev/null
+$ echo $?
+2
+$ python skills/wikiwright/scripts/wikiwright.py check nowhere 2>/dev/null
+error: nowhere is not a directory
+$ echo $?
+2
+## check-draft
+$ python skills/wikiwright/scripts/wikiwright.py check draft-wiki --version 1.2.0
+Getting-Started.md:0: error: 1 carriage returns (wiki pages are LF only)
+Home.md:1: error: the first heading repeats the page title the host prints from the file name; start with the first paragraph: Home
+Home.md:3: error: wikilink; use [Text](Page-Name)
+Home.md:5: error: link to API-Reference.md: drop the .md (wiki links are page names)
+Home.md:5: error: link to missing page API-Reference
+Home.md:5: error: link to missing page Recipes
+Home.md:5: error: no heading for #options on Getting-Started
+_Footer.md:1: error: names no date (YYYY-MM-DD)
+Home.md:7: warn: heading looks like Title Case; use sentence case: Sorting Words Quickly
+_Sidebar.md:0: warn: does not link Getting-Started
+check: 2 pages, 8 errors, 2 warnings
+$ echo $?
+1
+## check-partial
+$ python skills/wikiwright/scripts/wikiwright.py check draft
+_Sidebar.md:0: error: missing (a draft of a few pages: --partial)
+_Footer.md:0: error: missing (a draft of a few pages: --partial)
+check: 2 pages, 2 errors, 0 warnings
+$ python skills/wikiwright/scripts/wikiwright.py check draft --partial
+check: 2 pages, 0 errors, 0 warnings
+$ echo $?
+0
+## check-version
+$ python skills/wikiwright/scripts/wikiwright.py check tests/fixtures/good-wiki --version 1.3.0
+_Footer.md:1: error: does not name version 1.3.0
+Home.md:0: warn: does not mention version 1.3.0
+check: 3 pages, 1 errors, 1 warnings
+$ echo $?
+1
+## check-host
+$ python skills/wikiwright/scripts/wikiwright.py check tests/fixtures/good-wiki --host gitlab
+_sidebar.md:0: error: missing (a draft of a few pages: --partial)
+_Sidebar.md:0: error: GitLab reads _sidebar.md (lower case) and ignores this file
+_Footer.md:0: warn: gitlab shows no footer; put the version line on Home
+check: 3 pages, 2 errors, 1 warnings
+$ python skills/wikiwright/scripts/wikiwright.py check tests/fixtures/good-wiki --host forgejo
+check: 3 pages, 0 errors, 0 warnings
+## check-not-a-folder
+$ python skills/wikiwright/scripts/wikiwright.py check nowhere
+error: nowhere is not a directory
+$ echo $?
+2
+## outputs-pass
+$ python skills/wikiwright/scripts/wikiwright.py outputs pages wiki-verify.out.txt
+outputs: 1 pages, 1 outputs checked, 0 missing, 0 skipped
+$ echo $?
+0
+## outputs-missing
+$ python skills/wikiwright/scripts/wikiwright.py outputs pages wiki-verify.out.txt
+Home.md:10: error: output block not in the verify output: ['pear', 'fig', 'apple']
+outputs: 1 pages, 1 outputs checked, 1 missing, 0 skipped
+$ echo $?
+1
+## outputs-none-read
+$ python skills/wikiwright/scripts/wikiwright.py outputs pages wiki-verify.out.txt
+outputs: 1 pages, 0 outputs checked, 0 missing, 0 skipped
+error: 1 code blocks and no output recognised; tag each output fence ```text, or mark a page that shows none with <!-- outputs: skip (reason) -->
+$ echo $?
+1
+## outputs-address
+$ python skills/wikiwright/scripts/wikiwright.py outputs pages wiki-verify.out.txt
+outputs: 1 pages, 1 outputs checked, 0 missing, 0 skipped
+$ python skills/wikiwright/scripts/wikiwright.py outputs pages wiki-verify.out.txt --address ''
+Fetch.md:3: error: output block not in the verify output: https://example.com/ answered 200
+outputs: 1 pages, 1 outputs checked, 1 missing, 0 skipped
+$ echo $?
+1
+## snippets-pass
+$ python skills/wikiwright/scripts/wikiwright.py snippets pages wiki-verify.py
+Home.md:16: command, not checked: pip install widget
+snippets: 1 pages, 1 blocks checked, 0 missing, 0 skipped, 1 commands
+$ echo $?
+0
+## snippets-missing
+$ python skills/wikiwright/scripts/wikiwright.py snippets pages wiki-verify.py
+Home.md:3: error: code block not in the program (line 5 is in no program: print(sorted(words, reverse=True))): words = ["pear", "fig", "apple"]
+snippets: 1 pages, 1 blocks checked, 1 missing, 0 skipped, 0 commands
+$ echo $?
+1
+## unbs
+$ python skills/wikiwright/scripts/wikiwright.py unbs pages/Regex.md
+pages/Regex.md: 1 replaced
+unbs: 1 placeholders replaced in 1 files
+$ cat pages/Regex.md
+Match digits with `\d+`.
+## diffout
+$ python skills/wikiwright/scripts/wikiwright.py diffout old.txt new.txt
+*** changed: ## installed
+  @@ -1 +1 @@
+  -Python 3.9.25
+  +Python 3.14.6
++++ added: ## home-reverse
+  + ['pear', 'fig', 'apple']
+diffout: 4 sections, 2 same, 1 changed, 1 added, 0 removed, 0 skipped
+$ echo $?
+1
+$ python skills/wikiwright/scripts/wikiwright.py diffout old.txt new.txt --skip installed --save saved.txt
++++ added: ## home-reverse
+  + ['pear', 'fig', 'apple']
+saved the normalised new output to saved.txt
+diffout: 4 sections, 2 same, 0 changed, 1 added, 0 removed, 1 skipped
+$ cat saved.txt
+## installed
+Python 3.14.6
+## home-sort
+['apple', 'fig', 'pear']
+## server
+listening on 127.0.0.1:<port>
+## home-reverse
+['pear', 'fig', 'apple']
+## scaffold-npm
+$ python skills/wikiwright/scripts/wikiwright.py scaffold npm get-title-at-url 3.0.0 --bin -o verify/wiki-verify.mjs
+wrote <clone>\verify\wiki-verify.mjs: 14,608 bytes (the template is 25,516)
+kept: core, bin; dropped: requests, by-host, files, golden, example
+package.json: wrote {"private": true}
+next:
+  - npm install --prefix <clone>\verify get-title-at-url@3.0.0, and typescript for TypeScript snippets (typescript6@npm:typescript@6 for a second compiler)
+  - under '// ----- the cases': one snippet() per code block on the pages, labelled by page
+  - run: node wiki-verify.mjs > wiki-verify.out.txt, then again with OLDEST_NODE=<the oldest major in engines>
+$ ls verify
+package.json
+wiki-verify.mjs
+$ python skills/wikiwright/scripts/wikiwright.py scaffold npm get-title-at-url 3.0.0 --bin -o verify/wiki-verify.mjs
+error: <clone>\verify\wiki-verify.mjs exists (pass --force to overwrite it)
+$ echo $?
+2
+## scaffold-nuget
+$ python skills/wikiwright/scripts/wikiwright.py scaffold nuget RandomNameGeneratorLibrary 2.3.0 --namespace RandomNameGeneratorLibrary --type PersonNameGenerator --children net48 -o verify/wiki-verify.cs
+wrote <clone>\verify\wiki-verify.cs: 22,827 bytes (the template is 42,477)
+kept: core, children; dropped: requests, fsharp, tool
+children: net10.0, net48 (net10.0 always; add a config per end of a dependency range, new("net48", ["Autofac@9.3.4"]))
+next:
+  - run from a scratch folder outside any project, with TEMP and TMP set to it (C:/ paths from Git Bash): dotnet build wiki-verify.cs && dotnet run --no-build wiki-verify.cs > wiki-verify.out.txt
+  - `dependencies`: the assembly names of the dependencies whose versions the pages name
+  - `examples`: one whole program per C# block on the pages, as the page shows it, labelled by page
+## scaffold-wrong-flag
+$ python skills/wikiwright/scripts/wikiwright.py scaffold npm get-title-at-url 3.0.0 --fsharp
+error: --fsharp: not for scaffold npm
+$ echo $?
+2
+## registry-npm
+$ python skills/wikiwright/scripts/wikiwright.py registry get-title-at-url --limit 3
+npmjs.org get-title-at-url (a lower-case name is read from npm first; --nuget reads nuget.org)
+license: MIT; maintainers: markrogers
+repository: git+https://github.com/m4bwav/get-title-at-url.git
+homepage: https://github.com/m4bwav/get-title-at-url#readme
+description: Get the title of the web page at a URL. Zero dependencies, TypeScript, ESM and CommonJS, Node 20+.
+dist-tags: latest 3.0.0
+versions: 33 (0 deprecated), latest 3.0.0
+  ... 30 older version(s) not shown (--limit 0 shows all); the first, 1.0.0, on 2016-05-06
+  2022-11-29  2.0.0
+  2026-09-25  3.0.0-beta.1, 3.0.0
+3.0.0 engines: node >=20
+3.0.0 type module; main ./dist/index.cjs; types ./dist/index.d.cts; exports ., ./package.json; bin get-title-at-url
+3.0.0 dependencies: none
+3.0.0 unpacked 140555 bytes, 11 files; provenance yes
+downloads last week: 544 (2026-09-25 to 2026-10-01)
+downloads last week by version: 3.0.0 193, 2.0.0 115, 1.1.8 26, 3.0.0-beta.1 25, 1.1.6 8, 1.1.5 3, 1.1.7 2, 1.1.0 1, and 5 more version(s) with 5; 20 version(s) none
+read 2026-10-04 03:24 UTC: 3 requests, 17352 bytes on the wire (76825 decoded)
+## registry-nuget
+$ python skills/wikiwright/scripts/wikiwright.py registry RandomNameGeneratorLibrary --limit 3 --no-nupkg
+nuget.org RandomNameGeneratorLibrary (Random Name Generator)
+authors: Mark Rogers; owners: rogersm0; license: MIT
+project: https://github.com/m4bwav/DotNetRandomNameGenerator
+description: Generates random people and place names drawn from freely available US census data, and the names of real stars from the IAU star-name list and the Bright Star, Henry Draper and Hipparcos catalogues....
+tags: random, name, generator, census, person, place, star, astronomy, fake, test-data
+versions: 16 (4 unlisted), latest 2.3.0; total downloads 3894453
+  ... 13 older version(s) not shown (--limit 0 shows all); the first, 1.0.0, on an unknown date
+  2.2.0         2026-09-27  listed  97 downloads
+  2.3.0-beta.1  2026-09-28  listed  40 downloads
+  2.3.0         2026-09-28  listed  120 downloads
+2.3.0 dependencies net10.0: none
+2.3.0 dependencies .NETStandard2.0: none
+read 2026-10-04 03:25 UTC: 2 requests, 3743 bytes on the wire (36660 decoded)
+## preflight-and-live
+$ python skills/wikiwright/scripts/wikiwright.py preflight m4bwav/everwrite
+repo: m4bwav/everwrite  visibility: PUBLIC  archived: False  wiki feature: True
+ls-remote: a86ebc1 HEAD
+ls-remote: a86ebc1 refs/heads/master
+branch: master (push here; only the default branch goes live)
+STATE: exists (branch master; clone it with --clone DIR to see whether it is a placeholder)
+$ python skills/wikiwright/scripts/wikiwright.py preflight m4bwav/everwrite --clone everwrite.wiki
+repo: m4bwav/everwrite  visibility: PUBLIC  archived: False  wiki feature: True
+ls-remote: a86ebc1 HEAD
+ls-remote: a86ebc1 refs/heads/master
+branch: master (push here; only the default branch goes live)
+clone: everwrite.wiki
+commits: 2  files: 11 (Commands.md, Development.md, FAQ.md, Getting-Started.md, Home.md, How-The-Skill-Works.md, Recipes.md, Versions-and-Upgrading.md, What-The-Checker-Flags.md, _Footer.md, _Sidebar.md)
+STATE: has-pages (existing content: read every page first; update, never overwrite)
+$ python skills/wikiwright/scripts/wikiwright.py live m4bwav/everwrite everwrite.wiki
+ok   200 Commands
+ok   200 Development
+ok   200 FAQ
+ok   200 Getting-Started
+ok   301 Home -> https://github.com/m4bwav/everwrite/wiki
+ok   200 How-The-Skill-Works
+ok   200 Recipes
+ok   200 Versions-and-Upgrading
+ok   200 What-The-Checker-Flags
+ok   200 wiki root
+ok   footer renders (1 of 1 probes found)
+ok   sidebar renders (12 of 12 probes found)
+ok   anchors: 11 links to 7 pages, 0 broken, 0 extra fetches
+live: 9 pages, 0 failures
+$ echo $?
+0
+## preflight-not-a-repo
+$ python skills/wikiwright/scripts/wikiwright.py preflight nowhere
+error: nowhere is not OWNER/REPO, a remote URL or a clone with an origin
+$ echo $?
+2
+## releasecheck
+$ python skills/wikiwright/scripts/wikiwright.py releasecheck 0.9.0
+ok   .claude-plugin/plugin.json version: 0.9.0
+ok   evergreen.json version: 0.9.0
+ok   wikiwright.py VERSION: 0.9.0
+ok   SKILL.md metadata.version: 0.9.0
+ok   CHANGELOG entry naming 0.9.0: C-20261001-7 · 2026-10-01 · Release 0.9.0: the ninth and tenth runs, referen
+FAIL TESTS run since v0.9.0: none
+FAIL tag v0.9.0 exists already
+releasecheck 0.9.0: 2 problem(s)
+$ echo $?
+1
+$ python skills/wikiwright/scripts/wikiwright.py releasecheck 1.0.0
+FAIL .claude-plugin/plugin.json version: 0.9.0
+FAIL evergreen.json version: 0.9.0
+FAIL wikiwright.py VERSION: 0.9.0
+FAIL SKILL.md metadata.version: 0.9.0
+FAIL CHANGELOG entry naming 1.0.0
+FAIL TESTS run since v0.9.0: none
+releasecheck 1.0.0: 6 problem(s)
+## cachecheck
+$ mkdir cache && cp -r .claude-plugin skills cache/
+$ echo changed >> cache/skills/wikiwright/SKILL.md
+$ python skills/wikiwright/scripts/wikiwright.py cachecheck --cache cache
+source: <clone>
+cache:  cache
+differs: skills/wikiwright/SKILL.md
+cachecheck: 32 files, 31 equal, 1 differ, 0 missing, 0 only in the cache
+       reinstall: claude plugin uninstall wikiwright@<marketplace>, then claude plugin install wikiwright@<marketplace> (update keeps a stale copy while the version is unchanged, L-012)
+$ echo $?
+1
+## recipe-gate
+$ sh check-wiki.sh wiki 1.2.0
+check: 1 pages, 0 errors, 0 warnings
+outputs: 1 pages, 1 outputs checked, 0 missing, 0 skipped
+Home.md:18: command, not checked: pip install widget
+snippets: 1 pages, 1 blocks checked, 0 missing, 0 skipped, 1 commands
+$ echo $?
+0
+$ sh check-wiki.sh wiki 1.3.0
+_Footer.md:1: error: does not name version 1.3.0
+Home.md:0: warn: does not mention version 1.3.0
+check: 1 pages, 1 errors, 1 warnings
+$ echo $?
+1
+## dev-tests
+$ python tests/test_wikiwright.py 2>&1 | tail -3
+Ran 94 tests in 11.625s
+
+OK
+$ node --test tests/host-fixture.test.mjs tests/file-tree.test.mjs tests/snippet.test.mjs | grep -E ' (tests|pass|fail|skipped) [0-9]'
+ℹ tests 22
+ℹ pass 21
+ℹ fail 0
+ℹ skipped 1
