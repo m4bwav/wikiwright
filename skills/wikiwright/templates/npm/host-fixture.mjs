@@ -80,6 +80,11 @@ export const preload = file => `--require "${path.resolve(file).split(path.sep).
 function child(file, args, env) {
 	return new Promise(resolve => {
 		const proc = spawn(file, args, {env: {...process.env, ...env}});
+		// A child that exits before reading its input closes the pipe; on Windows the write then fails
+		// with EPIPE, which would crash this script with no listener (L-150).
+		proc.stdin.on('error', error => {
+			if (error.code !== 'EPIPE') throw error;
+		});
 		proc.stdin.end();
 		let out = '';
 		proc.stdout.on('data', chunk => {
