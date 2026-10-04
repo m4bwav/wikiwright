@@ -217,3 +217,17 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: Actions run 37173028139 (suite windows-latest, 3.13); fix in C-20261004-1
 - Scope: skill (templates/npm)
 - Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-04
+
+### L-151 · 2026-10-03 · Generate a large NuGet API reference from the published DLL, its XML docs and the previous release's DLL (`api-from-published-dll`)
+- Trigger: UniverseGenerator 1.0.0 (wiki 170339b) has 84 public types and 763 members; writing the API reference by hand would have been slow and unchecked.
+- Rule: reflect over `lib/<tfm>/X.dll` from the downloaded nupkg (a file-based app printing type, member kind, C# signature and XML doc id per line), join the summaries, remarks and `<exception>` tags from the nupkg's `X.xml`, and diff against the same listing of the previous published version for the "Since" column and for "nothing removed or changed" on Versions and upgrading. Strip internal references the XML docs carry (plan IDs). Save the generator beside the wiki note. UniverseGenerator's run: 128 new members, 0 removed, a 936-line page; the 40 members without docs were record constructors, left out.
+- Evidence: UniverseGenerator ai-docs/notes/2026-10-03-wiki-api-surface.cs and 2026-10-03-wiki-gen-api.py
+- Scope: references/nuget.md (survey), page-sets.md (API reference)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-03
+
+### L-152 · 2026-10-03 · Right after a NuGet push, restore can miss the new version through the HTTP cache (`nuget-http-cache-lag`)
+- Trigger: minutes after the flat container listed UniverseGenerator 1.0.0, `dotnet add package UniverseGenerator --version 1.0.0` failed with NU1102 ("Nearest version: 1.0.0-beta.1"), and wrote no PackageReference. An empty `NUGET_PACKAGES` was not enough; NuGet's HTTP cache (`v3-cache`, about 30 minutes) still held the index from the beta.1 checks.
+- Rule: for any fresh-consumer check right after a release, set both `NUGET_PACKAGES` and `NUGET_HTTP_CACHE_PATH` to empty scratch folders (or `dotnet nuget locals http-cache --clear`). The file-based verification program's `#:package` restore is subject to the same cache.
+- Evidence: UniverseGenerator ai-docs/notes/2026-10-03-stage-4-checklist.md step 7 (the 1.0.0 block)
+- Scope: references/nuget.md
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-03
