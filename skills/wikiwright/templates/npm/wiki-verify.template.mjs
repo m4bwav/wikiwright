@@ -71,6 +71,11 @@ function inspect(value) {
 function run(file, args, {cwd = process.cwd(), env = {}, shell = false, input = ''} = {}) {
 	return new Promise(resolve => {
 		const child = spawn(file, args, {cwd, env: {...process.env, ...env}, shell});
+		// A child that exits before reading its input closes the pipe; on Windows the write then fails
+		// with EPIPE, which would crash this script with no listener (L-150).
+		child.stdin.on('error', error => {
+			if (error.code !== 'EPIPE') throw error;
+		});
 		child.stdin.end(input);
 		let stdout = '';
 		let stderr = '';
@@ -212,6 +217,11 @@ function cli(...args) {
 	const {cwd = process.cwd(), env = {}} = typeof args.at(-1) === 'object' ? args.pop() : {};
 	return new Promise(resolve => {
 		const child = spawn(process.execPath, [path.join(pkgDir, binEntry), ...args], {cwd, env: {...process.env, ...CLI_ENV, ...env}});
+		// A child that exits before reading its input closes the pipe; on Windows the write then fails
+		// with EPIPE, which would crash this script with no listener (L-150).
+		child.stdin.on('error', error => {
+			if (error.code !== 'EPIPE') throw error;
+		});
 		child.stdin.end();
 		let stdout = '';
 		let stderr = '';

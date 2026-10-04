@@ -16,6 +16,11 @@ const hasOpenssl = spawnSync(openssl, ['version'], {encoding: 'utf8'}).stdout?.s
 function run(args, env) {
 	return new Promise(resolve => {
 		const child = spawn(process.execPath, args, {env: {...process.env, ...env}});
+		// A child that exits before reading its input closes the pipe; on Windows the write then fails
+		// with EPIPE, which would crash this script with no listener (L-150).
+		child.stdin.on('error', error => {
+			if (error.code !== 'EPIPE') throw error;
+		});
 		child.stdin.end();
 		let out = '';
 		child.stdout.on('data', chunk => {

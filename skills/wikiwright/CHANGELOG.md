@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261004-1 · 2026-10-04 · Ignore EPIPE on child stdin in the npm templates (`stdin-epipe-guard`)
+- because: L-150; CI on PR #3 failed on windows-latest 3.13 with an unhandled EPIPE
+- files: templates/npm/wiki-verify.template.mjs (`run()`, `cli()`), templates/npm/host-fixture.mjs (`child()`), tests/host-fixture.test.mjs
+- A stdin 'error' listener drops EPIPE from a child that exits before reading its input; any other error still throws. Local suite: 94 Python tests and 21 Node tests pass on Windows.
+
 ### C-20261003-1 · 2026-10-03 · Two lessons from the everwrite wiki: a page set for an agent-skill repository, and the `outputs` intro window (`everwrite-wiki-lessons`)
 - because: the everwrite wiki run (2026-10-03, wiki a86ebc1); L-148, L-149
 - files: LEARNINGS.md (L-148 `agent-skill-page-set`, L-149 `intro-window-crosses-sentence`)

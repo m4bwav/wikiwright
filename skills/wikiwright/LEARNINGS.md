@@ -209,3 +209,11 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Rule: introduce an input or configuration block with a sentence ending in a period, or put `<!-- outputs: skip (input) -->` before it. Fix in the helper: cut the window at the last sentence end before the colon; a unit test with this lead-in.
 - Evidence: everwrite's run record (Gotchas); everwrite wiki Recipes page (wiki a86ebc1); scripts/wikiwright.py (`is_intro()`, `OUT_WORDS`); related to L-110 `outputs-in-comments` (the six-word window, L-103)
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-03
+
+### L-150 · 2026-10-04 · A child that exits before reading its stdin crashes the Node helpers with EPIPE on Windows (`stdin-epipe-on-windows`)
+- Trigger: PR #3 (docs only) failed CI on windows-latest with Python 3.13 in `test_golden_replay_reads_both_capture_formats`: the generated wiki-verify.mjs died on an unhandled `EPIPE` from `child.stdin.end(input)` in `run()`. The same test passed on windows-latest with 3.9 and on master since 2026-09-30, so it is a race, not a regression.
+- Hypothesis: when the child exits before Node flushes its stdin write, Windows reports the closed pipe as EPIPE on the stdin socket; with no 'error' listener Node treats it as uncaught and the whole script exits 1. Linux and macOS usually win the race.
+- Rule: every `spawn()` that writes or closes stdin gets `stdin.on('error', ...)` ignoring EPIPE (other errors still throw). Applied in wiki-verify.template.mjs (`run()`, `cli()`), host-fixture.mjs (`child()`) and tests/host-fixture.test.mjs.
+- Evidence: Actions run 37173028139 (suite windows-latest, 3.13); fix in C-20261004-1
+- Scope: skill (templates/npm)
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-04
