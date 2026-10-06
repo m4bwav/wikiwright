@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261005-1 · 2026-10-05 · Release 0.9.2: root plugin.json for GitHub Copilot CLI and awesome-copilot (`copilot-manifest`)
+- because: user request (list the plugin in github/awesome-copilot, whose intake gates never read `.claude-plugin/`)
+- files: ../../plugin.json (new), .claude-plugin/plugin.json, SKILL.md metadata, evergreen.json and scripts/wikiwright.py (version 0.9.2)
+- No behaviour change. Copilot CLI 1.0.92 installs the skill from the root manifest and `vally lint` passes; the release tag v0.9.2 is the ref awesome-copilot pins.
+
 ### C-20261003-2 · 2026-10-03 · Release 0.9.1: ready for the Claude plugin directory, launcher packages pinned (`directory-prep`)
 - because: user request (submission to the Claude plugin directory and its pre-submission checklist); T-20261003-1
 - files: .claude-plugin/plugin.json (version; documentationUrl to the wiki, supportUrl, privacyPolicyUrl), ../../README.md (Privacy), references/npm.md (the oldest Node in engines; TypeScript), templates/npm/wiki-verify.template.mjs (OLDEST_NODE comments), SKILL.md (Step 3 oldest-Node line; `metadata.version`), MAINTENANCE.md and RESEARCH.md (`npx skills@1.7.0`), scripts/wikiwright.py (`VERSION`), evergreen.json (version), ../../ai-docs/decisions (the 92-character decision file name shortened to `2026-09-28-wikiwright-own-plugin.md`)
