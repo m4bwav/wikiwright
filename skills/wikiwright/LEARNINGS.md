@@ -208,7 +208,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Hypothesis: the window counts words, not words in the last sentence, and data fences (yaml, json, xml) count as output whenever the intro test passes, so a configuration example introduced with a colon is at risk whenever a nearby sentence names an exit code, a log or a result.
 - Rule: introduce an input or configuration block with a sentence ending in a period, or put `<!-- outputs: skip (input) -->` before it. Fix in the helper: cut the window at the last sentence end before the colon; a unit test with this lead-in.
 - Evidence: everwrite's run record (Gotchas); everwrite wiki Recipes page (wiki a86ebc1); scripts/wikiwright.py (`is_intro()`, `OUT_WORDS`); related to L-110 `outputs-in-comments` (the six-word window, L-103)
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-03
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-10-08
 
 ### L-150 · 2026-10-04 · A child that exits before reading its stdin crashes the Node helpers with EPIPE on Windows (`stdin-epipe-on-windows`)
 - Trigger: PR #3 (docs only) failed CI on windows-latest with Python 3.13 in `test_golden_replay_reads_both_capture_formats`: the generated wiki-verify.mjs died on an unhandled `EPIPE` from `child.stdin.end(input)` in `run()`. The same test passed on windows-latest with 3.9 and on master since 2026-09-30, so it is a race, not a regression.
@@ -217,3 +217,19 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: Actions run 37173028139 (suite windows-latest, 3.13); fix in C-20261004-1
 - Scope: skill (templates/npm)
 - Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-04
+
+### L-153 · 2026-10-08 · A Python CLI plugin has no kit, and console-only pages pass `snippets` with nothing checked (`python-cli-console-pages`)
+- Trigger: editwright's wiki (a Claude Code plugin with a standard-library Python CLI), 2026-10-08. wikiwright has npm and NuGet kits only. The run cloned the release tag, kept every command the pages show as text in one Python program that prints `$ command`, the merged output and `$ echo $?` for each, and put console transcripts on the pages. `snippets` found no code block in a checked language and exited 0, so the L-136 `zero-checked-passes` guard did not fire.
+- Hypothesis: the guard counts code blocks of checked languages only; console transcripts are verified by `outputs` and the verify program, which `snippets` cannot see.
+- Rule: for a CLI without a package kit, run the CLI from the release tag in a verify program that holds every shown command as text and saves its output in the repository's ai-docs; read the `outputs` count, not the `snippets` exit code. Add a Python CLI scaffold and make `snippets` say "0 checked" loudly when a page set is console-only.
+- Evidence: editwright ai-docs/notes/2026-10-08-wiki-run/2026-10-08-github-wiki.md (57 cases, `outputs` 71 checked)
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-08
+
+### L-154 · 2026-10-08 · Date a release by its UTC push time on the pages (`release-date-utc`)
+- Trigger: editwright v0.1.0 was published at 03:34 UTC on 2026-10-09, the evening of 2026-10-08 locally; the footer said 2026-10-08 while GitHub's release page shows 2026-10-09.
+- Hypothesis: GitHub shows release dates in UTC; a local date written on the pages disagrees for releases made in the evening west of UTC.
+- Rule: take the release date from `gh release view --json publishedAt` (UTC) for pages and footers.
+- Evidence: editwright wiki run of 2026-10-08
+- Scope: skill
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-08
