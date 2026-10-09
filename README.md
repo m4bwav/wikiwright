@@ -1,5 +1,7 @@
 # wikiwright
 
+![A craftsman scribe at a tall lectern writing pages of a huge open encyclopedia, finished pages flying into tidy bookshelves of a grand library](https://raw.githubusercontent.com/m4bwav/wikiwright/master/.github/images/banner.jpg)
+
 An agent skill that writes a repository's GitHub wiki from the repository and its package registry, runs every example on the published package, and publishes the pages. It also updates the wiki when a new version comes out. Works with Agent Skills (`SKILL.md`) in Claude Code and any agent that reads them.
 
 A README has to stay short because it ships inside the package. A wiki can hold what the README leaves out:
