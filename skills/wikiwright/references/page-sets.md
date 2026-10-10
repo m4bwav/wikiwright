@@ -108,8 +108,10 @@ Keep each page's code in the program as the page shows it. The NuGet template ru
 `_Sidebar.md` groups the pages under short plain-text labels (for example "Using it", "The releases", "Contributing", "Elsewhere") and links every page plus the README, CHANGELOG and registry page. A library with a command line adds `- [Commands](Commands)` after the behaviour page; `check` fails a page the sidebar leaves out. `_Footer.md` is one line:
 
 ```
-This wiki describes PACKAGE VERSION and was last updated on YYYY-MM-DD. The library is LICENCE licensed. Report problems in the [issues](https://github.com/OWNER/REPO/issues).
+This wiki describes PACKAGE VERSION and was last updated on YYYY-MM-DD. The library is LICENCE licensed. Report problems in the [issues](https://github.com/OWNER/REPO/issues). On REGISTRY: [PACKAGE](REGISTRY_URL).
 ```
+
+The last sentence links the package's registry page, so it is on every page and not only in the sidebar; a repository that publishes several packages, or to several registries, names each ("On NuGet: [TrailerClipper](https://www.nuget.org/packages/TrailerClipper) and [TrailerClipper.Tool](https://www.nuget.org/packages/TrailerClipper.Tool)."). Update mode adds it to a footer that lacks it (user request, 2026-10-09).
 
 Starting points: [../templates/pages/](../templates/pages/).
 

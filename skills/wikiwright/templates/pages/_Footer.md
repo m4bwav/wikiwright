@@ -1,1 +1,1 @@
-This wiki describes {{PACKAGE}} {{VERSION}} and was last updated on {{DATE}}. The library is {{LICENCE}} licensed. Report problems in the [issues](https://github.com/{{OWNER}}/{{REPO}}/issues).
+This wiki describes {{PACKAGE}} {{VERSION}} and was last updated on {{DATE}}. The library is {{LICENCE}} licensed. Report problems in the [issues](https://github.com/{{OWNER}}/{{REPO}}/issues). On {{REGISTRY_NAME}}: [{{PACKAGE}}]({{REGISTRY_URL}}).
