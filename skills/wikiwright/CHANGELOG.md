@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261009-1 · 2026-10-09 · The footer links the registry page (`footer-registry-link`)
+- because: user request
+- files: templates/pages/_Footer.md, references/page-sets.md (Sidebar and footer)
+- The registry page was linked only from the sidebar and Home. The footer's last sentence now names it, so every page carries it; several packages or registries are each named. The six NuGet wikis got the line by hand the same day.
+
 ### C-20261005-1 · 2026-10-05 · Release 0.9.2: root plugin.json for GitHub Copilot CLI and awesome-copilot (`copilot-manifest`)
 - because: user request (list the plugin in github/awesome-copilot, whose intake gates never read `.claude-plugin/`)
 - files: ../../plugin.json (new), .claude-plugin/plugin.json, SKILL.md metadata, evergreen.json and scripts/wikiwright.py (version 0.9.2)
