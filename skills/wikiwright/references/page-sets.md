@@ -111,7 +111,7 @@ Keep each page's code in the program as the page shows it. The NuGet template ru
 This wiki describes PACKAGE VERSION and was last updated on YYYY-MM-DD. The library is LICENCE licensed. Report problems in the [issues](https://github.com/OWNER/REPO/issues). On REGISTRY: [PACKAGE](REGISTRY_URL).
 ```
 
-The last sentence links the package's registry page, so it is on every page and not only in the sidebar; a repository that publishes several packages, or to several registries, names each ("On NuGet: [TrailerClipper](https://www.nuget.org/packages/TrailerClipper) and [TrailerClipper.Tool](https://www.nuget.org/packages/TrailerClipper.Tool)."). Update mode adds it to a footer that lacks it (user request, 2026-10-09).
+The last sentence links the package's registry page, so it is on every page and not only in the sidebar; a repository that publishes several packages, or to several registries, names each ("On NuGet: [TrailerClipper](https://www.nuget.org/packages/TrailerClipper) and [TrailerClipper.Tool](https://www.nuget.org/packages/TrailerClipper.Tool)."). A plugin or skill that a catalog lists (the Claude directory, awesome-copilot, the Cursor Marketplace) adds one more sentence once the listing is live: "Listed in the [Claude directory](https://claude.ai/directory) as Everwrite." (the Claude directory has no public page per plugin, checked 2026-10-09). Update mode adds both to a footer that lacks them (user request, 2026-10-09).
 
 Starting points: [../templates/pages/](../templates/pages/).
 

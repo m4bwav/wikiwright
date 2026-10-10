@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261009-2 · 2026-10-09 · The footer names live catalog listings (`footer-catalog-link`)
+- because: user request
+- files: references/page-sets.md (Sidebar and footer)
+- A plugin or skill listed in a catalog gets a footer sentence linking the listing once it is live. everwrite's wiki got it by hand the same day (wiki 582dc2f).
+
 ### C-20261009-1 · 2026-10-09 · The footer links the registry page (`footer-registry-link`)
 - because: user request
 - files: templates/pages/_Footer.md, references/page-sets.md (Sidebar and footer)
