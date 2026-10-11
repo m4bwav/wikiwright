@@ -236,9 +236,9 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Trigger: editwright's wiki (a Claude Code plugin with a standard-library Python CLI), 2026-10-08. wikiwright has npm and NuGet kits only. The run cloned the release tag, kept every command the pages show as text in one Python program that prints `$ command`, the merged output and `$ echo $?` for each, and put console transcripts on the pages. `snippets` found no code block in a checked language and exited 0, so the L-136 `zero-checked-passes` guard did not fire.
 - Hypothesis: the guard counts code blocks of checked languages only; console transcripts are verified by `outputs` and the verify program, which `snippets` cannot see.
 - Rule: for a CLI without a package kit, run the CLI from the release tag in a verify program that holds every shown command as text and saves its output in the repository's ai-docs; read the `outputs` count, not the `snippets` exit code. Add a Python CLI scaffold and make `snippets` say "0 checked" loudly when a page set is console-only.
-- Evidence: editwright ai-docs/notes/2026-10-08-wiki-run/2026-10-08-github-wiki.md (57 cases, `outputs` 71 checked)
+- Evidence: editwright ai-docs/notes/2026-10-08-wiki-run/2026-10-08-github-wiki.md (57 cases, `outputs` 71 checked); science-study-evaluator 0.1.0 wiki, 2026-10-11 (an agent skill plus a stdlib script: 13 cases, `outputs` 39 checked, `snippets` 2 checked because Recipes held a Python and a shell block)
 - Scope: skill
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-08
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-10-11
 
 ### L-154 · 2026-10-08 · Date a release by its UTC push time on the pages (`release-date-utc`)
 - Trigger: editwright v0.1.0 was published at 03:34 UTC on 2026-10-09, the evening of 2026-10-08 locally; the footer said 2026-10-08 while GitHub's release page shows 2026-10-09.
@@ -247,3 +247,11 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: editwright wiki run of 2026-10-08
 - Scope: skill
 - Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-08
+
+### L-155 · 2026-10-11 · A tool whose job is reading public scholarly APIs is verified live, with dated output, and its long lines filled in by script (`live-public-api-dated`)
+- Trigger: science-study-evaluator's wiki (an agent skill whose script reads Crossref, Unpaywall, NCBI E-utilities and Europe PMC). L-122 `sample-content-not-live` says never request the real service, but a fixture would show invented records for a tool whose output is the database's record, and these APIs are public and meant for scripted use (polite pools, contact email). Pages also needed long author and abstract lines byte-exact.
+- Hypothesis: L-122 protects a maintainer's quota and a third party's terms; neither applies to open scholarly APIs at a few dozen requests. Hand-copying 300-character lines into pages is where `outputs` failures come from.
+- Rule: for a tool built to read open public APIs, run the verify program live at a low request count, say on Home that every output is from a dated live run and that changed records print differently, and record the deviation in the note. Write pages with `{{CASE:name}}` placeholders and fill them from the saved output by script. Keep L-122 for any service with quotas, accounts or terms against scripted use.
+- Evidence: science-study-evaluator ai-docs/notes/2026-10-11-github-wiki.md (about 30 live requests; `outputs` 39 checked, 0 missing on the first fill)
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-11
