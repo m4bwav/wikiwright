@@ -104,15 +104,15 @@
     "learnings": 35,
     "changes": 40,
     "research": 5,
-    "tests": 13
+    "tests": 14
   },
   "consolidate_every": 25,
   "tests": {
-    "last_run": "2026-10-01T03:30",
-    "harness": "claude plugin eval 2.1.281 (trigger, decoy) + evals/run-suite.sh (action), graded by evals/grade-action.py; unit and kit suites",
+    "last_run": "2026-10-11T14:13",
+    "harness": "claude plugin eval 2.1.281 --ablation none (trigger, decoy)",
     "env": "DESKTOP-7KS2S6E",
-    "cases": 9,
-    "passed": 9,
+    "cases": 5,
+    "passed": 5,
     "failed": 0,
     "failing": [],
     "last_failure": {

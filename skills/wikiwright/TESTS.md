@@ -8,6 +8,12 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20261011-1 · 2026-10-11 · claude plugin eval 2.1.281 `--ablation none` (trigger, decoy) · Windows 11 native · 5/5
+- Regression run after the 2026-10-11 refresh (C-20261011-1), from a worktree of origin/master with the existing `evals/` case folders, three runs per case, with-plugin arm only (no baseline arm, to hold cost).
+- trigger-1 to trigger-3: invoked 9/9 ($1.33). decoy-1, decoy-2: invoked 0/6 ($0.30).
+- Action and outcome cases not rerun: the refresh changed a reference page, not the description or the steps.
+- led to: none
+
 ### T-20261003-1 · 2026-10-03 · unit tests + `claude plugin validate` + pinned launcher paths · Windows 11 native · 4/4
 - Unit tests: 94 Python tests pass, 21 Node tests pass (1 skipped). `claude plugin validate .` passes; the manifest has one warning (a root CLAUDE.md is not plugin context, expected).
 - Pinned paths run: `npx -y -p node@20.20.2 node -p process.version` printed v20.20.2, and `npx -y -p typescript@7.0.2 tsc --version` printed 7.0.2; `npx -y skills@1.7.0 find "skill lint"` listed results.
