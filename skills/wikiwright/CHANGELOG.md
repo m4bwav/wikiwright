@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261011-1 · 2026-10-11 · Wikis of small repositories are not indexed by search engines (`wiki-search-indexing`)
+- because: R-20261011-1
+- files: references/publishing.md (The wiki is a git repository), RESEARCH.md (Current understanding, Search plan)
+- The publishing reference now says a wiki under 500 stars is not indexed, so the README links it and keeps what searchers need; also the 5,000-file soft limit.
+
 ### C-20261009-2 · 2026-10-09 · The footer names live catalog listings (`footer-catalog-link`)
 - because: user request
 - files: references/page-sets.md (Sidebar and footer)
