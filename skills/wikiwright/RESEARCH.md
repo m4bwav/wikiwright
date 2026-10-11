@@ -7,11 +7,12 @@ Topic: GitHub wiki mechanics (the .wiki.git repository, page and sidebar rules, 
 ## Current understanding
 
 - A GitHub wiki is a separate git repository, `OWNER/REPO.wiki.git`, one markdown file per page, with `_Sidebar.md` and `_Footer.md` shown on every page. Only pushes to its default branch go live (GitHub Docs, "Adding or editing wiki pages"); all three wikis seen so far use `master`. Confidence: high.
-- There is no REST or GraphQL API for wiki pages on 2026-09-28; community discussions (#153222, #169854) still ask for one. Git is the only route for an agent. Confidence: high (R-20260928-1).
+- There is no REST or GraphQL API for wiki pages, rechecked 2026-10-11 (REST docs version 2026-03-10; the only wiki field is `has_wiki`; no changelog entry since); community discussions (#153222, #169854, #102891) still ask for one. Git is the only route for an agent. Confidence: high (R-20260928-1).
 - The wiki repository exists only after a first page is saved in the web UI: GitHub Docs ("once you've created an initial page on GitHub, you can clone"), Andrew-Chen-Wang/github-wiki-action's README ("You must create a dummy page manually!") and the RandomNameGeneratorLibrary run agree. Switching the feature on does not create it (tested 2026-09-28 on seeded-random-utilities: `gh repo edit --enable-wiki` at 19:25:33 UTC, `git ls-remote` every 5 seconds still "Repository not found" at 61 seconds; the maintainer's first-page save at 19:27:28 made commit ef61124 "Initial Home page", seen by ls-remote at 19:27:39). get-title-at-url's placeholder d652d15 has the same message, the web UI's default, so it was a click too. Confidence: high.
 - Page URLs are case-insensitive; a missing page answers 302, Home answers 301 to `/wiki`; the wiki root's HTML carries the sidebar in `wiki-rightbar` and the footer in `#wiki-footer`. Titles may not contain the characters backslash, `/ : * ? " < > |`. Confidence: high (probed 2026-09-28; GitHub Docs).
-- No existing skill, plugin or tool publishes to a GitHub wiki and verifies examples against the published package. Code-to-wiki generators (CodeWiki, ACL 2026 Findings, 1.7k stars; Devin's DeepWiki; deepwiki-open; OpenDeepWiki) write architecture docs from source and run no examples. github-wiki-action and spenserblack/actions-wiki publish a folder to the wiki from CI. Confidence: medium (search-based, R-20260928-1).
-- Checking doc examples: markdown-doctest (JS fences), anko/txm (output annotations, any language), SimonCropp/MarkdownSnippets 28.4.2 (.NET snippets pulled from compiled code), lychee (links). None installs the published version from the registry, which is the check this skill adds. Confidence: medium.
+- No existing skill, plugin or tool publishes to a GitHub wiki and verifies examples against the published package. Code-to-wiki generators (CodeWiki, ACL 2026 Findings, 1.8k stars, 2.0 adds incremental updates and an MCP server; Devin's DeepWiki; deepwiki-open; OpenDeepWiki) write architecture docs from source and run no examples. github-wiki-action and spenserblack/actions-wiki publish a folder to the wiki from CI. Confidence: medium (search-based, R-20260928-1).
+- Checking doc examples: markdown-doctest (JS fences), anko/txm (output annotations, any language), SimonCropp/MarkdownSnippets 28.5.0 (.NET snippets pulled from compiled code), lychee (links); among agent skills, google/adk-python `adk-verify-snippets` runs Python blocks and elastic `docs-validate-code-samples` only lints them. None installs the published version from the registry, which is the check this skill adds. Confidence: medium.
+- Search engines index a GitHub wiki only when the repository has 500 or more stars and public editing is off; a wiki has a soft limit of 5,000 files. Small packages' wiki pages therefore do not show up in web search, while the README and GitHub Pages do (GitHub Docs, "About wikis", read 2026-10-11). Confidence: high (R-20261011-1).
 - .NET 10 file-based apps enable native AOT by default, so reflection-based System.Text.Json needs `#:property PublishAot=false` (learn.microsoft.com/dotnet/core/sdk/file-based-apps). Confidence: high (seen in use 2026-09-28).
 - npm's downloads range API moves any start older than 18 months up to 18 months ago, silently (checked 2026-09-28). Confidence: high.
 
@@ -27,6 +28,7 @@ Four tracks; every refresh runs at least one query on each (scope each to the pe
 
 Subject (the goal and the latest thinking on reaching it):
 
+- Fetch `github.blog/changelog/` directly and scan the entries since the last check (a plain "changelog wiki" search is noise)
 - `site:docs.github.com wiki` (About wikis; Adding or editing wiki pages; Creating a footer or sidebar; Changing access permissions) and `site:github.blog/changelog wiki <year>`
 - `gh api` search of community discussions for "wiki api" (the discussion pages 404 without authentication)
 - `"file-based apps" dotnet PublishAot site:learn.microsoft.com` and npm registry API changes (`api.npmjs.org downloads` docs)
@@ -54,6 +56,7 @@ Practice (how others use AI agents on this goal, and everything in between):
 
 Testing (how work on this subject is verified, and how skills for it are tuned):
 
+- `site:skills.sh verify snippets` (snippet-running skills, R-20261011-2)
 - `"github wiki" verify OR validate OR "smoke test" OR checker agent <year>` (what evidence shows the job was done)
 - `path:SKILL.md "github wiki" test OR eval OR evals` on GitHub; `"github wiki" evals OR "eval suite" OR regression "agent skill" <year>`
 - `site:arxiv.org "github wiki" agent evaluation OR benchmark <year>`; promptfoo, Inspect or DeepEval docs for assertion types that fit this subject
@@ -63,6 +66,20 @@ Best sources (primary first): docs.github.com wiki pages; github.blog changelog 
 ## Findings log
 
 Newest first. One entry per material finding; a quiet refresh gets one entry saying so. `Track` is subject, tooling, practice, or testing.
+
+### R-20261011-1 · 2026-10-11 · Wikis under 500 stars are not indexed by search engines; 5,000-file soft limit
+- Summary: GitHub Docs "About wikis" says search engines index only wikis of repositories with 500 or more stars whose public editing is off, and gives a soft limit of 5,000 files per wiki past which pages can become unreachable. Most packages this skill writes for are far below 500 stars, so their wiki serves readers who arrive from the repository or the registry page, not from web search.
+- Track: subject
+- Sources: https://docs.github.com/en/communities/documenting-your-project-with-wikis/about-wikis (read 2026-10-11)
+- Magnitude: 0.15 (new caveat, no default changed)
+- Applied: C-20261011-1 (references/publishing.md "The wiki is a git repository")
+
+### R-20261011-2 · 2026-10-11 · Quiet otherwise: still no wiki API; version and status updates
+- Summary: the GitHub changelog for 2026-10-01 to 10-10 has 37 entries and none about wikis; the two npm items (unvalidated trusted-publishing configurations expire; staged publishing can create new packages) concern publishing, which this skill does not do. MarkdownSnippets is at 28.5.0. CodeWiki 2.0 adds incremental updates and an MCP server but still neither publishes to a .wiki.git nor runs examples; OpenDeepWiki and deepwiki-open are quiet. Tooling: the MCP registry's 30 "wiki" servers are MediaWiki, Wikipedia or hosted agent wikis; no GitHub-wiki skill on skills.sh; github-wiki-action unchanged. Testing: snippet-running agent skills exist for Python (`adk-verify-snippets`, 53 installs) and as a linter (elastic `docs-validate-code-samples`); none installs from npm or NuGet. Practice: nothing new. nuget.org API keys created before 2026-08-17 expire on 2026-11-01, which affects releases, not this skill's anonymous reads.
+- Track: subject, tooling, practice, testing
+- Sources: https://github.blog/changelog/, https://github.com/orgs/community/discussions/102891, https://github.com/SimonCropp/MarkdownSnippets/releases, https://github.com/FSoft-AI4Code/CodeWiki, https://www.skills.sh/google/adk-python/adk-verify-snippets, https://registry.modelcontextprotocol.io/v0/servers?search=wiki, https://devblogs.microsoft.com/dotnet/strengthening-nuget-supply-chain-security-reducing-api-key-lifetime/
+- Magnitude: 0.1
+- Applied: RESEARCH.md only (Current understanding; Search plan)
 
 ### R-20260929-2 · 2026-09-29 · The first real wiki on another host: format-json-files on a local Forgejo 16.0.5
 - Summary: a subagent set up Forgejo 16.0.5 in WSL (SQLite, offline, a local admin and token; about a minute), made an empty public repository, and ran the skill's route: `preflight` said `no-wiki-repo`, `--seed` answered 201 and left one commit on `main`, the ten pages with sidebar and footer went on top as a fast-forward, `check --host forgejo` and `live` passed (10 pages, sidebar 13 of 13 probes, footer 1 of 1). Compared with the same pages on GitHub:
