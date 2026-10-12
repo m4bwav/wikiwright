@@ -257,3 +257,12 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: science-study-evaluator ai-docs/notes/2026-10-11-github-wiki.md (about 30 live requests; `outputs` 39 checked, 0 missing on the first fill)
 - Scope: skill
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-11
+
+### L-156 · 2026-10-11 · A plugin of agent skills with a Python CLI: verify against the release zip, write the program by hand, build pages from the saved output (`plugin-release-zip`)
+- Trigger: polywright (agent skills plus a stdlib Python CLI, released only as GitHub release zips) had no registry and no template; its first verification run against the published 0.1.1 found `--version` printing the old version and a command returning a broken solid, so the pages waited for a fixed 0.1.2 release
+- Hypothesis: "the published package" for a plugin is its release asset; the npm and NuGet templates do not fit, but the sections format (`## label`), `snippet()`-style text held in the program, and the three gates work unchanged
+- Rule: download the release zip into a temp folder and run each page's commands from it (mask the temp path and timings); hold each page's shell text in the program as written; generate output blocks from the saved output instead of pasting; markers go on the line before a block, and a `text` fence of chat slash commands needs `<!-- outputs: skip -->`. Page set: the command-line set plus a page on the skills, the behaviour page for the tool's checks, and the contract other plugins use, in place of an API reference
+- Evidence: m4bwav/polywright wiki commit bccdc61 (11 pages, outputs 30 checked 0 missing, snippets clean, live 0 failures), its ai-docs/notes/2026-10-11-github-wiki.md, confirmed 2026-10-11
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-11
+
