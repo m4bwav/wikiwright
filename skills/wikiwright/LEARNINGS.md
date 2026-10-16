@@ -262,7 +262,23 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Trigger: polywright (agent skills plus a stdlib Python CLI, released only as GitHub release zips) had no registry and no template; its first verification run against the published 0.1.1 found `--version` printing the old version and a command returning a broken solid, so the pages waited for a fixed 0.1.2 release
 - Hypothesis: "the published package" for a plugin is its release asset; the npm and NuGet templates do not fit, but the sections format (`## label`), `snippet()`-style text held in the program, and the three gates work unchanged
 - Rule: download the release zip into a temp folder and run each page's commands from it (mask the temp path and timings); hold each page's shell text in the program as written; generate output blocks from the saved output instead of pasting; markers go on the line before a block, and a `text` fence of chat slash commands needs `<!-- outputs: skip -->`. Page set: the command-line set plus a page on the skills, the behaviour page for the tool's checks, and the contract other plugins use, in place of an API reference
-- Evidence: m4bwav/polywright wiki commit bccdc61 (11 pages, outputs 30 checked 0 missing, snippets clean, live 0 failures), its ai-docs/notes/2026-10-11-github-wiki.md, confirmed 2026-10-11
+- Evidence: m4bwav/polywright wiki commit bccdc61 (11 pages, outputs 30 checked 0 missing, snippets clean, live 0 failures), its ai-docs/notes/2026-10-11-github-wiki.md, confirmed 2026-10-11; again on m4bwav/fetchwright 2026-10-15 (a depth-1 clone of the release tag in place of the zip)
 - Scope: skill
-- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-11
+- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-10-15
+
+### L-157 · 2026-10-15 · A CLI that calls a keyed, quota-limited API: run its commands through a stand-in in the same program (`in-process-api-stand-in`)
+- Trigger: fetchwright's wiki (a stdlib CLI that calls the Gemini API with the user's key). L-122 forbids the real service, and the CLI has no base-URL option, so the host-fixture kit had nothing to point at. On Windows its key lookup also reads the registry, so a "no key" example run on the maintainer's machine found the real key.
+- Hypothesis: a Python CLI with one network function can be run as written with that function replaced, from the verify program itself started as a child with an environment switch; the page's command line stays exactly as shown.
+- Rule: when the program sees `FW_STANDIN=<scenario>` (any name), it imports the released module, replaces its HTTP function with canned responses in the API's real shape (invented text), neutralises every secret lookup outside the environment (registry, keychain, config files), and calls its `main()`. Commands with a stand-in run `python <program> <args>`; plain commands (help, version, argument errors) run the released script. Home says every output comes from a stand-in with sample content.
+- Evidence: m4bwav/fetchwright ai-docs/notes/2026-10-15-github-wiki.md and 2026-10-15-wiki-verify.py; wiki commit 8287e8f, outputs 21 checked 0 missing, snippets 0 missing, live 0 failures
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-15
+
+### L-158 · 2026-10-15 · A Python snippet held in a triple-quoted string starts and ends on lines of its own (`triple-quote-own-lines`)
+- Trigger: fetchwright's first `snippets` run reported both Python recipes and a shell block "in no program": the program held them as `"name": '''import json` ... `print(...)''',`, so the first and last lines carried the quotes and the dict key.
+- Hypothesis: `snippets` compares whole stripped lines in a run; anything sharing the first or last line breaks the run.
+- Rule: write `'''` then a newline before the snippet and a newline before the closing `'''`, and `.strip()` it where it is run. Same for a one-line shell block that sets a variable (it counts as a script and is checked).
+- Evidence: m4bwav/fetchwright wiki run 2026-10-15: 3 missing, then 0 after the change, outputs unchanged
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-15
 
