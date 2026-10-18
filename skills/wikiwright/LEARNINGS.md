@@ -262,9 +262,9 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Trigger: polywright (agent skills plus a stdlib Python CLI, released only as GitHub release zips) had no registry and no template; its first verification run against the published 0.1.1 found `--version` printing the old version and a command returning a broken solid, so the pages waited for a fixed 0.1.2 release
 - Hypothesis: "the published package" for a plugin is its release asset; the npm and NuGet templates do not fit, but the sections format (`## label`), `snippet()`-style text held in the program, and the three gates work unchanged
 - Rule: download the release zip into a temp folder and run each page's commands from it (mask the temp path and timings); hold each page's shell text in the program as written; generate output blocks from the saved output instead of pasting; markers go on the line before a block, and a `text` fence of chat slash commands needs `<!-- outputs: skip -->`. Page set: the command-line set plus a page on the skills, the behaviour page for the tool's checks, and the contract other plugins use, in place of an API reference
-- Evidence: m4bwav/polywright wiki commit bccdc61 (11 pages, outputs 30 checked 0 missing, snippets clean, live 0 failures), its ai-docs/notes/2026-10-11-github-wiki.md, confirmed 2026-10-11; again on m4bwav/fetchwright 2026-10-15 (a depth-1 clone of the release tag in place of the zip)
+- Evidence: m4bwav/polywright wiki commit bccdc61 (11 pages, outputs 30 checked 0 missing, snippets clean, live 0 failures), its ai-docs/notes/2026-10-11-github-wiki.md, confirmed 2026-10-11; again on m4bwav/fetchwright 2026-10-15 (a depth-1 clone of the release tag in place of the zip); a third time on m4bwav/madnesswright 2026-10-17 (the zip for the script, a depth-1 clone of the tag for the fixtures the zip leaves out; outputs 27 checked 0 missing, snippets 0 checked, see L-159)
 - Scope: skill
-- Status: active · helpful 2 · harmful 0 · last_confirmed 2026-10-15
+- Status: active, third confirmation: due for promotion into SKILL.md Step 4 and page-sets.md · helpful 3 · harmful 0 · last_confirmed 2026-10-17
 
 ### L-157 · 2026-10-15 · A CLI that calls a keyed, quota-limited API: run its commands through a stand-in in the same program (`in-process-api-stand-in`)
 - Trigger: fetchwright's wiki (a stdlib CLI that calls the Gemini API with the user's key). L-122 forbids the real service, and the CLI has no base-URL option, so the host-fixture kit had nothing to point at. On Windows its key lookup also reads the registry, so a "no key" example run on the maintainer's machine found the real key.
@@ -281,4 +281,12 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: m4bwav/fetchwright wiki run 2026-10-15: 3 missing, then 0 after the change, outputs unchanged
 - Scope: skill
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-15
+
+### L-159 · 2026-10-17 · A helper that reads the maintainer's machine (registry, Steam, a game's data folder) runs on stand-in folders with a leak guard (`stand-in-machine-state`)
+- Trigger: madnesswright's `mpn.py where` finds Steam through the Windows registry and reads the game's manifests and LocalLow folder. Run as the pages show it on the maintainer's PC, it would print his install paths, build and saves into a public wiki. The program's first leak guard also fired on a false positive: the maintainer's Windows user name is a substring of the GitHub owner name in the release URL.
+- Hypothesis: a CLI whose job is reading local machine state has no network to stand in for (L-157), so the stand-in is a folder tree in the scratch folder, and every command that looks for the real thing must get the tool's override options. A substring test on the user name cannot tell a home path from an owner name.
+- Rule: build the machine state in scratch (a Steam root holding only the app manifest, a stand-in data folder with logs in the shapes the repository's tests use, fixed mtimes through `os.utime` so timestamps print the same), pass the override options (`--steam`, `--data-dir`) on every page command that would search, say on Home and on the command page that the folders are stand-ins, and mark the search itself "not tested". End the program with a guard that refuses to print when the home folder or the user name appears as a path component (the name between slashes or backslashes, or before a closing quote), not as a bare substring. Run it once on Linux too (WSL): besides separators, it caught `rglob` listing order changing the order of a JSON list (L-130).
+- Evidence: m4bwav/madnesswright ai-docs/notes/2026-10-17-wiki-verify.py, its .out.txt and .linux.out.txt, and 2026-10-17-github-wiki.md; published as madnesswright wiki commit eb1bedf (live 10 pages, 0 failures)
+- Scope: skill
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-17
 
