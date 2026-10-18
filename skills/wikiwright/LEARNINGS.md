@@ -290,3 +290,11 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Scope: skill
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-17
 
+### L-160 · 2026-10-18 · A research CLI whose output is live public data: the run called keyless public APIs; this departs from L-122 and waits for the maintainer's ruling (`live-public-sources`)
+- Trigger: historywright's wiki (2026-10-18). Its `hw.py` exists to read Wikidata, Wikipedia, Pleiades, CHGIS, OpenAlex, Crossref and the Wayback Machine, and the repository's fixtures cover only the Caesar example. The run verified every page command live from a fresh `HW_HOME` with no keys and no contact (about 30 requests per run, at the tool's own pace, Windows and WSL), and dated the outputs on the pages. The plugin has no release, so the program downloads the repository zip at a pinned commit from codeload.github.com in place of L-156's release zip.
+- Hypothesis: L-122 protects a maintainer's quota and a package whose fixture stands in for remote content; a tool whose subject is public, keyless sources has no stand-in that says anything true about those sources (which gazetteer ranks Alesia first, which footnotes a sentence cites). Live answers drift, which diffout then shows as page edits.
+- Rule (proposed, not adopted): for a research tool over keyless public APIs, verify live with no keys, a fresh home folder and the tool's own pacing; never call keyed or quota-limited services (L-157); date the outputs and say they are live; keep both systems' outputs. Ask the maintainer before treating this as settled; if refused, record the answers once into fixtures labelled as recorded, or use the repository's fixtures as sample content per L-122.
+- Evidence: m4bwav/historywright ai-docs/notes/2026-10-18-wiki-verify.py, .out.txt, .linux.out.txt, 2026-10-18-github-wiki.md; wiki commit 5f89b34 (live 12 pages, 0 failures; outputs 55 checked, 0 missing). The same run found three hw.py bugs before pinning (silent misreadings of 709 AUC and AH years; HW_RECORD writing key values into fixtures).
+- Scope: skill (SKILL.md Step 4 network rule)
+- Status: active, awaiting the maintainer's ruling · helpful 0 · harmful 0 · last_confirmed 2026-10-18
+
