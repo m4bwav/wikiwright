@@ -305,3 +305,15 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: pixelwright ai-docs/notes/2026-10-24-github-wiki.md (Where the pages are, How it was published); the scratch test of `check` on a copy with `images/missing.png` (exit 0, 0 errors); published as m4bwav/pixelwright wiki commit 59f76a3: each image answered 200 at github.com/OWNER/REPO/wiki/images/<file> and raw.githubusercontent.com/wiki/OWNER/REPO/images/<file>; GitHub rewrote Home's images/x.png to wiki/images/x.png (it resolves because /wiki/Home redirects to /wiki), other pages kept images/x.png
 - Scope: skill (scripts/wikiwright.py check and live; references/page-sets.md conventions)
 - Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-24
+
+### L-162 · 2026-10-24 · The first-page save can be done in the owner's browser when an agent drives it (`first-page-by-browser`)
+- Trigger: pixelwright's preflight said `no-wiki-repo`. The owner had asked for the whole release to run through, and a
+  browser extension was connected to their signed-in Chrome. Filling `/wiki/_new` with one placeholder line and
+  pressing Save page made the wiki repository; preflight said `placeholder` straight away.
+- Rule: when a browser tool drives the owner's signed-in browser and the request covers publishing the wiki, save the
+  first page that way (one line, it is replaced by the push) instead of stopping for the click; otherwise ask, as
+  Step 1 says. Never sign in for the owner.
+- Evidence: m4bwav/pixelwright wiki, 2026-10-24 (placeholder commit, then the pages as a fast-forward)
+- Scope: skill (Step 1, references/publishing.md)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-24
+
