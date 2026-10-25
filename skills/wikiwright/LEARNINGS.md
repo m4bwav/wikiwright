@@ -317,3 +317,19 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Scope: skill (Step 1, references/publishing.md)
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-24
 
+
+### L-163 · 2026-10-24 · A tool with no registry is verified against its release zip (`release-zip-is-the-package`)
+- Trigger: the askwright wiki (a Python command-line tool shipped as a skill, released only as a GitHub release zip). `registry` and both scaffold templates had nothing to point at.
+- Hypothesis: the skill assumes npm or NuGet; the published package of a release-zip project is the zip itself, and the repository can be ahead of it
+- Rule: download the release asset (`gh release download vX.Y.Z`) into a scratch folder, unzip it, and run the examples against the unzipped tool; write the program in the tool's own language (the npm and NuGet templates do not apply) with `##` section headers so `diffout` reads it. The command-line tool page set held, plus one page for the HTTP surface (Server-and-Security). The footer's last sentence links the release in place of a registry page.
+- Evidence: m4bwav/askwright wiki at 0.1.1, ai-docs/notes/2026-10-24-github-wiki.md there; outputs 75/75, live 10 pages 0 failures
+- Scope: skill (Step 2, Step 4, references/page-sets-cli.md)
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-24
+
+### L-164 · 2026-10-24 · A page snippet in a Python triple-quoted string starts on its own line (`python-snippet-own-line`)
+- Trigger: `snippets` reported a recipe as missing ("its first line is in no program"): the program held it as `RECIPE = '''import json, ...`, so the first line was glued to the assignment.
+- Hypothesis: `snippets` compares whole stripped lines and undoes template literals and one-line strings, not Python multi-line strings
+- Rule: in a Python verification program, open the string and break the line before the snippet (`RECIPE = '''` then a newline); the leading newline is harmless when the snippet is written to a file and run
+- Evidence: m4bwav/askwright wiki at 0.1.1 (Recipes)
+- Scope: skill (references/page-sets.md, "How `wikiwright.py snippets` reads a page")
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-24
