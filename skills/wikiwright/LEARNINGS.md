@@ -303,8 +303,9 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Hypothesis: `check` resolves page links (`[Text](Page)`) and anchors but treats `![...](path)` as nothing to check; `live` requests page URLs, never the raw files a page embeds.
 - Rule: until the helper checks them, list every image link and confirm the file exists in the draft by hand, and after the push open each page and look. Make images with the verification program from code-drawn fixtures (never real artwork without the owner's yes), keep them out of the main repository, and say on the page how each was made. Fix in the helper: `check` fails an image link whose file is missing, and `live` requests each embedded image.
 - Evidence: pixelwright ai-docs/notes/2026-10-24-github-wiki.md (Where the pages are, How it was published); the scratch test of `check` on a copy with `images/missing.png` (exit 0, 0 errors); published as m4bwav/pixelwright wiki commit 59f76a3: each image answered 200 at github.com/OWNER/REPO/wiki/images/<file> and raw.githubusercontent.com/wiki/OWNER/REPO/images/<file>; GitHub rewrote Home's images/x.png to wiki/images/x.png (it resolves because /wiki/Home redirects to /wiki), other pages kept images/x.png
+- Update 2026-10-25 (askwright 0.2.0 wiki, commit b7d5801): three SVG figures in the wiki root, linked as `![...](figure-x.svg)` from a non-Home page, rendered; each answered 200 `image/svg+xml` at github.com/OWNER/REPO/wiki/<file> and raw.githubusercontent.com/wiki/OWNER/REPO/<file>. Checked by hand again (curl, and the page HTML's `<img src>`), since the helper still skips image links.
 - Scope: skill (scripts/wikiwright.py check and live; references/page-sets.md conventions)
-- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-24
+- Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-25
 
 ### L-162 · 2026-10-24 · The first-page save can be done in the owner's browser when an agent drives it (`first-page-by-browser`)
 - Trigger: pixelwright's preflight said `no-wiki-repo`. The owner had asked for the whole release to run through, and a
@@ -333,3 +334,10 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: m4bwav/askwright wiki at 0.1.1 (Recipes)
 - Scope: skill (references/page-sets.md, "How `wikiwright.py snippets` reads a page")
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-24
+
+### L-165 · 2026-10-25 · Input blocks tagged `json` are checked by neither `outputs` nor `snippets` (`data-blocks-unchecked`)
+- Trigger: the askwright 0.2.0 wiki shows a whole `questions.json` and three figure specs as `json` fenced blocks, the input the reader copies. `snippets` reported "1 blocks checked" across 12 pages: `json` is in `LANGS_DATA`, which `snippets` skips and `outputs` does not read as output either.
+- Rule: when a page shows input data (a config, a request body, a spec file), keep it in the verification program as literal text the program writes to disk, and confirm each block is a substring of the program by hand (a five-line Python loop over the `json` fences) until the helper does it. Fix in the helper: `snippets` checks `LANGS_DATA` blocks as text in the program, and reports them as unchecked otherwise.
+- Evidence: askwright ai-docs/notes/2026-10-25-wiki-verify.py (QUIZ and FIGURES held as JSON text); the by-hand check printed True for all four blocks; wikiwright.py `LANGS_DATA`, `cmd_snippets`
+- Scope: skill (scripts/wikiwright.py snippets; SKILL.md Step 6)
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-25
