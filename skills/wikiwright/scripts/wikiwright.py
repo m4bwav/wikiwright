@@ -103,7 +103,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-VERSION = "0.9.3"
+VERSION = "0.9.4"
 BS = "<BS>"
 BACKSLASH = chr(92)
 SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md", "_sidebar.md")
@@ -1409,10 +1409,11 @@ def machine_paths(new):
 
 
 def sections(text):
-    """Split at explicit === label === markers when present, otherwise ## label; number repeated labels."""
+    """Split at explicit `=== label` markers (closing `===` optional) when present, otherwise ## label;
+    number repeated labels."""
     out, seen = [], {}
     label, body = PREAMBLE, []
-    explicit = re.compile(r"^=== (.+) ===$")
+    explicit = re.compile(r"^=== ([^=\s].*?)(?: ===)?\s*$")
     marker = explicit if any(explicit.match(line) for line in text.split("\n")) else SECTION
     for line in text.split("\n"):
         m = marker.match(line)
