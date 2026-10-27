@@ -4,7 +4,8 @@ Updated 2026-10-26. See [INDEX.md](INDEX.md) and [log.md](log.md).
 
 ## Current work
 
-0.9.3 is prepared in an isolated worktree; merge and release remain pending.
+0.9.3 is released: [PR #25](https://github.com/m4bwav/wikiwright/pull/25) merged at `bfb8563`;
+[GitHub release](https://github.com/m4bwav/wikiwright/releases/tag/v0.9.3).
 It adds explicit `=== label ===` transcript sections to diffout while keeping legacy `## label` recordings.
 Payload Markdown headings no longer split explicit recordings.
 
@@ -22,8 +23,9 @@ Preflight was already required by L-002 and was confirmed again.
 
 ## Next single action
 
-Run releasecheck for 0.9.3, prose and diff checks, open the PR, wait for CI, merge and create the GitHub release.
-No registry publishing is authorized. Update the installed plugin only from a clean source after merging.
+The [wiki](https://github.com/m4bwav/wikiwright/wiki) is published at `4df2cdf`: nine pages live, zero failures.
+Refresh the installed plugin from a clean source.
+No registry publishing is authorized. Details: [follow-up note](notes/2026-10-26-round2-followup.md).
 
 ## Earlier work still deferred
 
