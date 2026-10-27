@@ -4,6 +4,14 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261026-2 · 2026-10-26 · Release 0.9.4: diffout accepts open `=== label` markers
+- because: user request; m4bwav/wikiwright issue #10
+- files: scripts/wikiwright.py (sections, VERSION), tests/test_wikiwright.py (DiffoutTests),
+  references/page-sets.md (verification transcripts), evergreen.json, SKILL.md (version), ../../plugin.json,
+  ../../.claude-plugin/plugin.json
+- The closing `===` on a section marker is now optional, so verifiers that print `=== label` (editwright's)
+  split by case instead of on `##` headings inside command output. Lines of bare `=` are not markers.
+
 ### C-20261026-1 · 2026-10-26 · Release 0.9.3: explicit transcript sections and graphics-wiki lessons
 - because: user request; L-163, L-166 to L-168; R-20261026-1
 - files: scripts/wikiwright.py (sections, VERSION), tests/test_wikiwright.py (DiffoutTests), LEARNINGS.md,

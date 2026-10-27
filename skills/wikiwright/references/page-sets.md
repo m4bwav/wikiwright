@@ -36,7 +36,8 @@ Beside this page, read only what the package needs:
 
 ## Why a wiki beside the README
 
-Verification transcripts may use `=== label ===` section markers. When any are present, `diffout` splits only
+Verification transcripts may use `=== label ===` section markers; the closing `===` is optional, so
+`=== label` works too. When any are present, `diffout` splits only
 on those markers, so `##` headings printed by a command stay in its output. Without explicit markers it keeps
 the legacy `## label` convention. Use one convention consistently within a recording.
 

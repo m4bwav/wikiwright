@@ -770,6 +770,12 @@ class DiffoutTests(unittest.TestCase):
         self.assertIn("*** changed: ## kb show", out)
         self.assertNotIn("*** changed: ## Topic", out)
 
+    def test_open_explicit_markers_split_without_closing_equals(self):
+        # Issue #10: editwright's verifier prints "=== label" with no closing marker.
+        text = "=== installed\n## Heading\nx\n=== kb show ===\ny\n====\n"
+        self.assertEqual(wikiwright.sections(text),
+                         [("installed", ["## Heading", "x"]), ("kb show", ["y", "===="])])
+
     def test_explicit_sections_number_repeated_labels(self):
         self.assertEqual(wikiwright.sections("=== a ===\nfirst\n=== a ===\nsecond\n"),
                          [("a", ["first"]), ("a #2", ["second"])])
