@@ -322,7 +322,7 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 ### L-163 · 2026-10-24 · A tool with no registry is verified against its release zip (`release-zip-is-the-package`)
 - Trigger: the askwright wiki (a Python command-line tool shipped as a skill, released only as a GitHub release zip). `registry` and both scaffold templates had nothing to point at.
 - Hypothesis: the skill assumes npm or NuGet; the published package of a release-zip project is the zip itself, and the repository can be ahead of it
-- Rule: download the release asset (`gh release download vX.Y.Z`) into a scratch folder, unzip it, and run the examples against the unzipped tool; write the program in the tool's own language (the npm and NuGet templates do not apply) with `##` section headers so `diffout` reads it. The command-line tool page set held, plus one page for the HTTP surface (Server-and-Security). The footer's last sentence links the release in place of a registry page.
+- Rule: download the release asset (`gh release download vX.Y.Z`) into scratch and run examples against the extracted tool. When no asset exists, use the tag's source archive and record the tag and commit. Write the verifier in the tool's language; use `=== label ===` section markers if output contains Markdown headings. The footer links the release instead of a registry page.
 - Evidence: m4bwav/askwright wiki at 0.1.1, ai-docs/notes/2026-10-24-github-wiki.md there; outputs 75/75, live 10 pages 0 failures
 - Scope: skill (Step 2, Step 4, references/page-sets-cli.md)
 - Status: active · helpful 1 · harmful 0 · last_confirmed 2026-10-24
@@ -341,3 +341,26 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: askwright ai-docs/notes/2026-10-25-wiki-verify.py (QUIZ and FIGURES held as JSON text); the by-hand check printed True for all four blocks; wikiwright.py `LANGS_DATA`, `cmd_snippets`
 - Scope: skill (scripts/wikiwright.py snippets; SKILL.md Step 6)
 - Status: active · helpful 0 · harmful 0 · last_confirmed 2026-10-25
+
+### L-166 · 2026-10-26 · Explicit section markers protect Markdown output (`explicit-output-sections`)
+- Trigger: the graphics-plugin wiki verifiers used `=== label ===`; diffout treated the whole run as one section and split `kb show` output on its `##` headings.
+- Hypothesis: section labels need a delimiter distinct from the program's payload.
+- Rule: use `=== label ===` when an example prints Markdown. diffout prefers these markers for the whole transcript; old `## label` transcripts remain supported.
+- Evidence: tests/test_wikiwright.py DiffoutTests explicit-section regressions; graphics-plugin wiki notes dated 2026-10-26.
+- Status: active; helpful 1; harmful 0; last_confirmed 2026-10-26.
+
+### L-167 · 2026-10-26 · Keep replay inputs outside volatile temporary folders (`persistent-replay-inputs`)
+- Trigger: a wiki pass lost its WSL temporary inputs between calls.
+- Hypothesis: environment cleanup can remove temporary folders before a later verification step.
+- Rule: keep clones, scripts and saved outputs in a named persistent scratch folder across calls; use temporary folders only for disposable per-command output.
+- Evidence: artwright wiki note, 2026-10-26 update procedure.
+- Status: active; helpful 1; harmful 0; last_confirmed 2026-10-26.
+
+### L-168 · 2026-10-26 · Prove process ownership before stopping it (`process-ownership-before-stop`)
+- Trigger: a wiki agent stopped another verification process after mistaking it for its own leftover.
+- Hypothesis: a process name or a remembered PID is insufficient evidence of ownership.
+- Rule: check the command line, working directory and parent chain against the process this run started. Stop only that PID or tree; leave uncertain ownership alone.
+- Evidence: graphics-plugin follow-up handoff, 2026-10-26.
+- Status: active; helpful 1; harmful 1; last_confirmed 2026-10-26.
+
+L-002 was confirmed again on 2026-10-26: preflight distinguished an existing wiki from a placeholder before writing.

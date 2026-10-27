@@ -36,6 +36,10 @@ Beside this page, read only what the package needs:
 
 ## Why a wiki beside the README
 
+Verification transcripts may use `=== label ===` section markers. When any are present, `diffout` splits only
+on those markers, so `##` headings printed by a command stay in its output. Without explicit markers it keeps
+the legacy `## label` convention. Use one convention consistently within a recording.
+
 The README is the package's shop window: it ships inside the package and the registry shows it, so it stays short and changes only with a release. The wiki has no size limit and changes without a release, so it holds what the README leaves out:
 
 - the exact behaviour contract

@@ -758,6 +758,22 @@ class DiffoutTests(unittest.TestCase):
         code, out = run(["diffout", self.old, self.old])
         self.assertEqual(code, 0, out)
 
+    def test_explicit_sections_keep_markdown_headings_as_output(self):
+        text = "=== kb show ===\n## Topic\nold\n\n=== version ===\n0.9.3\n"
+        self.assertEqual(wikiwright.sections(text),
+                         [("kb show", ["## Topic", "old"]), ("version", ["0.9.3"])])
+        for path, body in ((self.old, text), (self.new, text.replace("old", "new"))):
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(body)
+        code, out = run(["diffout", self.old, self.new])
+        self.assertEqual(code, 1, out)
+        self.assertIn("*** changed: ## kb show", out)
+        self.assertNotIn("*** changed: ## Topic", out)
+
+    def test_explicit_sections_number_repeated_labels(self):
+        self.assertEqual(wikiwright.sections("=== a ===\nfirst\n=== a ===\nsecond\n"),
+                         [("a", ["first"]), ("a #2", ["second"])])
+
     def test_shell_node_lines_counted_masked_and_mixed_flagged(self):
         # Every shell case prints its Node; a Node 20 rerun differs there by design, and one output holding two
         # versions means some cases ran on the wrong Node (L-118, the sixth run's report).
