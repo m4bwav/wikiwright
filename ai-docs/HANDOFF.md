@@ -4,28 +4,24 @@ Updated 2026-10-26. See [INDEX.md](INDEX.md) and [log.md](log.md).
 
 ## Current work
 
-0.9.3 is released: [PR #25](https://github.com/m4bwav/wikiwright/pull/25) merged at `bfb8563`;
-[GitHub release](https://github.com/m4bwav/wikiwright/releases/tag/v0.9.3).
-It adds explicit `=== label ===` transcript sections to diffout while keeping legacy `## label` recordings.
-Payload Markdown headings no longer split explicit recordings.
+0.9.4 is released: [PR #27](https://github.com/m4bwav/wikiwright/pull/27) merged at `a302891`;
+[GitHub release](https://github.com/m4bwav/wikiwright/releases/tag/v0.9.4). It closes issue #10: diffout
+accepts `=== label` markers without the closing `===` (editwright's verifier format). Bare `=` lines are not
+markers. On editwright's 2026-10-08/09 recordings the split went from 8 sections to 58 (57 cases + preamble).
 
-The graphics-plugin runs supplied lessons L-166 to L-168: explicit sections, persistent replay scratch and
-process ownership before stopping a PID. L-163 now permits a tagged source archive when no release asset exists.
-Preflight was already required by L-002 and was confirmed again.
+0.9.3 ([PR #25](https://github.com/m4bwav/wikiwright/pull/25), `bfb8563`) added `=== label ===` sections and
+lessons L-166 to L-168.
 
 ## Verification
 
-- Python suite: 96 tests pass.
-- Node suites: 19 pass, 3 platform skips, zero failures.
-- Research refreshed 2026-10-26 across four tracks and four primary pages. Documented GitHub wiki mechanics
-  remain unchanged; interval 14 days, next due 2026-11-09.
-- Skill description and steps unchanged. Paid action/trigger evals were not rerun.
+- Python suite: 97 tests pass. Node: 19 pass, 3 platform skips. CI matrix (3 OS x Python 3.9/3.13) passed.
+- Wiki updated at `c1f579e`: check 0 errors, live 9 pages / 26 anchors, 0 failures.
+- Local mark-local install refreshed to 0.9.4; 30 skill files hash-match.
+- Research next due 2026-11-09. Paid action/trigger evals not rerun (description and steps unchanged).
 
 ## Next single action
 
-The [wiki](https://github.com/m4bwav/wikiwright/wiki) is published at `4df2cdf`: nine pages live, zero failures.
-Refresh the installed plugin from a clean source.
-No registry publishing is authorized. Details: [follow-up note](notes/2026-10-26-round2-followup.md).
+Nothing owed. No registry publishing is authorized.
 
 ## Earlier work still deferred
 

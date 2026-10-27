@@ -74,3 +74,4 @@ Append-only. One line per operation: `## [YYYY-MM-DD] op | title` where op is on
 ## [2026-10-04] update | submitted to the Claude plugin directory, https://claude.ai/directory/manage/plugins/3e4756f1-991c-47fc-9f35-13b01b195d6e (validated master@78e6f57, Scheduled check only, auto-publish on); holds: image references (3), credential (9: WIKIWRIGHT_TOKEN and docs text); status after submit: in review
 ## [2026-10-05] update | 0.9.2 (C-20261005-1): root plugin.json for GitHub Copilot CLI and the awesome-copilot external-plugin listing; Copilot CLI 1.0.92 installs it, vally lint passes
 ## [2026-10-26] index | rebuilt (2 entries)
+## [2026-10-26] update | 0.9.4 (C-20261026-2): diffout accepts open === label markers, closes #10; PR #27 a302891, release v0.9.4, wiki c1f579e live 0 failures; mark-local 0.9.4 hash-matched
