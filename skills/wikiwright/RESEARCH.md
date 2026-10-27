@@ -2,7 +2,30 @@
 
 Findings that back [SKILL.md](SKILL.md). Changes they caused are logged in [CHANGELOG.md](CHANGELOG.md); procedural lessons live in [LEARNINGS.md](LEARNINGS.md); test runs and their evidence in [TESTS.md](TESTS.md); schedule and state in `evergreen.json`. Protocol: MAINTENANCE.md.
 
-Topic: GitHub wiki mechanics (the .wiki.git repository, page and sidebar rules, no page API, first-page creation) and writing library documentation whose examples are verified against the published package (npm, NuGet), plus agent tools that generate repository docs. Tier `fast`. Last refresh 2026-09-28; next due 2026-10-12.
+Topic: GitHub wiki mechanics and documentation verified against published packages. Tier `fast`.
+Last refresh 2026-10-26; scheduling is recorded in evergreen.json.
+
+## Refresh 2026-10-26
+
+### R-20261026-1: wiki mechanics and verification tools rechecked
+
+- Subject: GitHub still documents an initial page before cloning, a separate wiki repository and publication
+  from its default branch. The 500-star indexing condition and 5,000-file soft limit remain documented.
+- Tooling: github-wiki-action still syncs a folder, requires a manually created initial page and supports
+  clone-based pushes. Its upstream repository was last pushed 2026-07-11. No adoption needed.
+  repo-wiki-agent-skills is another source-oriented option; its last push was 2026-02-26.
+- Practice: the search found no verified new practitioner evidence since the last check that changes this
+  workflow. Claims of recent changes in search summaries were not used without primary-source confirmation.
+- Testing: MarkdownSnippets still extracts snippets from source and can use compiled or tested code.
+  This does not establish verification against a released registry package. No replacement adopted.
+- Sources fetched 2026-10-26:
+  https://docs.github.com/en/communities/documenting-your-project-with-wikis/adding-or-editing-wiki-pages,
+  https://docs.github.com/en/communities/documenting-your-project-with-wikis/about-wikis,
+  https://github.com/Andrew-Chen-Wang/github-wiki-action,
+  https://github.com/SimonCropp/MarkdownSnippets.
+- Magnitude: 0.15. Four search tracks, four primary pages and repository metadata checked. No new wiki API
+  was established by this check; absence from search alone is not proof of API absence.
+- Applied: C-20261026-1. Existing publishing guidance retained; transcript improvements come from local runs.
 
 ## Current understanding
 

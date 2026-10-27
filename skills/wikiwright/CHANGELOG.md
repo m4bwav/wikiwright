@@ -4,6 +4,15 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261026-1 · 2026-10-26 · Release 0.9.3: explicit transcript sections and graphics-wiki lessons
+- because: user request; L-163, L-166 to L-168; R-20261026-1
+- files: scripts/wikiwright.py (sections, VERSION), tests/test_wikiwright.py (DiffoutTests), LEARNINGS.md,
+  references/page-sets.md (verification transcripts), RESEARCH.md, evergreen.json, SKILL.md (version),
+  ../../plugin.json, ../../.claude-plugin/plugin.json
+- diffout recognises `=== label ===` sections and keeps payload Markdown headings inside them. Legacy
+  transcripts still split on `## label`. Lessons cover tag archives, persistent replay scratch and process
+  ownership; preflight remains the first check. The research refresh reconfirms GitHub's documented wiki mechanics.
+
 ### C-20261011-1 · 2026-10-11 · Wikis of small repositories are not indexed by search engines (`wiki-search-indexing`)
 - because: R-20261011-1
 - files: references/publishing.md (The wiki is a git repository), RESEARCH.md (Current understanding, Search plan)

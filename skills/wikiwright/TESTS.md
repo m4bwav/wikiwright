@@ -8,6 +8,13 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20261026-1 · 2026-10-26 · Python and Node offline suites · Windows · passed
+- Python: 96 tests, no failures or skips. Explicit-section tests keep Markdown output inside its labelled
+  case and number repeated labels; legacy section tests still pass.
+- Node: 22 tests, 19 passed, 3 platform skips, no failures.
+- Paid trigger/action evals were not rerun: skill metadata version changed, with no description or step edits.
+- led to: C-20261026-1
+
 ### T-20261011-1 · 2026-10-11 · claude plugin eval 2.1.281 `--ablation none` (trigger, decoy) · Windows 11 native · 5/5
 - Regression run after the 2026-10-11 refresh (C-20261011-1), from a worktree of origin/master with the existing `evals/` case folders, three runs per case, with-plugin arm only (no baseline arm, to hold cost).
 - trigger-1 to trigger-3: invoked 9/9 ($1.33). decoy-1, decoy-2: invoked 0/6 ($0.30).
