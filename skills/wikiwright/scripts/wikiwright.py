@@ -103,7 +103,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 
-VERSION = "0.9.4"
+VERSION = "1.0.0"
 BS = "<BS>"
 BACKSLASH = chr(92)
 SPECIAL = ("_Sidebar.md", "_Footer.md", "_Header.md", "_sidebar.md")

@@ -8,6 +8,10 @@ Entry shape: `### T-YYYYMMDD-n · date · harness · env · passed/total`, then 
 
 ## Runs
 
+### T-20261109-1 · 2026-11-09 · Python offline suite (tests/) · Windows 11 · passed
+- 97 passed, 26 subtests, for the 1.0.0 release (version bump only, no behaviour change since 0.9.4).
+- led to: C-20261109-1
+
 ### T-20261026-1 · 2026-10-26 · Python and Node offline suites · Windows · passed
 - Python: 96 tests, no failures or skips. Explicit-section tests keep Markdown output inside its labelled
   case and number repeated labels; legacy section tests still pass.

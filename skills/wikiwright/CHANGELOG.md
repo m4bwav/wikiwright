@@ -4,6 +4,11 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261109-1 · 2026-11-09 · Release 1.0.0: stable
+- because: user request
+- files: SKILL.md (version), evergreen.json, scripts/wikiwright.py (VERSION), ../../plugin.json, ../../.claude-plugin/plugin.json
+- No behaviour change from 0.9.4. The commands, page sets and release checks are now treated as stable; breaking changes will need a 2.0.
+
 ### C-20261026-2 · 2026-10-26 · Release 0.9.4: diffout accepts open `=== label` markers
 - because: user request; m4bwav/wikiwright issue #10
 - files: scripts/wikiwright.py (sections, VERSION), tests/test_wikiwright.py (DiffoutTests),
