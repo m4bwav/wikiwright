@@ -60,6 +60,14 @@ For packages whose requests go to fixed hosts or to the hosts their input names,
 
 For packages whose output is files on disk, `templates/npm/file-tree.mjs` gives every case a fresh scratch copy of its fixture tree. It prints each written file before and after, with its size, BOM, line endings and final newline, so no example touches a real file.
 
+## Works with
+
+- [everkeep](https://github.com/m4bwav/everkeep): everkeep's repo check marks a missing or stale wiki as a gap and hands it to wikiwright instead of writing pages itself. Together they keep a whole shelf of repos with wikis that match the code.
+- [package-modernize](https://github.com/m4bwav/package-modernize): a modernization run ends with a wiki step that calls wikiwright, so a re-released package gets pages checked against the version actually published.
+- [askwright](https://github.com/m4bwav/askwright): wikiwright has written askwright's wiki. If a wiki run needs a decision from you, such as which pages to keep, an askwright page is the place to ask it.
+
+More: [Works with](https://github.com/m4bwav/wikiwright/wiki/Works-With) on the wiki.
+
 ## Private overlay
 
 Your own values stay out of this repository: where your clones live, identities, and a list of which repositories have a wiki and which still owe one. Put them in a markdown file and point the skill at it with the environment variable `WIKIWRIGHT_OVERLAY`, or place it at `~/.wikiwright/OVERLAY.md`. The overlay wins over the defaults.
