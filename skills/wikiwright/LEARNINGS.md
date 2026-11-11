@@ -363,4 +363,11 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: graphics-plugin follow-up handoff, 2026-10-26.
 - Status: active; helpful 1; harmful 1; last_confirmed 2026-10-26.
 
+### L-169 · 2026-11-11 · Run check before any wiki push, even one page (`check-every-wiki-push`)
+- Trigger: a 2026-11-11 cross-repo batch told forks to add a Works-with wiki page without naming wikiwright; all 12 pages opened with `# Works with` under GitHub's own title, and `check` would have caught each one.
+- Hypothesis: a single page inside a larger task does not read as a wiki job, so the skill and its check are skipped.
+- Rule: before pushing any .wiki.git, run `wikiwright.py check .`; a brief that hands a wiki page to a subagent names wikiwright and that command.
+- Evidence: artwright, brandwright, pixelwright, chartwright, threewright, polywright, everscout, historywright, ludowright, fetchwright, editwright, madnesswright wikis, fixed 2026-11-11 (brandwright and ludowright older pages too).
+- Status: active; helpful 1; harmful 0; last_confirmed 2026-11-11.
+
 L-002 was confirmed again on 2026-10-26: preflight distinguished an existing wiki from a placeholder before writing.
