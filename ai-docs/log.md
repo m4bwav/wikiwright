@@ -77,3 +77,5 @@ Append-only. One line per operation: `## [YYYY-MM-DD] op | title` where op is on
 ## [2026-10-26] update | 0.9.4 (C-20261026-2): diffout accepts open === label markers, closes #10; PR #27 a302891, release v0.9.4, wiki c1f579e live 0 failures; mark-local 0.9.4 hash-matched
 
 ## [2026-11-09] release | 1.0.0: first stable release at the owner's request; version bump and changelog only, no behaviour change; suites passed before tagging
+
+## [2026-11-11] fix | Works-with pages from a cross-repo batch opened with a heading repeating the GitHub title (12 wikis; brandwright and ludowright older pages too). Cause: the brief never named wikiwright, so check never ran. Fixed and pushed all; description now triggers when a task adds even one wiki page; L-169 `check-every-wiki-push`. Left: brandwright and ludowright _Footer has no date.
