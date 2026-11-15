@@ -13,15 +13,15 @@
   "source": null,
   "topic": "GitHub wiki mechanics (the .wiki.git repository, page and sidebar rules, no page API, first-page creation) and writing library documentation whose examples are verified against the published package (npm, NuGet), plus agent tools that generate repository docs",
   "tier": "fast",
-  "interval_days": 14.0,
-  "last_checked": "2026-10-26",
-  "next_due": "2026-11-09",
+  "interval_days": 17.5,
+  "last_checked": "2026-11-15",
+  "next_due": "2026-12-02",
   "verify_at_use": false,
   "volatile_claims": [],
   "contradiction": null,
   "events": [],
   "streak": {
-    "quiet": 0,
+    "quiet": 1,
     "pinned_min": 0,
     "pinned_max": 0,
     "vau_quiet": 0
@@ -104,12 +104,18 @@
       "m": 0.15,
       "interval_after": 14.0,
       "note": "2026-10-26: four tracks searched, four primary sources fetched; documented wiki mechanics unchanged; transcript lessons from graphics runs"
+    },
+    {
+      "date": "2026-11-15",
+      "m": 0.0,
+      "interval_after": 17.5,
+      "note": "quiet; wikis still no page API; cost: searches ~3 · fetches ~1 · tool calls ~6"
     }
   ],
   "counts": {
     "learnings": 37,
     "changes": 40,
-    "research": 6,
+    "research": 7,
     "tests": 14
   },
   "consolidate_every": 25,
