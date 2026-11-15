@@ -737,4 +737,12 @@ Copied before L-120 and L-144 to L-147 were shortened on promotion and L-143 was
 - Evidence: both REPORTs (Linux sections; cs item 10); T-20261001-1
 - Status: active · helpful 2 · harmful 0 · last_confirmed 2026-09-30
 
+### L-155 · 2026-10-11 · A tool whose job is reading public scholarly APIs is verified live, with dated output, and its long lines filled in by script (`live-public-api-dated`)
+- Trigger: science-study-evaluator's wiki (an agent skill whose script reads Crossref, Unpaywall, NCBI E-utilities and Europe PMC). L-122 `sample-content-not-live` says never request the real service, but a fixture would show invented records for a tool whose output is the database's record, and these APIs are public and meant for scripted use (polite pools, contact email). Pages also needed long author and abstract lines byte-exact.
+- Hypothesis: L-122 protects a maintainer's quota and a third party's terms; neither applies to open scholarly APIs at a few dozen requests. Hand-copying 300-character lines into pages is where `outputs` failures come from.
+- Rule: for a tool built to read open public APIs, run the verify program live at a low request count, say on Home that every output is from a dated live run and that changed records print differently, and record the deviation in the note. Write pages with `{{CASE:name}}` placeholders and fill them from the saved output by script. Keep L-122 for any service with quotas, accounts or terms against scripted use.
+- Evidence: science-study-evaluator ai-docs/notes/2026-10-11-github-wiki.md (about 30 live requests; `outputs` 39 checked, 0 missing on the first fill)
+- Scope: skill
+- Status: merged into L-160 `live-public-sources` (C-20261115-1, 2026-11-15 consolidation: same lesson, live verification against keyless public APIs); was active · helpful 1 · harmful 0 · last_confirmed 2026-10-11
+
 Related: builds on [Learnings: wikiwright](LEARNINGS.md); see also [Changelog: wikiwright](CHANGELOG.md)

@@ -4,6 +4,9 @@ Every change to [SKILL.md](SKILL.md) and its companions, newest first, each with
 
 Entry shape: `### C-YYYYMMDD-n · date · one-line summary`, then `because:` (IDs or "user request"), `files:` (file and section), and a sentence on what changed. Cite section headings, not line numbers.
 
+### C-20261115-1 · 2026-11-15 · Learnings consolidation: 26 to 25 active (`consolidate-1115`)
+- Merged L-155 `live-public-api-dated` into L-160 `live-public-sources` (same lesson: verify live against keyless public APIs; the `{{CASE:name}}` fill rule carried over). L-155's full text is in LEARNINGS-ARCHIVE.md.
+
 ### C-20261109-1 · 2026-11-09 · Release 1.0.0: stable
 - because: user request
 - files: SKILL.md (version), evergreen.json, scripts/wikiwright.py (VERSION), ../../plugin.json, ../../.claude-plugin/plugin.json
