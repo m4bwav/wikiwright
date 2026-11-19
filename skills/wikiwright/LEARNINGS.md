@@ -13,6 +13,13 @@ L-001 to L-006 were seeded on 2026-09-28 from the two wikis written by hand befo
 - Evidence: rule in SKILL.md Step 5 ("Backslashes") and Step 2; scripts/wikiwright.py (unbs, check); DotNetJsonPrettyPrinter note ("Writing-tool note")
 - Status: promoted: C-20260928-1 · helpful 2 · harmful 0 · last_confirmed 2026-09-29
 
+### L-170 · 2026-11-19 · Create the first page with browser automation, don't ask (`browser-first-page`)
+- Trigger: the logwright release (2026-11-19) stopped on an askwright question for the /wiki/_new click.
+- Rule: when ls-remote shows no wiki repository and a browser tool is available, open /wiki/_new in the maintainer's signed-in browser, save a `Home` page with a one-line body, re-run preflight and push. Ask only when no browser tool is available or the page asks for a sign-in. Owner's words: "use browser automation to create new wiki pages and never ask if possible".
+- Hypothesis: the click is the only step GitHub keeps out of git and the API; the owner is already signed in, so asking costs a round trip for nothing.
+- Evidence: rule in SKILL.md Step 1; plugin-backlog/ai-docs/logwright/HANDOFF.md (wiki-first-page question).
+- Status: active · helpful 0 · harmful 0 · last_confirmed 2026-11-19
+
 ### L-002 · 2026-09-28 · The wiki repository exists only after a first page is saved in the web UI (`first-page-click`)
 - Rule: GitHub creates the wiki repository only when someone saves a first page in the web UI; enabling the feature does not, and no API can. Run `preflight` (ls-remote, re-checked for 60 seconds after `--enable`) before writing, even for a draft of one page and even when the overlay lists the wiki as owed or done (the overlay says where things live, ls-remote says what exists), and ask for the click in the first message. Clone the placeholder, commit on it and `git push` without force (force only for a working copy begun with `git init`), to the branch ls-remote names (`master` on GitHub). Merges L-003 `wiki-branch-master`, L-010 `placeholder-fast-forward` and L-109 `record-is-not-state`.
 - Evidence: rule in SKILL.md Step 1 and Step 7, references/publishing.md; DotNetRandomNameGenerator, get-title-at-url and seeded-random-utilities notes (2026-09-28); T-20260928-4 (1 of 5 runs skipped preflight, L-109)
